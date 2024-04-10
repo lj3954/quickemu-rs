@@ -2,10 +2,44 @@ mod config;
 mod validate;
 
 use clap::Parser;
+use anyhow::Result;
 
 fn main() {
     let args = CliArgs::parse();
     println!("{:?}", args);
+
+    env_logger::Builder::new()
+        .filter_level(args.verbose.log_level_filter())
+        .init();
+
+    let args = parse_conf_file(args).unwrap();
+}
+
+fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
+    let conf_file = match args.config_file.iter().position(|arg| arg.ends_with(".conf")) {
+        Some(position) => {
+            if args.config_file.len() > 1 {
+                args.config_file.iter().enumerate().filter(|(i, _)| *i != position).for_each(|(_, arg)| {
+                    log::error!("Unrecognized argument: {}", arg);
+                });
+            }
+            args.config_file.get(position).unwrap()
+        },
+        None => {
+            log::error!("You are required to input a configuration file.");
+            std::process::exit(1);
+        }
+    };
+
+    log::info!("Using configuration file: {}", conf_file);
+    let conf = std::fs::read_to_string(conf_file).map_err(|_| anyhow::anyhow!("Configuration file {} does not exist.", conf_file))?;
+    log::debug!("Configuration file content: {}", conf);
+
+
+    
+
+
+    todo!()
 }
 
 
@@ -69,4 +103,8 @@ struct CliArgs {
     extra_args: Option<Vec<String>>,
     #[arg(long)]
     vm: bool,
+    #[command(flatten)]
+    verbose: clap_verbosity_flag::Verbosity,
+    #[arg(required = true)]
+    config_file: Vec<String>,
 }
