@@ -1,3 +1,5 @@
+use clap::ValueEnum;
+
 pub struct Args {
     pub access: Access,
     pub arch: Option<String>,
@@ -6,7 +8,7 @@ pub struct Args {
     pub cpu_cores: u32,
     pub disk_img: String,
     pub disk_size: Option<u32>,
-    pub display: Option<String>,
+    pub display: Display,
     pub extra_args: Vec<String>,
     pub floppy: Option<String>,
     pub fullscreen: bool,
@@ -32,7 +34,7 @@ pub struct Args {
     pub keyboard: Keyboard,
     pub keyboard_layout: Option<String>,
     pub mouse: Mouse,
-    pub sound_card: String,
+    pub sound_card: SoundCard,
 }
 
 pub enum Access {
@@ -44,6 +46,15 @@ pub enum Access {
 pub enum BootType {
     EFI,
     Legacy,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum Display {
+    None,
+    SDL,
+    GTK,
+    Spice,
+    SpiceApp,
 }
 
 pub enum Network {
@@ -66,7 +77,9 @@ pub enum Snapshot {
     Info,
 }
 
+#[derive(ValueEnum, Clone, Debug)]
 pub enum Viewer {
+    None,
     Spicy,
     RemoteViewer,
 }
@@ -75,6 +88,13 @@ pub enum Monitor {
     None,
     Telnet { port: u32, host: String },
     Socket { socketpath: String },
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum MonitorType {
+    None,
+    Telnet,
+    Socket,
 }
 
 pub enum Resolution {
@@ -89,15 +109,26 @@ pub enum USBController {
     XHCI,
 }
 
+#[derive(ValueEnum, Clone, Debug)]
 pub enum Keyboard {
     USB,
     Virtio,
     PS2,
 }
 
+#[derive(ValueEnum, Clone, Debug)]
 pub enum Mouse {
     USB,
     Tablet,
     Virtio,
     PS2,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum SoundCard {
+    None,
+    IntelHDA,
+    AC97,
+    ES1370,
+    SB16,
 }
