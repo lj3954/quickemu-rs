@@ -1,32 +1,34 @@
 use clap::ValueEnum;
 
+#[derive(Debug)]
 pub struct Args {
     pub access: Access,
-    pub arch: Option<String>,
+    pub arch: Arch,
     pub braille: bool,
     pub boot: BootType,
     pub cpu_cores: u32,
-    pub disk_img: String,
-    pub disk_size: Option<u32>,
+    pub disk_img: std::path::PathBuf,
+    pub disk_size: Option<u64>,
     pub display: Display,
-    pub extra_args: Vec<String>,
+    pub extra_args: Option<Vec<String>>,
     pub floppy: Option<String>,
     pub fullscreen: bool,
-    pub image_file: String,
-    pub second_image_file: Option<String>,
+    pub image_file: Image,
+    pub fixed_iso: Option<String>,
+    pub guest_os: GuestOS,
     pub snapshot: Option<Snapshot>,
-    pub macos_release: Option<String>,
+    pub macos_release: MacOSRelease,
     pub network: Network,
-    pub port_forwards: Vec<String>,
-    pub prealloc: bool,
+    pub port_forwards: Option<Vec<(u16, u16)>>,
+    pub prealloc: PreAlloc,
     pub public_dir: PublicDir,
     pub ram: u64,
-    pub secure_boot: bool,
-    pub tpm: bool,
-    pub usb_devices: Vec<String>,
+    pub secure_boot: Option<bool>,
+    pub tpm: Option<bool>,
+    pub usb_devices: Option<Vec<String>>,
     pub viewer: Option<Viewer>,
-    pub ssh_port: u32,
-    pub spice_port: u32,
+    pub ssh_port: u16,
+    pub spice_port: u16,
     pub monitor: Monitor,
     pub resolution: Resolution,
     pub serial: Monitor,
@@ -35,14 +37,26 @@ pub struct Args {
     pub keyboard_layout: Option<String>,
     pub mouse: Mouse,
     pub sound_card: SoundCard,
+    pub vm_dir: std::path::PathBuf,
+    pub vm_name: String,
 }
 
+#[derive(Debug)]
 pub enum Access {
     Remote,
     Local,
     Address(String),
 }
 
+#[allow(non_camel_case_types)]
+#[derive(Debug)]
+pub enum Arch {
+    x86_64,
+    aarch64,
+    riscv64,
+}
+
+#[derive(Debug)]
 pub enum BootType {
     EFI,
     Legacy,
@@ -57,6 +71,54 @@ pub enum Display {
     SpiceApp,
 }
 
+#[derive(Debug)]
+pub enum GuestOS {
+    Linux,
+    Windows,
+    WindowsServer,
+    MacOS,
+    FreeBSD,
+    GhostBSD,
+    FreeDOS,
+    Haiku,
+    Solaris,
+    KolibriOS,
+    ReactOS,
+    Batocera,
+}
+
+impl std::fmt::Display for GuestOS {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            GuestOS::Linux => write!(f, "Linux"),
+            GuestOS::Windows => write!(f, "Windows"),
+            GuestOS::WindowsServer => write!(f, "Windows Server"),
+            GuestOS::MacOS => write!(f, "macOS"),
+            GuestOS::FreeBSD => write!(f, "FreeBSD"),
+            GuestOS::GhostBSD => write!(f, "GhostBSD"),
+            GuestOS::FreeDOS => write!(f, "FreeDOS"),
+            GuestOS::Haiku => write!(f, "Haiku"),
+            GuestOS::Solaris => write!(f, "Solaris"),
+            GuestOS::KolibriOS => write!(f, "KolibriOS"),
+            GuestOS::ReactOS => write!(f, "ReactOS"),
+            GuestOS::Batocera => write!(f, "Batocera"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum MacOSRelease {
+    None,
+    HighSierra,
+    Mojave,
+    Catalina,
+    BigSur,
+    Monterey,
+    Ventura,
+    Sonoma
+}
+
+#[derive(Debug)]
 pub enum Network {
     None,
     Restrict,
@@ -64,12 +126,29 @@ pub enum Network {
     NAT,
 }
 
+#[derive(Debug)]
+pub enum Image {
+    None,
+    ISO(String),
+    IMG(String),
+}
+
+#[derive(Debug)]
+pub enum PreAlloc {
+    Off,
+    Metadata,
+    Falloc,
+    Full,
+}
+
+#[derive(Debug)]
 pub enum PublicDir {
     None,
     Default,
     Custom(String),
 }
 
+#[derive(Debug)]
 pub enum Snapshot {
     Apply(String),
     Create(String),
@@ -84,25 +163,21 @@ pub enum Viewer {
     RemoteViewer,
 }
 
+#[derive(Debug)]
 pub enum Monitor {
     None,
     Telnet { port: u32, host: String },
-    Socket { socketpath: String },
+    Socket { socketpath: std::path::PathBuf },
 }
 
-#[derive(ValueEnum, Clone, Debug)]
-pub enum MonitorType {
-    None,
-    Telnet,
-    Socket,
-}
-
+#[derive(Debug)]
 pub enum Resolution {
     Default,
     Display(String),
     Custom { width: u32, height: u32 },
 }
 
+#[derive(ValueEnum, Clone, Debug)]
 pub enum USBController {
     None,
     EHCI,
