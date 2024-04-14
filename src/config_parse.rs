@@ -33,17 +33,17 @@ impl TryFrom<Option<String>> for Arch {
 }
     
 
-pub fn cpu_cores(input: Option<String>, cpus: usize) -> Result<usize> {
-    Ok(match input {
+pub fn cpu_cores(input: Option<String>, logical: usize, physical: usize) -> Result<(usize, bool)> {
+    Ok((match input {
         Some(core_string) => core_string.parse::<usize>()?,
-        None => match cpus {
+        None => match logical {
             32.. => 16,
             16.. => 8,
             8.. => 4,
             4.. => 2,
             _ => 1,
         },
-    })
+    }, logical != physical))
 }
 
 impl TryFrom<Option<String>> for BootType {

@@ -60,7 +60,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
 
     log::debug!("{:?}", conf);
 
-    let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()).with_cpu(CpuRefreshKind::new()));
+    let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()));
     log::debug!("{:?}",info);
     let guest_os = config::GuestOS::try_from(conf.remove("guest_os"))?;
 
@@ -70,22 +70,21 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         .ok_or_else(|| anyhow::anyhow!("The parent directory of the config file cannot be found"))?
         .to_path_buf();
     log::debug!("Config file path: {:?}", conf_file_path);
-    log::debug!("CPUs: {:?}", info.cpus());
 
     let disk_img = conf_file_path.join(conf.remove("disk_img").ok_or_else(|| anyhow::anyhow!("Your configuration file must contain a disk image"))?);
 
     let vm_dir = disk_img.parent().unwrap().to_path_buf();
     let vm_name = vm_dir.file_name().unwrap().to_os_string().into_string().map_err(|e| anyhow::anyhow!("Unable to parse VM name: {:?}", e))?;
 
-    let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket"));
-    let serial_socketpath = vm_dir.join(format!("{vm_name}-serial.socket"));
-
+    let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket")).strip_prefix(&conf_file_path)?.to_path_buf();
+    let serial_socketpath = vm_dir.join(format!("{vm_name}-serial.socket")).strip_prefix(&conf_file_path)?.to_path_buf();
+    
     Ok(config::Args {
         access: config::Access::from(args.access),
         arch: config::Arch::try_from(conf.remove("arch"))?,
         braille: args.braille,
         boot: config::BootType::try_from(conf.remove("boot"))?,
-        cpu_cores: config_parse::cpu_cores(conf.remove("cpu_cores"), info.cpus().len())?,
+        cpu_cores: config_parse::cpu_cores(conf.remove("cpu_cores"), num_cpus::get(), num_cpus::get_physical())?,
         disk_img,
         disk_size: config_parse::size_unit(conf.remove("disk_size"), None)?,
         display: config::Display::try_from((conf.remove("display"), args.display))?,

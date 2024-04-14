@@ -6,7 +6,7 @@ pub struct Args {
     pub arch: Arch,
     pub braille: bool,
     pub boot: BootType,
-    pub cpu_cores: usize,
+    pub cpu_cores: (usize, bool),
     pub disk_img: std::path::PathBuf,
     pub disk_size: Option<u64>,
     pub display: Display,
