@@ -33,10 +33,16 @@ impl TryFrom<Option<String>> for Arch {
 }
     
 
-pub fn cpu_cores(input: Option<String>) -> Result<u32> {
+pub fn cpu_cores(input: Option<String>, cpus: usize) -> Result<usize> {
     Ok(match input {
-        Some(core_string) => core_string.parse::<u32>()?,
-        None => 0,
+        Some(core_string) => core_string.parse::<usize>()?,
+        None => match cpus {
+            32.. => 16,
+            16.. => 8,
+            8.. => 4,
+            4.. => 2,
+            _ => 1,
+        },
     })
 }
 
@@ -181,7 +187,7 @@ pub fn port_forwards(bash_array: Option<String>) -> Result<Option<Vec<(u16, u16)
         Some(array) => {
             let ports = array.split_whitespace().filter_map(|pair| pair.trim_matches([',', ' ', '"']).split_once(':'));
             ports.map(|(host, guest)| {
-                Ok(Some((u16::from_str_radix(host, 10)?, u16::from_str_radix(guest, 10)?)))
+                Ok(Some((host.parse::<u16>()?, guest.parse::<u16>()?)))
             }).collect()
         },
         None => Ok(None),
@@ -252,7 +258,7 @@ pub fn keyboard_layout(value: (Option<String>, Option<String>)) -> Result<Option
     })
 }
 
-fn find_monitor(monitor: &str, host1: Option<String>, port1: Option<u32>, host2: Option<String>, port2: Option<u32>, socketpath: std::path::PathBuf) -> Result<Monitor> {
+fn find_monitor(monitor: &str, host1: Option<String>, port1: Option<u16>, host2: Option<String>, port2: Option<u16>, socketpath: std::path::PathBuf) -> Result<Monitor> {
     match monitor {
         "none" => if host1.is_some() || port1.is_some() || host2.is_some() || port2.is_some() {
             bail!("Monitor type 'none' cannot have any additional parameters.")
@@ -274,9 +280,9 @@ fn find_monitor(monitor: &str, host1: Option<String>, port1: Option<u32>, host2:
 
 
 
-impl TryFrom<([(Option<String>, Option<String>, Option<u32>); 2], std::path::PathBuf)> for Monitor {
+impl TryFrom<([(Option<String>, Option<String>, Option<u16>); 2], std::path::PathBuf)> for Monitor {
     type Error = anyhow::Error;
-    fn try_from(value: ([(Option<String>, Option<String>, Option<u32>); 2], std::path::PathBuf)) -> Result<Self> {
+    fn try_from(value: ([(Option<String>, Option<String>, Option<u16>); 2], std::path::PathBuf)) -> Result<Self> {
         let (socketpath, host1, port1, host2, port2) = (value.1, value.0[0].1.clone(), value.0[0].2, value.0[1].1.clone(), value.0[1].2);
         match (&value.0[0].0, &value.0[1].0) {
             (_, Some(monitor)) => find_monitor(monitor, host1, port1, host2, port2, socketpath),

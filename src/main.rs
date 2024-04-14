@@ -6,7 +6,7 @@ use clap::Parser;
 use anyhow::Result;
 use std::path::PathBuf;
 use std::collections::HashMap;
-use sysinfo::{System, Components};
+use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 
 fn main() {
     let args = CliArgs::parse();
@@ -60,8 +60,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
 
     log::debug!("{:?}", conf);
 
-    let mut info = System::new();
-    info.refresh_memory();
+    let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()).with_cpu(CpuRefreshKind::new()));
     log::debug!("{:?}",info);
     let guest_os = config::GuestOS::try_from(conf.remove("guest_os"))?;
 
@@ -71,6 +70,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         .ok_or_else(|| anyhow::anyhow!("The parent directory of the config file cannot be found"))?
         .to_path_buf();
     log::debug!("Config file path: {:?}", conf_file_path);
+    log::debug!("CPUs: {:?}", info.cpus());
 
     let disk_img = conf_file_path.join(conf.remove("disk_img").ok_or_else(|| anyhow::anyhow!("Your configuration file must contain a disk image"))?);
 
@@ -85,7 +85,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         arch: config::Arch::try_from(conf.remove("arch"))?,
         braille: args.braille,
         boot: config::BootType::try_from(conf.remove("boot"))?,
-        cpu_cores: config_parse::cpu_cores(conf.remove("cpu_cores"))?,
+        cpu_cores: config_parse::cpu_cores(conf.remove("cpu_cores"), info.cpus().len())?,
         disk_img,
         disk_size: config_parse::size_unit(conf.remove("disk_size"), None)?,
         display: config::Display::try_from((conf.remove("display"), args.display))?,
@@ -105,11 +105,11 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         tpm: config_parse::parse_optional_bool(conf.remove("tpm"))?,
         keyboard: config::Keyboard::try_from((conf.remove("keyboard"), args.keyboard))?,
         keyboard_layout: config_parse::keyboard_layout((conf.remove("keyboard_layout"), args.keyboard_layout))?,
-        monitor: config::Monitor::try_from(([(conf.remove("monitor"), conf.remove("monitor_telnet_host"), Some(conf.remove("monitor_telnet_port").and_then(|port| port.parse::<u32>().ok()).unwrap_or(4440))),
+        monitor: config::Monitor::try_from(([(conf.remove("monitor"), conf.remove("monitor_telnet_host"), Some(conf.remove("monitor_telnet_port").and_then(|port| port.parse::<u16>().ok()).unwrap_or(4440))),
             (args.monitor, args.monitor_telnet_host, args.monitor_telnet_port)], monitor_socketpath))?,
         mouse: config::Mouse::try_from((conf.remove("mouse"), args.mouse, &guest_os))?,
         resolution: config::Resolution::try_from((conf.remove("resolution"), args.screen, args.resolution))?,
-        serial: config::Monitor::try_from(([(conf.remove("serial"), conf.remove("serial_telnet_host"), Some(conf.remove("serial_telnet_port").and_then(|port| port.parse::<u32>().ok()).unwrap_or(6660))),
+        serial: config::Monitor::try_from(([(conf.remove("serial"), conf.remove("serial_telnet_host"), Some(conf.remove("serial_telnet_port").and_then(|port| port.parse::<u16>().ok()).unwrap_or(6660))),
             (args.serial, args.serial_telnet_host, args.serial_telnet_port)], serial_socketpath))?,
         usb_controller: config::USBController::try_from((conf.remove("usb_controller"), args.usb_controller))?,
         sound_card: config::SoundCard::try_from((conf.remove("sound_card"), args.sound_card))?,
@@ -163,7 +163,7 @@ struct CliArgs {
     #[arg(long)]
     monitor_telnet_host: Option<String>,
     #[arg(long)]
-    monitor_telnet_port: Option<u32>,
+    monitor_telnet_port: Option<u16>,
     #[arg(long)]
     monitor_cmd: Option<String>,
     #[arg(long)]
@@ -171,7 +171,7 @@ struct CliArgs {
     #[arg(long)]
     serial_telnet_host: Option<String>,
     #[arg(long)]
-    serial_telnet_port: Option<u32>,
+    serial_telnet_port: Option<u16>,
     #[arg(long)]
     keyboard: Option<config::Keyboard>,
     #[arg(long)]

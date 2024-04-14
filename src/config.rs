@@ -6,7 +6,7 @@ pub struct Args {
     pub arch: Arch,
     pub braille: bool,
     pub boot: BootType,
-    pub cpu_cores: u32,
+    pub cpu_cores: usize,
     pub disk_img: std::path::PathBuf,
     pub disk_size: Option<u64>,
     pub display: Display,
@@ -166,7 +166,7 @@ pub enum Viewer {
 #[derive(Debug)]
 pub enum Monitor {
     None,
-    Telnet { port: u32, host: String },
+    Telnet { port: u16, host: String },
     Socket { socketpath: std::path::PathBuf },
 }
 
