@@ -117,6 +117,14 @@ pub enum MacOSRelease {
     Ventura,
     Sonoma
 }
+impl MacOSRelease {
+    pub fn supports_balloon(&self) -> bool {
+        match self {
+            MacOSRelease::HighSierra | MacOSRelease::Mojave | MacOSRelease::Catalina => false,
+            _ => true,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum Network {

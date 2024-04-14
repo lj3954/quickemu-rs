@@ -71,27 +71,28 @@ pub fn parse_optional_bool(value: Option<String>) -> Result<Option<bool>> {
     }
 }
 
+const BYTES_PER_GB: u64 = 1024 * 1024 * 1024;
 pub fn size_unit(input: Option<String>, ram: Option<u64>) -> Result<Option<u64>> {
     Ok(match input {
         Some(size) => Some({
             let unit_size = match size.chars().last().unwrap() {
-                'K' => 1024,
-                'M' => 1024 * 1024,
-                'G' => 1024 * 1024 * 1024,
-                'T' => 1024 * 1024 * 1024 * 1024,
+                'K' => 1024.0,
+                'M' => 1024.0 * 1024.0,
+                'G' => BYTES_PER_GB as f64,
+                'T' => 1024.0 * BYTES_PER_GB as f64,
                 _ => bail!("Invalid size: {}", size),
             };
-            match size[..size.len()-1].parse::<u64>() {
-                Ok(size) => size*unit_size,
+            match size[..size.len()-1].parse::<f64>() {
+                Ok(size) => (size * unit_size) as u64,
                 Err(_) => bail!("Invalid size: {}", size),
             }
         }),
         None => match ram {
             Some(ram) => Some(match ram / (1000 * 1000 * 1000) {
-                128.. => 32 * (1024 * 1024 * 1024),
-                64.. => 16 * (1024 * 1024 * 1024),
-                16.. => 8 * (1024 * 1024 * 1024),
-                8.. => 4 * (1024 * 1024 * 1024),
+                128.. => 32 * BYTES_PER_GB,
+                64.. => 16 * BYTES_PER_GB,
+                16.. => 8 * BYTES_PER_GB,
+                8.. => 4 * BYTES_PER_GB,
                 _ => ram,
             }),
             None => None,

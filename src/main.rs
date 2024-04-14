@@ -1,12 +1,13 @@
 mod config;
 mod validate;
 mod config_parse;
+mod qemu_args;
 
 use clap::Parser;
 use anyhow::Result;
 use std::path::PathBuf;
 use std::collections::HashMap;
-use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
+use sysinfo::{System, RefreshKind, MemoryRefreshKind};
 
 fn main() {
     let args = CliArgs::parse();
@@ -17,7 +18,9 @@ fn main() {
         .init();
 
     let args = parse_conf_file(args).unwrap();
-    log::debug!("CONFIG ARGS: {:?}", args); 
+    log::debug!("CONFIG ARGS: {:?}", args);
+    
+    let _qemu_args = args.to_qemu_args();
 }
 
 fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
