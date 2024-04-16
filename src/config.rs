@@ -41,7 +41,7 @@ pub struct Args {
     pub vm_name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Access {
     Remote,
     Local,

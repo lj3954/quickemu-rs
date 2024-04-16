@@ -32,18 +32,18 @@ impl TryFrom<Option<String>> for Arch {
     }
 }
     
-
 pub fn cpu_cores(input: Option<String>, logical: usize, physical: usize) -> Result<(usize, bool)> {
     Ok((match input {
         Some(core_string) => core_string.parse::<usize>()?,
         None => match logical {
+            _ if physical > logical => bail!("Found more physical cores than logical cores. Please manually set your core count in the configuration file."),
             32.. => 16,
             16.. => 8,
             8.. => 4,
             4.. => 2,
             _ => 1,
         },
-    }, logical != physical))
+    }, logical > physical))
 }
 
 impl TryFrom<Option<String>> for BootType {
