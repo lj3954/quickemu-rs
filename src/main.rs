@@ -19,8 +19,9 @@ fn main() {
 
     let args = parse_conf_file(args).unwrap();
     log::debug!("CONFIG ARGS: {:?}", args);
+
     
-    let _qemu_args = args.to_qemu_args();
+    let _qemu_args = args.to_qemu_args().unwrap();
 }
 
 fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
