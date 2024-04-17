@@ -1,5 +1,3 @@
-## NOTE: This project is not going to get much work on it for a while. I'm currently spending my time far more on my re-implementation of quickget, which will include many features that this project will benefit from.
-
 ## Purpose
 
 This branch goes alongside my [quickget re-implementation](https://github.com/lj3954/qg-rust). 
