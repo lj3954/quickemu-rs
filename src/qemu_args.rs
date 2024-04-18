@@ -2,7 +2,7 @@ use std::ffi::OsString;
 use anyhow::{anyhow, bail, Result};
 use crate::config::*;
 use which::which;
-use sysinfo::{System, RefreshKind, CpuRefreshKind};
+use sysinfo::{System, RefreshKind, CpuRefreshKind, Cpu};
 
 impl Args {
     pub fn to_qemu_args(&self) -> Result<(OsString, Vec<String>)> {
@@ -25,6 +25,8 @@ impl Args {
         
         let cpu_info = System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::new()));
 
+        // (x86_64 only) Determine whether CPU has the necessary features. VMX support is checked
+        // for all operating systems, and macOS checks SSE4.1, and AVX2 for Ventura and newer.
         #[cfg(target_arch = "x86_64")]
         if self.arch == Arch::x86_64 {
             self.macos_release.validate_cpu()?;
@@ -35,7 +37,7 @@ impl Args {
 
         let mut qemu_args: Vec<String> = vec![];
 
-        qemu_args.push(core_count(self.cpu_cores.0, self.cpu_cores.1, cpu_info.cpus()[0].brand()));
+        qemu_args.push(core_count(self.cpu_cores.0, self.cpu_cores.1, cpu_info.cpus()));
         qemu_args.push(ram_arg(self.ram, self.macos_release.supports_balloon()));
 
 
@@ -45,13 +47,24 @@ impl Args {
     }
 }
 
-fn core_count(cores: usize, threads: bool, cpu_model: &str) -> String {
+fn core_count(cores: usize, threads: bool, cpu_info: &[sysinfo::Cpu]) -> String {
+    let mut cpus = cpu_info.iter()
+        .map(|cpu: &Cpu| cpu.brand())
+        .collect::<Vec<&str>>();
+    // CPUs should already be in a sorted order. remove duplicates.
+    cpus.dedup();
+    let sockets = cpus.len();
+    let socket_text = match sockets {
+        1 => "".to_string(),
+        _ => format!(" {} sockets,", sockets), 
+    };
+
     if threads && cores > 1 {
-        print!(" - Using {} cores and {} threads of {cpu_model}", cores/2, cores);
-        format!("-smp cores={},threads=2,sockets=1", cores/2)
+        print!(" - Using{} {} cores and {} threads of {}", socket_text, cores/2, cores, cpus.join(", "));
+        format!("-smp cores={},threads=2,sockets={sockets}", cores/2)
     } else {
-        print!(" - Using {} core{} of {cpu_model}", cores, if cores > 1 { "s" } else { "" });
-        format!("-smp cores={},threads=1,sockets=1", cores)
+        print!(" - Using{} {} core{} of {}", socket_text, cores, if cores > 1 { "s" } else { "" }, cpus.join(", "));
+        format!("-smp cores={},threads=1,sockets={sockets}", cores)
     }
 }
 
