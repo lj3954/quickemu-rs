@@ -189,7 +189,7 @@ impl TryFrom<(Option<String>, Option<String>)> for Network {
 pub fn port_forwards(bash_array: Option<String>) -> Result<Option<Vec<(u16, u16)>>> {
     match bash_array {
         Some(array) => {
-            let ports = array.split_whitespace().filter_map(|pair| pair.trim_matches([',', ' ', '"']).split_once(':'));
+            let ports = array.split_whitespace().filter_map(|pair| pair.trim_matches(['(', ')', ',', ' ', '"']).split_once(':'));
             ports.map(|(host, guest)| {
                 Ok(Some((host.parse::<u16>()?, guest.parse::<u16>()?)))
             }).collect()
@@ -399,7 +399,7 @@ pub fn port(input: (Option<String>, Option<u16>), default: u16, offset: u16) -> 
 
 pub fn usb_devices(input: Option<String>) -> Option<Vec<String>> {
     match input {
-        Some(devices) => Some(devices.split_whitespace().map(|device| device.trim_matches(['"', '(']).to_string()).collect()),
+        Some(devices) => Some(devices.split_whitespace().map(|device| device.trim_matches(['(', ')', ',', ' ', '"']).to_string()).collect()),
         None => None,
     }
 }
