@@ -39,7 +39,7 @@ impl Args {
         
 
 
-            
+        log::debug!("QEMU ARGS: {:?}", qemu_args);
 
         println!("QuickemuRS {} using {} {}.", env!("CARGO_PKG_VERSION"), qemu_bin.to_str().unwrap(), friendly_ver);
 
@@ -91,7 +91,7 @@ fn cpu_ram(cores: usize, threads: bool, cpu_info: &[sysinfo::Cpu], ram: u64, gue
 impl GuestOS {
     pub fn validate_cpu(&self) -> Result<()> {
         let cpuid = raw_cpuid::CpuId::new();
-        log::debug!("Testing architecture. Found CPUID: {:?}", cpuid);
+        log::trace!("Testing architecture. Found CPUID: {:?}", cpuid);
         let virtualization_type = match cpuid.get_vendor_info() {
             Some(vendor_info) => match vendor_info.as_str() {
                 "GenuineIntel" => " (VT-x)",
@@ -100,11 +100,12 @@ impl GuestOS {
             },
             None => "",
         };
-            
         
         let cpu_features = cpuid.get_feature_info()
             .ok_or_else(|| anyhow!("Could not determine whether your CPU supports the necessary instructions."))?;
-        if !cpu_features.has_vmx() {
+        let extended_identifiers = cpuid.get_extended_processor_and_feature_identifiers()
+            .ok_or_else(|| anyhow!("Could not determine whether your CPU supports the necessary instructions."))?;
+        if !(cpu_features.has_vmx() || extended_identifiers.has_svm()) {
             bail!("CPU Virtualization{} is required for x86_64 guests. Please enable it in your BIOS.", virtualization_type);
         }
 
