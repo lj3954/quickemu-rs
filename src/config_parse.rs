@@ -3,6 +3,7 @@ use crate::validate;
 use anyhow::{Result, anyhow, bail};
 use std::convert::TryFrom;
 use std::net::{TcpListener, SocketAddrV4, Ipv4Addr};
+use core::num::NonZeroUsize;
 
 impl From<Option<String>> for Access {
     fn from(value: Option<String>) -> Self {
@@ -34,7 +35,7 @@ impl TryFrom<Option<String>> for Arch {
     
 pub fn cpu_cores(input: Option<String>, logical: usize, physical: usize) -> Result<(usize, bool)> {
     Ok((match input {
-        Some(core_string) => core_string.parse::<usize>()?,
+        Some(core_string) => core_string.parse::<NonZeroUsize>()?.get(),
         None => match logical {
             _ if physical > logical => bail!("Found more physical cores than logical cores. Please manually set your core count in the configuration file."),
             32.. => 16,
@@ -46,32 +47,34 @@ pub fn cpu_cores(input: Option<String>, logical: usize, physical: usize) -> Resu
     }, logical > physical))
 }
 
-impl TryFrom<Option<String>> for BootType {
+impl TryFrom<(Option<String>, Option<String>)> for BootType {
     type Error = anyhow::Error;
-    fn try_from(value: Option<String>) -> Result<Self> {
-        Ok(match value {
+    fn try_from(value: (Option<String>, Option<String>)) -> Result<Self> {
+        let secure_boot = parse_optional_bool(value.1)?;
+        Ok(match value.0 {
             Some(boot_type) => match boot_type.as_str() {
-                "efi" => Self::EFI,
+                "efi" => Self::EFI { secure_boot },
+                _ if secure_boot => bail!("Secure boot is only supported with the EFI boot type."),
                 "legacy" | "bios" => Self::Legacy,
-                _ => bail!("Specified boot type {} is invalid. Please check your config file", boot_type),
+                _ => bail!("Specified boot type {} is invalid. Please check your config file. Valid boot types are 'efi', 'legacy'/'bios'", boot_type),
             },
-            None => Self::EFI,
+            _ => Self::EFI { secure_boot: false },
         })
     }
 }
 
-pub fn parse_optional_bool(value: Option<String>) -> Result<Option<bool>> {
+pub fn parse_optional_bool(value: Option<String>) -> Result<bool> {
     match value {
         Some(text) => match text.as_str() {
-            "true" => Ok(Some(true)),
-            "false" => Ok(Some(false)),
+            "true" => Ok(true),
+            "false" => Ok(false),
             _ => bail!("Invalid boolean: {}", text),
         },
-        None => Ok(None),
+        None => Ok(false),
     }
 }
 
-const BYTES_PER_GB: u64 = 1024 * 1024 * 1024;
+pub const BYTES_PER_GB: u64 = 1024 * 1024 * 1024;
 pub fn size_unit(input: Option<String>, ram: Option<u64>) -> Result<Option<u64>> {
     Ok(match input {
         Some(size) => Some({
@@ -224,15 +227,16 @@ impl From<(Option<String>, Option<String>)> for PublicDir {
     }
 }
 
-impl TryFrom<Option<String>> for GuestOS {
+impl TryFrom<(Option<String>, Option<String>)> for GuestOS {
     type Error = anyhow::Error;
-    fn try_from(value: Option<String>) -> Result<Self> {
+    fn try_from(value: (Option<String>, Option<String>)) -> Result<Self> {
         match value {
-            Some(os) => Ok(match os.to_lowercase().as_str() {
+            (Some(os), macos_release) => Ok(match os.to_lowercase().as_str() {
+                "macos" => Self::MacOS(MacOSRelease::try_from(macos_release)?),
+                _ if macos_release.is_some() => bail!("macOS releases are not supported for OS {}", os),
                 "linux" => Self::Linux,
                 "windows" => Self::Windows,
                 "windows-server" => Self::WindowsServer,
-                "macos" => Self::MacOS,
                 "freebsd" => Self::FreeBSD,
                 "ghostbsd" => Self::GhostBSD,
                 "freedos" => Self::FreeDOS,
@@ -243,7 +247,7 @@ impl TryFrom<Option<String>> for GuestOS {
                 "batocera" => Self::Batocera,
                 _ => bail!("The guest_os specified in the configuration file is unsupported."),
             }),
-            None => bail!("The configuration file must contain a guest_os field"),
+            _ => bail!("The configuration file must contain a guest_os field"),
         }
     }
 }
@@ -312,11 +316,11 @@ impl TryFrom<(Option<String>, Option<Mouse>, &GuestOS)> for Mouse {
     }
 }
 
-impl TryFrom<(Option<String>, &GuestOS)> for MacOSRelease {
+impl TryFrom<Option<String>> for MacOSRelease {
     type Error = anyhow::Error;
-    fn try_from(value: (Option<String>, &GuestOS)) -> Result<Self> {
+    fn try_from(value: Option<String>) -> Result<Self> {
         Ok(match value {
-            (Some(release), GuestOS::MacOS) => match release.as_str() {
+            Some(release) => match release.as_str() {
                 "high-sierra" => MacOSRelease::HighSierra,
                 "mojave" => MacOSRelease::Mojave,
                 "catalina" => MacOSRelease::Catalina,
@@ -326,9 +330,7 @@ impl TryFrom<(Option<String>, &GuestOS)> for MacOSRelease {
                 "sonoma" => MacOSRelease::Sonoma,
                 _ => bail!("Unsupported macOS release: {}", release),
             },
-            (Some(_), guest_os) => bail!("macOS releases are not supported for OS {}", guest_os),
-            (_, GuestOS::MacOS) => bail!("Your configuration file must include a macOS release."),
-            _ => MacOSRelease::None,
+            _ => bail!("Your configuration file must include a macOS release."),
         })
     }
 }

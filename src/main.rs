@@ -66,7 +66,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
 
     let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()));
     log::debug!("{:?}",info);
-    let guest_os = config::GuestOS::try_from(conf.remove("guest_os"))?;
+    let guest_os = config::GuestOS::try_from((conf.remove("guest_os"), conf.remove("macos-release")))?;
 
     let conf_file_path = PathBuf::from(&conf_file)
         .canonicalize()?
@@ -87,7 +87,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         access: config::Access::from(args.access),
         arch: config::Arch::try_from(conf.remove("arch"))?,
         braille: args.braille,
-        boot: config::BootType::try_from(conf.remove("boot"))?,
+        boot: config::BootType::try_from((conf.remove("boot"), conf.remove("secureboot")))?,
         cpu_cores: config_parse::cpu_cores(conf.remove("cpu_cores"), num_cpus::get(), num_cpus::get_physical())?,
         disk_img,
         disk_size: config_parse::size_unit(conf.remove("disk_size"), None)?,
@@ -98,13 +98,11 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         image_file: config_parse::image(conf.remove("iso"), conf.remove("img")),
         snapshot: config_parse::snapshot(args.snapshot),
         fixed_iso: conf.remove("fixed_iso"),
-        macos_release: config::MacOSRelease::try_from((conf.remove("macos_release"), &guest_os))?,
         network: config::Network::try_from((conf.remove("network"), conf.remove("macaddr")))?,
         port_forwards: config_parse::port_forwards(conf.remove("port_forwards"))?,
         prealloc: config::PreAlloc::try_from(conf.remove("preallocation"))?,
         public_dir: config::PublicDir::from((conf.remove("public_dir"), args.public_dir)),
         ram: config_parse::size_unit(conf.remove("ram"), Some(info.total_memory()))?.unwrap(),
-        secure_boot: config_parse::parse_optional_bool(conf.remove("secureboot"))?,
         tpm: config_parse::parse_optional_bool(conf.remove("tpm"))?,
         keyboard: config::Keyboard::try_from((conf.remove("keyboard"), args.keyboard))?,
         keyboard_layout: config_parse::keyboard_layout((conf.remove("keyboard_layout"), args.keyboard_layout))?,

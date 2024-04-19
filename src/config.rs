@@ -17,14 +17,12 @@ pub struct Args {
     pub fixed_iso: Option<String>,
     pub guest_os: GuestOS,
     pub snapshot: Option<Snapshot>,
-    pub macos_release: MacOSRelease,
     pub network: Network,
     pub port_forwards: Option<Vec<(u16, u16)>>,
     pub prealloc: PreAlloc,
     pub public_dir: PublicDir,
     pub ram: u64,
-    pub secure_boot: Option<bool>,
-    pub tpm: Option<bool>,
+    pub tpm: bool,
     pub usb_devices: Option<Vec<String>>,
     pub viewer: Option<Viewer>,
     pub ssh_port: u16,
@@ -58,7 +56,7 @@ pub enum Arch {
 
 #[derive(Debug)]
 pub enum BootType {
-    EFI,
+    EFI { secure_boot: bool },
     Legacy,
 }
 
@@ -71,12 +69,12 @@ pub enum Display {
     SpiceApp,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum GuestOS {
     Linux,
     Windows,
     WindowsServer,
-    MacOS,
+    MacOS(MacOSRelease),
     FreeBSD,
     GhostBSD,
     FreeDOS,
@@ -93,7 +91,7 @@ impl std::fmt::Display for GuestOS {
             GuestOS::Linux => write!(f, "Linux"),
             GuestOS::Windows => write!(f, "Windows"),
             GuestOS::WindowsServer => write!(f, "Windows Server"),
-            GuestOS::MacOS => write!(f, "macOS"),
+            GuestOS::MacOS(_) => write!(f, "macOS"),
             GuestOS::FreeBSD => write!(f, "FreeBSD"),
             GuestOS::GhostBSD => write!(f, "GhostBSD"),
             GuestOS::FreeDOS => write!(f, "FreeDOS"),
@@ -106,9 +104,8 @@ impl std::fmt::Display for GuestOS {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum MacOSRelease {
-    None,
     HighSierra,
     Mojave,
     Catalina,
@@ -116,14 +113,6 @@ pub enum MacOSRelease {
     Monterey,
     Ventura,
     Sonoma
-}
-impl MacOSRelease {
-    pub fn supports_balloon(&self) -> bool {
-        match self {
-            MacOSRelease::HighSierra | MacOSRelease::Mojave | MacOSRelease::Catalina => false,
-            _ => true,
-        }
-    }
 }
 
 #[derive(Debug)]
