@@ -66,9 +66,9 @@ impl TryFrom<(Option<String>, Option<String>)> for BootType {
 pub fn parse_optional_bool(value: Option<String>) -> Result<bool> {
     match value {
         Some(text) => match text.as_str() {
-            "true" => Ok(true),
-            "false" => Ok(false),
-            _ => bail!("Invalid boolean: {}", text),
+            "true" | "on" => Ok(true),
+            "false" | "off" => Ok(false),
+            _ => bail!("Invalid value: {}", text),
         },
         None => Ok(false),
     }
