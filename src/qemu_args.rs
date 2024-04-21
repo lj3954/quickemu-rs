@@ -2,10 +2,10 @@ use std::ffi::OsString;
 use anyhow::{anyhow, bail, Result};
 use crate::{config_parse::BYTES_PER_GB, config::*};
 use which::which;
-use sysinfo::{System, RefreshKind, CpuRefreshKind, Cpu};
+use sysinfo::{System, RefreshKind, CpuRefreshKind, Cpu, Networks};
 
 impl Args {
-    pub fn to_qemu_args(&self) -> Result<(OsString, Vec<String>)> {
+    pub fn to_qemu_args(self) -> Result<(OsString, Vec<String>)> {
         let qemu_bin = match &self.arch {
             Arch::x86_64 => "qemu-system-x86_64",
             Arch::aarch64 => "qemu-system-aarch64",
@@ -32,10 +32,13 @@ impl Args {
             self.guest_os.validate_cpu()?;
         }
 
+        let publicdir: Option<String> = self.public_dir.try_into()?;
+
         let mut qemu_args: Vec<(String, Option<String>)> = Vec::with_capacity(8);
 
 
         qemu_args.extend(cpu_ram(self.cpu_cores.0, self.cpu_cores.1, cpu_info.cpus(), self.ram, &self.guest_os)?);
+        qemu_args.append(&mut self.network.to_args(&self.vm_name, self.ssh_port, self.port_forwards, publicdir, &self.guest_os)?);
         
 
 
@@ -44,6 +47,69 @@ impl Args {
         println!("QuickemuRS {} using {} {}.", env!("CARGO_PKG_VERSION"), qemu_bin.to_str().unwrap(), friendly_ver);
 
         todo!()
+    }
+}
+
+impl Network {
+    fn to_args(self, vmname: &str, ssh: u16, port_forwards: Option<Vec<(u16, u16)>>, publicdir: Option<String>, guest_os: &GuestOS) -> Result<Vec<(String, Option<String>)>> {
+
+        match self {
+            Self::None => Ok(vec![(("-nic none".to_string()), Some("Network: Disabled".to_string()))]),
+            Self::Restrict | Self::NAT => {
+                let (port_forwards, port_forward_msg) = match port_forwards {
+                    Some(forwards) => {
+                        let data: (Vec<String>, Vec<String>) = forwards.iter()
+                        .map(|(host, guest)| (format!(",hostfwd=tcp::{}-:{},hostfwd=udp::{}-:{}", host, guest, host, guest), format!("{} => {}", host, guest)))
+                        .unzip();
+                        (Some(data.0.join("")), Some(format!("Port forwards: {}", data.1.join(", "))))
+                    },
+                    None => (None, None),
+                };
+
+                let net = {
+                    let samba = which("smbd").ok().and_then(|_| Some(format!(",smb={}", publicdir.unwrap_or_default()))).unwrap_or_default();
+                    let ssh = format!(",hostfwd=tcp::{}-:22", ssh);
+                    format!("user,hostname={vmname}{ssh}{}{samba}", port_forwards.unwrap_or_default())
+                };
+
+                let device = guest_os.net_device();
+                let device_arg = format!("-device {},netdev=nic", device);
+                let netdev = format!("-netdev {}{},id=nic", net, if self == Self::Restrict { ",restrict=y" } else { "" });
+
+                let msg = format!("Network: {} ({}), SSH (On host): ssh user@localhost -p {ssh}", if self == Self::Restrict { "Restricted" } else { "User" }, device);
+                Ok(vec![(netdev, Some(msg)), (device_arg, port_forward_msg)])
+            },
+            Self::Bridged { bridge, mac_addr } => {
+                let network = Networks::new_with_refreshed_list();
+                if !network.contains_key(&bridge) {
+                    bail!("Network interface {} could not be found.", bridge);
+                }
+                let mac_addr = mac_addr.and_then(|mac| format!(",mac={}", mac).into()).unwrap_or_default();
+                Ok(vec![(format!("-nic bridge,br={}{}", bridge, mac_addr), Some(format!("Network: Bridged ({})", bridge)))])
+            },
+        }
+    }
+}
+
+impl TryInto<Option<String>> for PublicDir {
+    type Error = anyhow::Error;
+    fn try_into(self) -> Result<Option<String>> {
+        Ok(match self {
+            Self::None => None,
+            Self::Default => {
+                let public = dirs::public_dir();
+                if public != dirs::home_dir() {
+                    public.and_then(|dir| Some(dir.to_string_lossy().to_string()))
+                } else {
+                    None
+                }
+            },
+            Self::Custom(dir) => if std::path::PathBuf::from(&dir).exists() {
+                Some(dir)
+            } else {
+                bail!("Chosen public directory {} does not exist.", dir)
+            },
+        })
     }
 }
 
@@ -89,7 +155,7 @@ fn cpu_ram(cores: usize, threads: bool, cpu_info: &[sysinfo::Cpu], ram: u64, gue
 
 #[cfg(target_arch = "x86_64")]
 impl GuestOS {
-    pub fn validate_cpu(&self) -> Result<()> {
+    fn validate_cpu(&self) -> Result<()> {
         let cpuid = raw_cpuid::CpuId::new();
         log::trace!("Testing architecture. Found CPUID: {:?}", cpuid);
         let virtualization_type = match cpuid.get_vendor_info() {
@@ -124,5 +190,18 @@ impl GuestOS {
             _ => (),
         }
         Ok(())
+    }
+    
+    fn net_device(&self) -> &'static str {
+        match self {
+            Self::Batocera | Self::FreeDOS | Self::Haiku => "rtl8139",
+            Self::ReactOS => "e1000",
+            Self::MacOS(release) => match release {
+                MacOSRelease::BigSur | MacOSRelease::Monterey | MacOSRelease::Ventura | MacOSRelease::Sonoma => "virtio-net",
+                _ => "vmxnet3",
+            },
+            Self::Linux | Self::Solaris | Self::GhostBSD => "virtio-net",
+            _ => "rtl8139",
+        }
     }
 }

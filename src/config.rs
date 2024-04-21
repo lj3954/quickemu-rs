@@ -115,11 +115,11 @@ pub enum MacOSRelease {
     Sonoma
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Network {
     None,
     Restrict,
-    Bridged { mac_addr: Option<String> },
+    Bridged { bridge: String, mac_addr: Option<String> },
     NAT,
 }
 

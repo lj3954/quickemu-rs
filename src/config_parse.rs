@@ -173,13 +173,12 @@ impl TryFrom<(Option<String>, Option<String>)> for Network {
     type Error = anyhow::Error;
     fn try_from(value: (Option<String>, Option<String>)) -> Result<Self> {
         Ok(match value {
-            (Some(network_type), macaddr) => match network_type.to_lowercase().as_str() {
-                "bridged" | "br0" => Network::Bridged { mac_addr: macaddr },
-                _ if macaddr.is_some() => bail!("MAC address is only supported for the bridged network type."),
+            (Some(network_type), mac_addr) => match network_type.to_lowercase().as_str() {
+                "restrict" | "nat" | "none" if mac_addr.is_some() => bail!("MAC Addresses are only supported for bridged networking."),
                 "restrict" => Network::Restrict,
                 "nat" => Network::NAT,
                 "none" => Network::None,
-                _ => bail!("Network type {} is not supported.", network_type),
+                bridge => Network::Bridged { bridge: bridge.to_string(), mac_addr }
             },
             _ => Network::NAT,
         })
