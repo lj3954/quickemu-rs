@@ -53,12 +53,12 @@ impl TryFrom<(Option<String>, Option<String>)> for BootType {
         let secure_boot = parse_optional_bool(value.1)?;
         Ok(match value.0 {
             Some(boot_type) => match boot_type.as_str() {
-                "efi" => Self::EFI { secure_boot },
+                "efi" => Self::Efi { secure_boot },
                 _ if secure_boot => bail!("Secure boot is only supported with the EFI boot type."),
                 "legacy" | "bios" => Self::Legacy,
                 _ => bail!("Specified boot type {} is invalid. Please check your config file. Valid boot types are 'efi', 'legacy'/'bios'", boot_type),
             },
-            _ => Self::EFI { secure_boot: false },
+            _ => Self::Efi { secure_boot: false },
         })
     }
 }
@@ -90,16 +90,13 @@ pub fn size_unit(input: Option<String>, ram: Option<u64>) -> Result<Option<u64>>
                 Err(_) => bail!("Invalid size: {}", size),
             }
         }),
-        None => match ram {
-            Some(ram) => Some(match ram / (1000 * 1000 * 1000) {
-                128.. => 32 * BYTES_PER_GB,
-                64.. => 16 * BYTES_PER_GB,
-                16.. => 8 * BYTES_PER_GB,
-                8.. => 4 * BYTES_PER_GB,
-                _ => ram,
-            }),
-            None => None,
-        }
+        None => ram.map(|ram| match ram / (1000 * 1000 * 1000) {
+            128.. => 32 * BYTES_PER_GB,
+            64.. => 16 * BYTES_PER_GB,
+            16.. => 8 * BYTES_PER_GB,
+            8.. => 4 * BYTES_PER_GB,
+            _ => ram,
+        }),
     })
 }
 
@@ -109,12 +106,12 @@ impl TryFrom<(Option<String>, Option<Keyboard>)> for Keyboard {
         Ok(match value {
             (_, Some(kbtype)) => kbtype,
             (Some(kbtype), _) => match kbtype.as_str() {
-                "usb" => Self::USB,
+                "usb" => Self::Usb,
                 "ps2" => Self::PS2,
                 "virtio" => Self::Virtio,
                 _ => bail!("Invalid keyboard type: {}", kbtype),
             },
-            _ => Self::USB,
+            _ => Self::Usb,
         })
     }
 }
@@ -125,13 +122,13 @@ impl TryFrom<(Option<String>, Option<Display>)> for Display {
         Ok(match value {
             (_, Some(display)) => display,
             (Some(display), _) => match display.as_str() {
-                "sdl" => Display::SDL,
-                "gtk" => Display::GTK,
+                "sdl" => Display::Sdl,
+                "gtk" => Display::Gtk,
                 "spice" => Display::Spice,
                 "spice-app" => Display::SpiceApp,
                 _ => bail!("Invalid display type: {}", display),
             },
-            _ => Display::SDL,
+            _ => Display::Sdl,
         })
     }
 }
@@ -141,10 +138,10 @@ pub fn image(iso: Option<String>, img: Option<String>) -> Image {
         log::error!("Config file cannot contain both an img and an iso file.");
         std::process::exit(1);
     }
-    if iso.is_some() {
-        Image::ISO(iso.unwrap())
-    } else if img.is_some() {
-        Image::IMG(img.unwrap())
+    if let Some(iso) = iso {
+        Image::Iso(iso)
+    } else if let Some(img) = img {
+        Image::Img(img)
     } else {
         Image::None
     }
@@ -176,11 +173,11 @@ impl TryFrom<(Option<String>, Option<String>)> for Network {
             (Some(network_type), mac_addr) => match network_type.to_lowercase().as_str() {
                 "restrict" | "nat" | "none" if mac_addr.is_some() => bail!("MAC Addresses are only supported for bridged networking."),
                 "restrict" => Network::Restrict,
-                "nat" => Network::NAT,
+                "nat" => Network::Nat,
                 "none" => Network::None,
                 bridge => Network::Bridged { bridge: bridge.to_string(), mac_addr }
             },
-            _ => Network::NAT,
+            _ => Network::Nat,
         })
     }
 }
@@ -302,13 +299,13 @@ impl TryFrom<(Option<String>, Option<Mouse>, &GuestOS)> for Mouse {
         Ok(match value {
             (_, Some(mouse), _) => mouse,
             (Some(mouse), ..) => match mouse.as_str() {
-                "usb" => Mouse::USB,
+                "usb" => Mouse::Usb,
                 "ps2" => Mouse::PS2,
                 "virtio" => Mouse::Virtio,
                 _ => bail!("Invalid mouse type: {}", mouse),
             },
             (_, _, os) => match os {
-                GuestOS::FreeBSD | GuestOS::GhostBSD => Mouse::USB,
+                GuestOS::FreeBSD | GuestOS::GhostBSD => Mouse::Usb,
                 _ => Mouse::Tablet,
             },
         })
@@ -358,11 +355,11 @@ impl TryFrom<(Option<String>, Option<USBController>)> for USBController {
             (_, Some(controller)) => controller,
             (Some(controller), _) => match controller.as_str() {
                 "none" => USBController::None,
-                "ehci" => USBController::EHCI,
-                "xhci" => USBController::XHCI,
+                "ehci" => USBController::Ehci,
+                "xhci" => USBController::Xhci,
                 _ => bail!("Invalid USB controller: {}", controller),
             },
-            _ => USBController::EHCI,
+            _ => USBController::Ehci,
         })
     }
 }
@@ -397,8 +394,5 @@ pub fn port(input: (Option<String>, Option<u16>), default: u16, offset: u16) -> 
 }
 
 pub fn usb_devices(input: Option<String>) -> Option<Vec<String>> {
-    match input {
-        Some(devices) => Some(devices.split_whitespace().map(|device| device.trim_matches(['(', ')', ',', ' ', '"']).to_string()).collect()),
-        None => None,
-    }
+    input.map(|devices| devices.split_whitespace().map(|device| device.trim_matches(['(', ')', ',', ' ', '"']).to_string()).collect())
 }

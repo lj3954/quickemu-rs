@@ -21,7 +21,7 @@ fn main() {
     log::debug!("CONFIG ARGS: {:?}", args);
 
     
-    let _qemu_args = args.to_qemu_args().unwrap();
+    let _qemu_args = args.into_qemu_args().unwrap();
 }
 
 fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
@@ -55,10 +55,10 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
 
     let mut conf: HashMap<String, String> = conf.lines().filter_map(|line| {
         log::debug!("Parsing line: {}", line);
-        if line.starts_with("#") || !line.contains("=") {
+        if line.starts_with('#') || !line.contains('=') {
             return None;
         }
-        let split = line.split_once("=").unwrap();
+        let split = line.split_once('=').unwrap();
         Some((split.0.to_string(), split.1.trim_matches('"').to_string()))
     }).collect::<HashMap<String, String>>();
 

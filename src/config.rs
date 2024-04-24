@@ -56,15 +56,15 @@ pub enum Arch {
 
 #[derive(Debug)]
 pub enum BootType {
-    EFI { secure_boot: bool },
+    Efi { secure_boot: bool },
     Legacy,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
 pub enum Display {
     None,
-    SDL,
-    GTK,
+    Sdl,
+    Gtk,
     Spice,
     SpiceApp,
 }
@@ -120,14 +120,14 @@ pub enum Network {
     None,
     Restrict,
     Bridged { bridge: String, mac_addr: Option<String> },
-    NAT,
+    Nat,
 }
 
 #[derive(Debug)]
 pub enum Image {
     None,
-    ISO(String),
-    IMG(String),
+    Iso(String),
+    Img(String),
 }
 
 #[derive(Debug)]
@@ -157,7 +157,7 @@ pub enum Snapshot {
 pub enum Viewer {
     None,
     Spicy,
-    RemoteViewer,
+    Remote,
 }
 
 #[derive(Debug)]
@@ -177,20 +177,20 @@ pub enum Resolution {
 #[derive(ValueEnum, Clone, Debug)]
 pub enum USBController {
     None,
-    EHCI,
-    XHCI,
+    Ehci,
+    Xhci,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
 pub enum Keyboard {
-    USB,
+    Usb,
     Virtio,
     PS2,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
 pub enum Mouse {
-    USB,
+    Usb,
     Tablet,
     Virtio,
     PS2,
