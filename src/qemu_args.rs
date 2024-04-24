@@ -54,6 +54,7 @@ impl Args {
         log::debug!("QEMU ARGS: {:?}", qemu_args);
 
         println!("QuickemuRS {} using {} {}.", env!("CARGO_PKG_VERSION"), qemu_bin.to_str().unwrap(), friendly_ver);
+        print_args.iter().for_each(|arg| println!(" - {}", arg));
 
         todo!()
     }
@@ -273,7 +274,7 @@ fn cpu_ram(cores: usize, threads: bool, cpu_info: &[sysinfo::Cpu], ram: u64, gue
 
     let ram_arg = format!("-m {} {}", ram, if balloon { "-device virtio-balloon" } else { "" });
 
-    Ok([(core_arg, Some(format!("Using {}{}, and {} GB of RAM.", socket_text, core_text, ram as f64 / BYTES_PER_GB as f64))), (ram_arg, None)])
+    Ok([(core_arg, Some(format!("Using {}{}, {} GB of RAM.", socket_text, core_text, ram as f64 / BYTES_PER_GB as f64))), (ram_arg, None)])
 }
 
 #[cfg(target_arch = "x86_64")]

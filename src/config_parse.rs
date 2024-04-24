@@ -58,7 +58,7 @@ impl TryFrom<(Option<String>, Option<String>)> for BootType {
                 "legacy" | "bios" => Self::Legacy,
                 _ => bail!("Specified boot type {} is invalid. Please check your config file. Valid boot types are 'efi', 'legacy'/'bios'", boot_type),
             },
-            _ => Self::Efi { secure_boot: false },
+            _ => Self::Efi { secure_boot },
         })
     }
 }
