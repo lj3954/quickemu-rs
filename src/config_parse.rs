@@ -354,12 +354,12 @@ impl TryFrom<(Option<String>, Option<USBController>)> for USBController {
         Ok(match value {
             (_, Some(controller)) => controller,
             (Some(controller), _) => match controller.as_str() {
-                "none" => USBController::None,
-                "ehci" => USBController::Ehci,
-                "xhci" => USBController::Xhci,
+                "none" => Self::None,
+                "ehci" => Self::Ehci,
+                "xhci" => Self::Xhci,
                 _ => bail!("Invalid USB controller: {}", controller),
             },
-            _ => USBController::Ehci,
+            _ => Self::Ehci,
         })
     }
 }
