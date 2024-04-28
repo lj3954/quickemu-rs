@@ -304,6 +304,7 @@ fn cpucores_ram(cores: usize, threads: bool, cpu_info: &[sysinfo::Cpu], ram: u64
         .collect::<Vec<&str>>();
     // CPUs should already be in a sorted order. remove duplicates.
     cpus.dedup();
+    let mut args: Vec<String> = vec!["-smp".into()];
 
     let sockets = cpus.len();
     let socket_text = match sockets {
@@ -311,21 +312,25 @@ fn cpucores_ram(cores: usize, threads: bool, cpu_info: &[sysinfo::Cpu], ram: u64
         _ => sockets.to_string() + "sockets, "
     };
 
-    let (core_text, core_arg) = if cores > 1 && threads {
-        (format!("{} core{} and {} threads", cores / 2, if cores > 2 { "s" } else { "" }, cores),
-        format!("cores={},threads=2,sockets={}", cores / 2, sockets))
+    let core_text = if cores > 1 && threads {
+        args.push(format!("cores={},threads=2,sockets={}", cores / 2, sockets));
+        format!("{} core{} and {} threads", cores / 2, if cores > 2 { "s" } else { "" }, cores)
     } else {
-        (format!("{} core{}", cores, if cores > 1 { "s" } else { "" }),
-        format!("cores={},threads=1,sockets={}", cores, sockets))
+        args.push(format!("cores={},threads=1,sockets={}", cores, sockets));
+        format!("{} core{}", cores, if cores > 1 { "s" } else { "" })
+    };
+    args.push("-m".into());
+    args.push(ram.to_string() + "b");
+
+    match guest_os {
+        GuestOS::MacOS(release) if !matches!(release, MacOSRelease::HighSierra | MacOSRelease::Mojave | MacOSRelease::Catalina) => (),
+        _ => {
+            args.push("-device".into());
+            args.push("virtio-balloon".into());
+        },
     };
 
-    let balloon = match guest_os {
-        GuestOS::MacOS(release) => !matches!(release, MacOSRelease::HighSierra | MacOSRelease::Mojave | MacOSRelease::Catalina),
-        _ => true,
-    };
-
-    let ram_arg = format!("{} {}", ram, if balloon { "-device virtio-balloon" } else { "" });
-    Ok((vec!["-smp".into(), core_arg, "-m".into(), ram_arg], Some(vec![format!("Using {}{}, {} GB of RAM.", socket_text, core_text, ram as f64 / BYTES_PER_GB as f64)])))
+    Ok((args, Some(vec![format!("Using {}{}, {} GB of RAM.", socket_text, core_text, ram as f64 / BYTES_PER_GB as f64)])))
 }
 
 impl USBController {

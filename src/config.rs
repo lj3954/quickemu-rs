@@ -145,8 +145,8 @@ impl fmt::Display for Image {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::None => write!(f, "None"),
-            Self::Iso(path) => write!(f, "Booting from IMG: {}", path.display()),
-            Self::Img(path) => write!(f, "Booting from ISO: {}", path.display()),
+            Self::Iso(path) => write!(f, "Booting from ISO: {}", path.display()),
+            Self::Img(path) => write!(f, "Booting from IMG: {}", path.display()),
         }
     }
 }

@@ -56,15 +56,15 @@ impl GuestOS {
     }
 
     pub fn cpu_argument(&self, arch: &Arch) -> String {
+        let default_cpu = || if arch.matches_host() {
+            "host".to_string()
+        } else {
+            "max".to_string()
+        };
         let cpu = match arch {
-            Arch::aarch64 | Arch::riscv64 => "max".to_string(),
+            Arch::aarch64 | Arch::riscv64 => default_cpu(),
             Arch::x86_64 => {
                 let is_amd = || System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::new())).cpus()[0].vendor_id().contains("AuthenticAMD");
-                let default_cpu = || if arch.matches_host() {
-                    "host".to_string()
-                } else {
-                    "max".to_string()
-                };
                 match self {
                     Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::Solaris => if is_amd() {
                         default_cpu() + ",topoext"
