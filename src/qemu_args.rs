@@ -1,7 +1,8 @@
 mod guest_os;
+mod images;
 
 use std::ffi::OsString;
-use std::{io::Write, fs::{write, OpenOptions}};
+use std::{io::Write, fs::{write, OpenOptions, create_dir}};
 use std::process::Command;
 use anyhow::{anyhow, bail, Result};
 use crate::{config_parse::BYTES_PER_GB, config::*};
@@ -18,14 +19,18 @@ impl Args {
         };
         let qemu_bin = which(qemu_bin).map_err(|_| anyhow!("Could not find QEMU binary: {}. Please make sure QEMU is installed on your system.", qemu_bin))?;
 
+        if !self.vm_dir.exists() {
+            create_dir(&self.vm_dir).map_err(|e| anyhow!("Could not create VM directory: {:?}", e))?;
+        }
+
         let qemu_version = std::process::Command::new(&qemu_bin).arg("--version").output()?;
         let friendly_ver = std::str::from_utf8(&qemu_version.stdout)?
             .split_whitespace()
             .nth(3)
             .ok_or_else(|| anyhow::anyhow!("Failed to get QEMU version."))?;
 
-        if friendly_ver[0..1].parse::<u8>()? < 6 {
-            bail!("QEMU version 6.0.0 or higher is required. Found version {}.", friendly_ver);
+        if friendly_ver[0..1].parse::<u8>()? < 7 {
+            bail!("QEMU version 7.0.0 or higher is required. Found version {}.", friendly_ver);
         }
         
         let cpu_info = System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::new()));
@@ -63,7 +68,8 @@ impl Args {
         }
         
         self.usb_controller.to_args(&self.guest_os).add_args(&mut qemu_args, &mut print_args);
-
+        images::image_args(&self.vm_dir, (self.image_file, self.fixed_iso, self.floppy), self.disk_img, self.disk_size, &self.guest_os, &self.prealloc, self.status_quo)?.add_args(&mut qemu_args, &mut print_args);
+        
 
 
         log::debug!("QEMU ARGS: {:?}", qemu_args);
@@ -116,9 +122,9 @@ impl BootType {
         match (self, arch) {
             (Self::Efi { secure_boot: _ }, Arch::riscv64) => Ok(("Boot: EFI (RISC-V)".to_string(), None)),
             (Self::Legacy, Arch::x86_64) => if let GuestOS::MacOS(_) = guest_os {
-                Ok(("Boot: Legacy/BIOS".to_string(), None))
-            } else {
                 bail!("macOS guests require EFI boot.");
+            } else {
+                Ok(("Boot: Legacy/BIOS".to_string(), None))
             },
             (Self::Efi { secure_boot }, _) => {
                 let (ovmf_code, ovmf_vars) = match guest_os {

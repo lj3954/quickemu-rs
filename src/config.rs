@@ -1,4 +1,6 @@
 use clap::ValueEnum;
+use std::path::PathBuf;
+use std::fmt;
 
 #[derive(Debug)]
 pub struct Args {
@@ -7,16 +9,17 @@ pub struct Args {
     pub braille: bool,
     pub boot: BootType,
     pub cpu_cores: (usize, bool),
-    pub disk_img: std::path::PathBuf,
+    pub disk_img: PathBuf,
     pub disk_size: Option<u64>,
     pub display: Display,
     pub extra_args: Option<Vec<String>>,
-    pub floppy: Option<String>,
+    pub floppy: Option<PathBuf>,
     pub fullscreen: bool,
     pub image_file: Image,
-    pub fixed_iso: Option<String>,
+    pub fixed_iso: Option<PathBuf>,
     pub guest_os: GuestOS,
     pub snapshot: Option<Snapshot>,
+    pub status_quo: bool,
     pub network: Network,
     pub port_forwards: Option<Vec<(u16, u16)>>,
     pub prealloc: PreAlloc,
@@ -35,7 +38,7 @@ pub struct Args {
     pub keyboard_layout: Option<String>,
     pub mouse: Mouse,
     pub sound_card: SoundCard,
-    pub vm_dir: std::path::PathBuf,
+    pub vm_dir: PathBuf,
     pub vm_name: String,
 }
 
@@ -53,7 +56,6 @@ pub enum Arch {
     aarch64,
     riscv64,
 }
-
 impl Arch {
     pub fn matches_host(&self) -> bool {
         match self {
@@ -95,8 +97,8 @@ pub enum GuestOS {
     Batocera,
 }
 
-impl std::fmt::Display for GuestOS {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for GuestOS {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             GuestOS::Linux => write!(f, "Linux"),
             GuestOS::Windows => write!(f, "Windows"),
@@ -133,19 +135,48 @@ pub enum Network {
     Nat,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Image {
     None,
-    Iso(String),
-    Img(String),
+    Iso(PathBuf),
+    Img(PathBuf),
+}
+impl fmt::Display for Image {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::None => write!(f, "None"),
+            Self::Iso(path) => write!(f, "Booting from IMG: {}", path.display()),
+            Self::Img(path) => write!(f, "Booting from ISO: {}", path.display()),
+        }
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum PreAlloc {
     Off,
     Metadata,
     Falloc,
     Full,
+}
+impl PreAlloc {
+    pub fn qemu_arg(&self) -> &'static str {
+        match self {
+            Self::Off => "lazy_refcounts=on,preallocation=off",
+            Self::Metadata => "lazy_refcounts=on,preallocation=metadata",
+            Self::Falloc => "lazy_refcounts=on,preallocation=falloc",
+            Self::Full => "lazy_refcounts=on,preallocation=full",
+        }
+    }
+}
+impl std::fmt::Display for PreAlloc {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Off => write!(f, "Disabled"),
+            Self::Metadata => write!(f, "metadata"),
+            Self::Falloc => write!(f, "falloc"),
+            Self::Full => write!(f, "full"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -174,7 +205,7 @@ pub enum Viewer {
 pub enum Monitor {
     None,
     Telnet { port: u16, host: String },
-    Socket { socketpath: std::path::PathBuf },
+    Socket { socketpath: PathBuf },
 }
 
 #[derive(Debug)]

@@ -43,10 +43,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
                 _ => file + ".conf",
             }
         },
-        None => {
-            log::error!("You are required to input a valid configuration file.");
-            std::process::exit(1);
-        }
+        None => anyhow::bail!("You are required to input a valid configuration file."),
     };
 
     log::info!("Using configuration file: {}", &conf_file);
@@ -93,11 +90,12 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         disk_size: config_parse::size_unit(conf.remove("disk_size"), None)?,
         display: config::Display::try_from((conf.remove("display"), args.display))?,
         extra_args: args.extra_args,
-        floppy: conf.remove("floppy"),
+        floppy: config_parse::parse_optional_path(conf.remove("floppy"), "floppy")?,
         fullscreen: args.fullscreen,
-        image_file: config_parse::image(conf.remove("iso"), conf.remove("img")),
-        snapshot: config_parse::snapshot(args.snapshot),
-        fixed_iso: conf.remove("fixed_iso"),
+        image_file: config::Image::try_from((conf.remove("iso"), conf.remove("img")))?,
+        snapshot: config_parse::snapshot(args.snapshot)?,
+        status_quo: args.status_quo,
+        fixed_iso: config_parse::parse_optional_path(conf.remove("fixed_iso"), "fixed ISO")?,
         network: config::Network::try_from((conf.remove("network"), conf.remove("macaddr")))?,
         port_forwards: config_parse::port_forwards(conf.remove("port_forwards"))?,
         prealloc: config::PreAlloc::try_from(conf.remove("preallocation"))?,
@@ -188,7 +186,7 @@ struct CliArgs {
     #[arg(long)]
     vm: bool,
     #[command(flatten)]
-    verbose: clap_verbosity_flag::Verbosity,
+    verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::WarnLevel>,
     #[arg(required = true)]
     config_file: Vec<String>,
 }

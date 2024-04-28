@@ -4,6 +4,7 @@ use anyhow::{Result, anyhow, bail};
 use std::convert::TryFrom;
 use std::net::{TcpListener, SocketAddrV4, Ipv4Addr};
 use core::num::NonZeroUsize;
+use std::path::PathBuf;
 
 impl From<Option<String>> for Access {
     fn from(value: Option<String>) -> Self {
@@ -133,37 +134,37 @@ impl TryFrom<(Option<String>, Option<Display>)> for Display {
     }
 }
 
-pub fn image(iso: Option<String>, img: Option<String>) -> Image {
-    if iso.is_some() && img.is_some() {
-        log::error!("Config file cannot contain both an img and an iso file.");
-        std::process::exit(1);
-    }
-    if let Some(iso) = iso {
-        Image::Iso(iso)
-    } else if let Some(img) = img {
-        Image::Img(img)
-    } else {
-        Image::None
+impl TryFrom<(Option<String>, Option<String>)> for Image {
+    type Error = anyhow::Error;
+    fn try_from(value: (Option<String>, Option<String>)) -> Result<Self> {
+        let file_path= |file: String, filetype: &str| {
+            let path = file.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} file path: {}", filetype, file))?;
+            if path.exists() {
+                Ok(path)
+            } else {
+                bail!("{} file does not exist: {}", filetype, file);
+            }
+        };
+        Ok(match value {
+            (Some(_), Some(_)) => bail!("Config file cannot contain both an img and an iso file."),
+            (Some(iso), _) => Self::Iso(file_path(iso, "ISO")?),
+            (_, Some(img)) => Self::Img(file_path(img, "IMG")?),
+            _ => Self::None,
+        })
     }
 }
 
-const SNAPSHOT_TYPES: [&str; 4] = ["apply", "create", "delete", "info"];
-
-pub fn snapshot(input: Option<Vec<String>>) -> Option<Snapshot> {
-    match input {
-        Some(input) if SNAPSHOT_TYPES.contains(&input[0].as_str()) => match input[0].as_str() {
-            "apply" if input.len() == 2 => Some(Snapshot::Apply(input[1].clone())),
-            "create" if input.len() == 2 => Some(Snapshot::Create(input[1].clone())),
-            "delete" if input.len() == 2 => Some(Snapshot::Delete(input[1].clone())),
-            "info" if input.len() == 1 => Some(Snapshot::Info),
-            _ => unimplemented!(),
-        },
-        Some(invalid) => {
-            log::error!("Argument '--snapshot {}' is not supported.", invalid[0]);
-            std::process::exit(1);
-        },
-        None => None
-    }
+pub fn snapshot(input: Option<Vec<String>>) -> Result<Option<Snapshot>> {
+    Ok(match input {
+        Some(input) => Some(match input[0].as_str() {
+            "apply" if input.len() == 2 => Snapshot::Apply(input[1].clone()),
+            "create" if input.len() == 2 => Snapshot::Create(input[1].clone()),
+            "delete" if input.len() == 2 => Snapshot::Delete(input[1].clone()),
+            "info" if input.len() == 1 => Snapshot::Info,
+            _ => bail!("Invalid parameters to argument --snapshot: {}", input.join(" ")),
+        }),
+        None => None,
+    })
 }
 
 impl TryFrom<(Option<String>, Option<String>)> for Network {
@@ -397,4 +398,18 @@ pub fn port(input: (Option<String>, Option<u16>), default: u16, offset: u16) -> 
 
 pub fn usb_devices(input: Option<String>) -> Option<Vec<String>> {
     input.map(|devices| devices.split_whitespace().map(|device| device.trim_matches(['(', ')', ',', ' ', '"']).to_string()).collect())
+}
+
+pub fn parse_optional_path(value: Option<String>, name: &str) -> Result<Option<PathBuf>> {
+    Ok(match value {
+        Some(path_string) => {
+            let path = path_string.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} path: {}", name, path_string))?;
+            if path.exists() {
+                Some(path)
+            } else {
+                bail!("Could not find {} file: {}. Please verify that it exists.", name, path_string);
+            }
+        },
+        None => None,
+    })
 }

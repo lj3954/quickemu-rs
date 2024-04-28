@@ -1,6 +1,7 @@
 use anyhow::{anyhow, bail, Result};
 use crate::config::{GuestOS, Arch, MacOSRelease};
 use sysinfo::{System, RefreshKind, CpuRefreshKind};
+use crate::config_parse::BYTES_PER_GB;
 
 impl GuestOS {
     #[cfg(target_arch = "x86_64")]
@@ -87,4 +88,13 @@ impl GuestOS {
             cpu
         }
     }       
+
+    pub fn disk_size(&self) -> u64 {
+        match self {
+            Self::Windows | Self::WindowsServer => 64 * BYTES_PER_GB,
+            Self::MacOS(_) => 96 * BYTES_PER_GB,
+            Self::ReactOS | Self::KolibriOS => 16 * BYTES_PER_GB,
+            _ => 32 * BYTES_PER_GB,
+        }
+    }
 }
