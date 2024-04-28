@@ -62,6 +62,7 @@ impl Args {
             qemu_args.append(&mut args);
         }
         
+        self.usb_controller.to_args(&self.guest_os).add_args(&mut qemu_args, &mut print_args);
 
 
 
@@ -321,3 +322,30 @@ fn cpucores_ram(cores: usize, threads: bool, cpu_info: &[sysinfo::Cpu], ram: u64
     Ok((vec!["-smp".into(), core_arg, "-m".into(), ram_arg], Some(vec![format!("Using {}{}, {} GB of RAM.", socket_text, core_text, ram as f64 / BYTES_PER_GB as f64)])))
 }
 
+impl USBController {
+    fn to_args(&self, guest_os: &GuestOS) -> (Vec<String>, Option<Vec<String>>) {
+        let passthrough_controller = match guest_os {
+            GuestOS::MacOS(release) if release < &MacOSRelease::BigSur => "usb-ehci",
+            _ => "qemu-xhci",
+        };
+        let mut args = vec!["-device".into(), "virtio-rng-pci,rng=rng0".into(),
+            "-object".into(), "rng-random,id=rng0,filename=/dev/urandom".into(),
+            "-device".into(), passthrough_controller.to_string() + ",id=spicepass",
+            "-chardev".into(), "spicevmc,id=usbredirchardev1,name=usbredir".into(),
+            "-device".into(), "usb-redir,chardev=usbredirchardev1,id=usbredirdev1".into(),
+            "-chardev".into(), "spicevmc,id=usbredirchardev2,name=usbredir".into(),
+            "-device".into(), "usb-redir,chardev=usbredirchardev2,id=usbredirdev2".into(),
+            "-chardev".into(), "spicevmc,id=usbredirchardev3,name=usbredir".into(),
+            "-device".into(), "usb-redir,chardev=usbredirchardev3,id=usbredirdev3".into(),
+            "-device".into(), "pci-ohci,id=smartpass".into(),
+            "-device".into(), "usb-ccid".into(),
+        ];
+        match self {
+            Self::Ehci => args.extend(["-device".into(), "usb-ehci,id=input".into()]),
+            Self::Xhci => args.extend(["-device".into(), "qemu-xhci,id=input".into()]),
+            _ => ()
+        }
+        (args, None)
+    }
+}
+        

@@ -348,17 +348,19 @@ impl TryFrom<(Option<String>, Option<String>, Option<String>)> for Resolution {
     }
 }
 
-impl TryFrom<(Option<String>, Option<USBController>)> for USBController {
+impl TryFrom<(Option<String>, Option<USBController>, &GuestOS)> for USBController {
     type Error = anyhow::Error;
-    fn try_from(value: (Option<String>, Option<USBController>)) -> Result<Self> {
+    fn try_from(value: (Option<String>, Option<USBController>, &GuestOS)) -> Result<Self> {
         Ok(match value {
-            (_, Some(controller)) => controller,
-            (Some(controller), _) => match controller.as_str() {
+            (_, Some(controller), _) => controller,
+            (Some(controller), ..) => match controller.as_str() {
                 "none" => Self::None,
                 "ehci" => Self::Ehci,
                 "xhci" => Self::Xhci,
                 _ => bail!("Invalid USB controller: {}", controller),
             },
+            (.., GuestOS::Solaris) => Self::Xhci,
+            (.., GuestOS::MacOS(release)) if release >= &MacOSRelease::BigSur => Self::Xhci,
             _ => Self::Ehci,
         })
     }

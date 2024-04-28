@@ -112,7 +112,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         resolution: config::Resolution::try_from((conf.remove("resolution"), args.screen, args.resolution))?,
         serial: config::Monitor::try_from(([(conf.remove("serial"), conf.remove("serial_telnet_host"), Some(conf.remove("serial_telnet_port").and_then(|port| port.parse::<u16>().ok()).unwrap_or(6660))),
             (args.serial, args.serial_telnet_host, args.serial_telnet_port)], serial_socketpath))?,
-        usb_controller: config::USBController::try_from((conf.remove("usb_controller"), args.usb_controller))?,
+        usb_controller: config::USBController::try_from((conf.remove("usb_controller"), args.usb_controller, &guest_os))?,
         sound_card: config::SoundCard::try_from((conf.remove("sound_card"), args.sound_card))?,
         spice_port: config_parse::port((conf.remove("spice_port"), args.spice_port), 5930, 9)?,
         ssh_port: config_parse::port((conf.remove("ssh_port"), args.ssh_port), 22220, 9)?,
