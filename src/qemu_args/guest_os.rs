@@ -2,6 +2,9 @@ use anyhow::{anyhow, bail, Result};
 use crate::config::{GuestOS, Arch, MacOSRelease};
 use sysinfo::{System, RefreshKind, CpuRefreshKind};
 use crate::config_parse::BYTES_PER_GB;
+use std::ffi::OsString;
+
+const OSK: &[u8] = &[0x6f, 0x75, 0x72, 0x68, 0x61, 0x72, 0x64, 0x77, 0x6f, 0x72, 0x6b, 0x62, 0x79, 0x74, 0x68, 0x65, 0x73, 0x65, 0x77, 0x6f, 0x72, 0x64, 0x73, 0x67, 0x75, 0x61, 0x72, 0x64, 0x65, 0x64, 0x70, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x64, 0x6f, 0x6e, 0x74, 0x73, 0x74, 0x65, 0x61, 0x6c, 0x28, 0x63, 0x29, 0x41, 0x70, 0x70, 0x6c, 0x65, 0x43, 0x6f, 0x6d, 0x70, 0x75, 0x74, 0x65, 0x72, 0x49, 0x6e, 0x63];
 
 impl GuestOS {
     #[cfg(target_arch = "x86_64")]
@@ -95,6 +98,18 @@ impl GuestOS {
             Self::MacOS(_) => 96 * BYTES_PER_GB,
             Self::ReactOS | Self::KolibriOS => 16 * BYTES_PER_GB,
             _ => 32 * BYTES_PER_GB,
+        }
+    }
+
+    pub fn guest_tweaks(&self) -> Option<Vec<OsString>> {
+        match self {
+            Self::MacOS(_) => {
+                let mut osk = OsString::from("isa-applesmc,osk=");
+                osk.push(String::from_utf8_lossy(OSK).to_string());
+                Some(vec!["-global".into(), "kvm-pit.lost_tick_policy=discard".into(), "-global".into(), "ICH9-LPC.disable_s3=1".into(), "-device".into(), osk])
+            },
+            Self::Windows | Self::WindowsServer => Some(vec!["-global".into(), "kvm-pit.lost_tick_policy=discard".into(), "-global".into(), "ICH9-LPC.disable_s3=1".into()]),
+            _ => None,
         }
     }
 }
