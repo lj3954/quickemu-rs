@@ -28,8 +28,8 @@ impl GuestOS {
         if let GuestOS::MacOS(release) = self {
             if matches!(release, MacOSRelease::Ventura | MacOSRelease::Sonoma) {
                 if let Some(extended_features) = cpuid.get_extended_feature_info() {
-                    if !(cpu_features.has_sse41() || extended_features.has_avx2()) {
-                        bail!("macOS releases Ventura and newer require a CPU which supports AVX2 and SSE4.1.");
+                    if !(cpu_features.has_sse42() || extended_features.has_avx2()) {
+                        bail!("macOS releases Ventura and newer require a CPU which supports AVX2 and SSE4.2.");
                     }
                 } else {
                     bail!("Could not determine whether your CPU supports AVX2.");
@@ -76,7 +76,7 @@ impl GuestOS {
                     } else {
                         "qemu32".to_string()
                     },
-                    Self::MacOS(release) if release >= &MacOSRelease::Ventura => "Broadwell-noTSX-IBRS,vendor=GenuineIntel,+sse,+sse4.1,+avx,+avx2,+hypervisor,+popcnt,+aes,+xsave,+xsavec,+xsaveopt,+xgetbv1,+bmi1,+bmi2,+smep,+fma,+movbe,+invtsc".to_string(),
+                    Self::MacOS(release) if release >= &MacOSRelease::Ventura => "Haswell-noTSX-IBRS,vendor=GenuineIntel,+sse3,+sse4.2,+aes,+xsave,+avx,+xsaveopt,+xsavec,+xgetbv1,+avx2,+bmi2,+smep,+bmi1,+fma,+movbe,+invtsc".to_string(),
                     Self::MacOS(_) => "Penryn,vendor=GenuineIntel,+aes,+avx,+bmi1,+bmi2,+fma,+hypervisor,+invtsc,+kvm_pv_eoi,+kvm_pv_unhalt,+popcnt,+ssse3,+sse4.2,vmware-cpuid-freq=on,+xsave,+xsaveopt,check".to_string(),
                     Self::Windows | Self::WindowsServer => default_cpu() + ",+hypervisor,+invtsc,l3-cache=on,migratable=no,hv_passthrough",
                 }
