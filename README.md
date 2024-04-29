@@ -1,20 +1,22 @@
-## Purpose
+## Quickemu - rewritten in Rust
 
-This branch goes alongside my [quickget re-implementation](https://github.com/lj3954/qg-rust). 
+This project is a rewrite of the [quickemu](https://github.com/quickemu-project/quickemu) bash script in Rust.
+Backwards compatibility will be mostly maintained, but this project will diverge and may have different requirements.
 
-The goal is to fully rewrite the [quickemu](https://github.com/quickemu-project/quickemu) bash script in Rust. 
-It should be fully backwards compatible with the original script, but offer many improvements.
+This project depends on QEMU version 7.0.0 or later. Supporting older releases would require quite a bit of extra work,
+and few people still use these releases. If your system has an older version of QEMU, this project is not for you. 
 
-## Benefits
+Currently, the requirements for QEMU features are the same as the original quickemu project. This may change, however.
+It is recommended to use a build of QEMU that enables all of the features that would be used in GUI frontends to QEMU.
+The requirement of certain QEMU features will not be treated as a bug.
 
-1. **Error messages**: The original quickemu bash script offers a very poor description of errors.
-You can easily see this by visiting the issues tab of the project's repository, where nearly everyone
-is shown multiple error messages, many of which are unhelpful. This project aims to fix that by providing
-clear error messages with instructions on likely solutions, not unlike the Rust compiler.
-2. **Reliability**: The original project, being a bash script, is not particularly reliable. 
-There are many parts of the code which manipulate the strings in strange ways, which may cause issues.
-This has been pointed out by many, and is an inherent problem in complex bash scripts.
-3. **Features**: The original project's codebase is not not organized well enough to easily add new features.
-I plan to add major features such as support for multiple architectures early on. Additionally, I hope to work
-with the creator of [quickpassthrough](https://github.com/HikariKnight/quickpassthrough) to add support for GPU passthrough.
 
+## Planned features
+
+1. **Support for multiple architectures**: The original quickemu script only supports the x86_64 architecture, both for 
+the host and guest. This project aims to support multiple architectures, starting with x86_64, aarch64, and riscv64.
+2. **Integration with libvirt**: This project primarily focuses on directly passing arguments to QEMU, but in the future,
+it should be able to create XML files for use within libvirt. This will allow quickemu VMs to be managed through software
+such as `virt-manager` or `gnome-boxes`. 
+3. **GPU Passthrough**: A high priority of this project is to support passthrough of PCI devices. GPU passthrough
+should be entirely handled for the user. 
