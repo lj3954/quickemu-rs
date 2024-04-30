@@ -51,7 +51,7 @@ pub fn cpu_cores(input: Option<String>, logical: usize, physical: usize) -> Resu
 impl TryFrom<(Option<String>, Option<String>)> for BootType {
     type Error = anyhow::Error;
     fn try_from(value: (Option<String>, Option<String>)) -> Result<Self> {
-        let secure_boot = parse_optional_bool(value.1)?;
+        let secure_boot = parse_optional_bool(value.1, false)?;
         Ok(match value.0 {
             Some(boot_type) => match boot_type.as_str() {
                 "efi" => Self::Efi { secure_boot },
@@ -64,14 +64,14 @@ impl TryFrom<(Option<String>, Option<String>)> for BootType {
     }
 }
 
-pub fn parse_optional_bool(value: Option<String>) -> Result<bool> {
+pub fn parse_optional_bool(value: Option<String>, default: bool) -> Result<bool> {
     match value {
         Some(text) => match text.as_str() {
             "true" | "on" => Ok(true),
             "false" | "off" => Ok(false),
             _ => bail!("Invalid value: {}", text),
         },
-        None => Ok(false),
+        None => Ok(default),
     }
 }
 

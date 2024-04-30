@@ -49,11 +49,13 @@ impl Args {
 
         write(self.vm_dir.join(self.vm_name.clone() + ".sh"), "#!/usr/bin/env bash\n")?;
         
-        self.sound_card.to_args().add_args(&mut qemu_args, &mut print_args);
+        qemu_args.extend(self.display.audio_arg());
         cpucores_ram(self.cpu_cores.0, self.cpu_cores.1, cpu_info.cpus(), self.ram, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
         qemu_args.push("-cpu".into());
         qemu_args.push(self.guest_os.cpu_argument(&self.arch).into());
         self.network.into_args(&self.vm_name, self.ssh_port, self.port_forwards, publicdir.as_ref(), &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
+        self.display.display_args(&self.guest_os, self.resolution, self.accelerated)?.add_args(&mut qemu_args, &mut print_args);
+        self.sound_card.to_args().add_args(&mut qemu_args, &mut print_args);
         
         if self.tpm {
             let (args, print) = tpm_args(&self.vm_dir, &self.vm_name)?;
@@ -99,7 +101,7 @@ impl Args {
         println!("QuickemuRS {} using {} {}.", env!("CARGO_PKG_VERSION"), qemu_bin.to_string_lossy(), friendly_ver);
         print_args.iter().for_each(|arg| println!(" - {}", arg));
 
-        todo!()
+        Ok((qemu_bin.into_os_string(), qemu_args))
     }
 }
 
@@ -197,7 +199,7 @@ impl BootType {
                     Ok(("Boot: EFI (aarch64), OVMF: ".to_string() + ovmf_code.to_str().unwrap(), Some(vec!["-drive".into(), ovmf_code_final, "-drive".into(), ovmf_vars_final])))
                 } else {
                     let driver = OsString::from("driver=cfi.pflash01,property=secure,value=on");
-                    Ok(("Boot: EFI (x86_64), OVMF: ".to_string() + ovmf_code.to_str().unwrap() + ", Secure Boot: " + if *secure_boot { "Enabled" } else { "Disabled" }, 
+                    Ok(("Boot: EFI (x86_64), OVMF: ".to_string() + ovmf_code.to_str().unwrap() + ", Secure Boot: " + (*secure_boot).as_str(), 
                             Some(vec!["-global".into(), driver, "-drive".into(), ovmf_code_final, "-drive".into(), ovmf_vars_final])))
                 }
             }
@@ -235,7 +237,7 @@ impl Network {
                 let net = {
                     let samba = which("smbd").ok().and_then(|_| publicdir.map(|dir| {
                         msgs.push("smbd on guest: `smb://10.0.2.4/qemu`".into());
-                        format!(",smb={}", dir.to_string_lossy().to_string())
+                        format!(",smb={}", dir.to_string_lossy())
                     })).unwrap_or_default();
                     let ssh = format!(",hostfwd=tcp::{}-:22", ssh);
                     format!("user,hostname={vmname}{ssh}{}{samba}", port_forwards.unwrap_or_default())
@@ -453,8 +455,7 @@ fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsStr
         args.extend(["-fsdev".into(), fs, "-device".into(), device]);
     }
 
-
-    todo!()
+    Ok((args, Some(print_args)))
 }
 
 fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> Vec<OsString> {
@@ -485,4 +486,3 @@ fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> 
     }
     args
 }
-

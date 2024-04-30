@@ -7,6 +7,7 @@ use clap::Parser;
 use anyhow::Result;
 use std::path::PathBuf;
 use std::collections::HashMap;
+use std::process::Command;
 use sysinfo::{System, RefreshKind, MemoryRefreshKind};
 
 fn main() {
@@ -17,11 +18,17 @@ fn main() {
         .filter_level(args.verbose.log_level_filter())
         .init();
 
-    let args = parse_conf_file(args).unwrap();
-    log::debug!("CONFIG ARGS: {:?}", args);
+    if args.vm {
+        let args = parse_conf_file(args).unwrap();
+        let (qemu, qemu_args) = args.into_qemu_args().unwrap();
+        Command::new(qemu).args(qemu_args).spawn().unwrap();
+    } else {
+        let args = parse_conf_file(args).unwrap();
+        log::debug!("CONFIG ARGS: {:?}", args);
+        let qemu_args = args.into_qemu_args().unwrap();
+    }
 
     
-    let _qemu_args = args.into_qemu_args().unwrap();
 }
 
 fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
@@ -89,6 +96,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         disk_img,
         disk_size: config_parse::size_unit(conf.remove("disk_size"), None)?,
         display: config::Display::try_from((conf.remove("display"), args.display))?,
+        accelerated: config_parse::parse_optional_bool(conf.remove("accelerated"), true)?,
         extra_args: args.extra_args,
         floppy: config_parse::parse_optional_path(conf.remove("floppy"), "floppy")?,
         fullscreen: args.fullscreen,
@@ -101,7 +109,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         prealloc: config::PreAlloc::try_from(conf.remove("preallocation"))?,
         public_dir: config::PublicDir::from((conf.remove("public_dir"), args.public_dir)),
         ram: config_parse::size_unit(conf.remove("ram"), Some(info.total_memory()))?.unwrap(),
-        tpm: config_parse::parse_optional_bool(conf.remove("tpm"))?,
+        tpm: config_parse::parse_optional_bool(conf.remove("tpm"), false)?,
         keyboard: config::Keyboard::try_from((conf.remove("keyboard"), args.keyboard))?,
         keyboard_layout: config_parse::keyboard_layout((conf.remove("keyboard_layout"), args.keyboard_layout))?,
         monitor: config::Monitor::try_from(([(conf.remove("monitor"), conf.remove("monitor_telnet_host"), Some(conf.remove("monitor_telnet_port").and_then(|port| port.parse::<u16>().ok()).unwrap_or(4440))),

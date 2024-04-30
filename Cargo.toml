@@ -8,9 +8,15 @@ anyhow = "1.0.81"
 clap = { version = "4.5.4", features = ["derive"] }
 clap-verbosity-flag = "2.2.0"
 dirs = "5.0.1"
+display-info = "0.5.1"
 env_logger = "0.11.3"
 log = "0.4.21"
 num_cpus = "1.16.0"
 raw-cpuid = "11.0.1"
 sysinfo = "0.30.10"
 which = "6.0.1"
+
+[profile.release]
+strip = true
+lto = true
+

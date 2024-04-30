@@ -12,6 +12,7 @@ pub struct Args {
     pub disk_img: PathBuf,
     pub disk_size: Option<u64>,
     pub display: Display,
+    pub accelerated: bool,
     pub extra_args: Option<Vec<String>>,
     pub floppy: Option<PathBuf>,
     pub fullscreen: bool,
@@ -79,6 +80,17 @@ pub enum Display {
     Gtk,
     Spice,
     SpiceApp,
+}
+impl fmt::Display for Display {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::None => write!(f, "None"),
+            Self::Sdl => write!(f, "SDL"),
+            Self::Gtk => write!(f, "GTK"),
+            Self::Spice => write!(f, "Spice"),
+            Self::SpiceApp => write!(f, "Spice App"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -244,4 +256,17 @@ pub enum SoundCard {
     AC97,
     ES1370,
     SB16,
+}
+
+pub trait BooleanDisplay {
+    fn as_str(&self) -> &'static str;
+}
+impl BooleanDisplay for bool {
+    fn as_str(&self) -> &'static str {
+        if *self {
+            "Enabled"
+        } else {
+            "Disabled"
+        }
+    }
 }
