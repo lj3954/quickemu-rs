@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use std::ffi::OsString;
-use crate::config::{BooleanDisplay, Display, SoundCard, GuestOS, Resolution};
+use crate::config::{Arch, BooleanDisplay, Display, SoundCard, GuestOS, Resolution};
 
 impl SoundCard {
     pub fn to_args(&self) -> (Vec<String>, Option<Vec<String>>) {
@@ -22,19 +22,18 @@ impl Display {
         }
     }
 
-    pub fn display_args(&self, guest_os: &GuestOS, resolution: Resolution, accel: bool) -> Result<(Vec<String>, Option<Vec<String>>)> {
-        let display_device = match guest_os {
-            GuestOS::Linux => match self {
-                Self::None | Self::Spice | Self::SpiceApp => "virtio-gpu",
-                _ => "virtio-vga-gl",
+    pub fn display_args(&self, guest_os: &GuestOS, arch: &Arch, resolution: Resolution, accel: bool) -> Result<(Vec<String>, Option<Vec<String>>)> {
+        let (display_device, friendly_display_device) = match arch {
+            Arch::x86_64 | Arch::riscv64 => match guest_os {
+                GuestOS::Linux => match self {
+                    Self::None | Self::Spice | Self::SpiceApp => ("virtio-gpu", "VirtIO GPU"),
+                    _ => ("virtio-vga-gl", "VirtIO VGA"),
+                },
+                GuestOS::Windows | GuestOS::WindowsServer if matches!(self, Self::Sdl | Self::SpiceApp) => ("virtio-vga-gl", "VirtIO VGA"),
+                GuestOS::Solaris => ("vmware-svga", "VMware SVGA"),
+                _ => ("qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64", "QXL"),
             },
-            GuestOS::MacOS(_) => "qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64",
-            GuestOS::Windows | GuestOS::WindowsServer => match self {
-                Self::Sdl | Self::SpiceApp => "virtio-vga-gl",
-                _ => "qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64",
-            },
-            GuestOS::Solaris => "vmware-svga",
-            _ => "qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64",
+            Arch::aarch64 => ("virtio-gpu-gl", "VirtIO GPU"),
         };
         let gl = if accel { "on" } else { "off" };
 
@@ -58,9 +57,9 @@ impl Display {
             _ => display_device.to_string(),
         };
 
-        let message = format!("Display: {}, {}, GL: {}, VirGL: {}", self, display_device, accel.as_str(), (display_device == "virtio-vga-gl" && accel).as_str());
+        let message = format!("Display: {}, Device: {}, GL: {}, VirGL: {}", self, friendly_display_device, accel.as_str(), (display_device == "virtio-vga-gl" && accel).as_str());
 
-        Ok((vec!["-display".into(), display_render, "-device".into(), video], Some(vec![message])))
+        Ok((vec!["-display".into(), display_render, "-device".into(), video, "-vga".into(), "none".into()], Some(vec![message])))
     }
 }
 

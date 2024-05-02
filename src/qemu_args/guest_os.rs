@@ -67,21 +67,18 @@ impl GuestOS {
         let cpu = match arch {
             Arch::aarch64 | Arch::riscv64 => default_cpu(),
             Arch::x86_64 => {
-                let is_amd = || System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::new())).cpus()[0].vendor_id().contains("AuthenticAMD");
-                match self {
-                    Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::Solaris => if is_amd() {
-                        default_cpu() + ",topoext"
-                    } else {
-                        default_cpu()
-                    },
-                    Self::KolibriOS | Self::ReactOS => if is_amd() {
-                        "qemu32,topoext".to_string()
-                    } else {
-                        "qemu32".to_string()
-                    },
+                let cpu_arg = match self {
+                    Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::Solaris => default_cpu(),
+                    Self::KolibriOS | Self::ReactOS => "qemu32".to_string(),
                     Self::MacOS(release) if release >= &MacOSRelease::Ventura => "Haswell-noTSX-IBRS,vendor=GenuineIntel,+sse3,+sse4.2,+aes,+xsave,+avx,+xsaveopt,+xsavec,+xgetbv1,+avx2,+bmi2,+smep,+bmi1,+fma,+movbe,+invtsc".to_string(),
                     Self::MacOS(_) => "Penryn,vendor=GenuineIntel,+aes,+avx,+bmi1,+bmi2,+fma,+hypervisor,+invtsc,+kvm_pv_eoi,+kvm_pv_unhalt,+popcnt,+ssse3,+sse4.2,vmware-cpuid-freq=on,+xsave,+xsaveopt,check".to_string(),
                     Self::Windows | Self::WindowsServer => default_cpu() + ",+hypervisor,+invtsc,l3-cache=on,migratable=no,hv_passthrough",
+                };
+
+                if System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::new())).cpus()[0].vendor_id().contains("AuthenticAMD") {
+                    cpu_arg + ",topoext"
+                } else {
+                    cpu_arg
                 }
             }
         };

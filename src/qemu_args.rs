@@ -1,6 +1,7 @@
 mod guest_os;
 mod images;
 mod display;
+mod arch;
 
 use std::ffi::OsString;
 use std::{io::Write, fs::{write, OpenOptions, create_dir}};
@@ -54,7 +55,7 @@ impl Args {
         qemu_args.push("-cpu".into());
         qemu_args.push(self.guest_os.cpu_argument(&self.arch).into());
         self.network.into_args(&self.vm_name, self.ssh_port, self.port_forwards, publicdir.as_ref(), &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
-        self.display.display_args(&self.guest_os, self.resolution, self.accelerated)?.add_args(&mut qemu_args, &mut print_args);
+        self.display.display_args(&self.guest_os, &self.arch, self.resolution, self.accelerated)?.add_args(&mut qemu_args, &mut print_args);
         self.sound_card.to_args().add_args(&mut qemu_args, &mut print_args);
         
         if self.tpm {
@@ -179,30 +180,31 @@ impl BootType {
                         } else {
                             find_firmware(&EFI_OVMF).ok_or_else(|| anyhow!("EFI firmware could not be found. Please install OVMF firmware."))?
                         };
-                        let efi_code = if efi_code.is_symlink() {
-                            efi_code.read_link()?
-                        } else {
-                            efi_code
-                        };
+                        let efi_code = efi_code.canonicalize()?;
                         if !vm_vars.exists() || !vm_vars.metadata()?.permissions().readonly() {
                             std::fs::copy(extra_vars, &vm_vars)?;
                         }
                         (efi_code, vm_vars)
                     },
                 };
-                let mut ovmf_code_final = OsString::from("if=pflash,format=raw,unit=0,file=");
-                ovmf_code_final.push(&ovmf_code);
-                ovmf_code_final.push(",readonly=on");
-                let mut ovmf_vars_final = OsString::from("if=pflash,format=raw,unit=1,file=");
-                ovmf_vars_final.push(&ovmf_vars);
                 if arch == &Arch::aarch64 {
-                    Ok(("Boot: EFI (aarch64), OVMF: ".to_string() + ovmf_code.to_str().unwrap(), Some(vec!["-drive".into(), ovmf_code_final, "-drive".into(), ovmf_vars_final])))
+                    let mut aavmf_code_final = OsString::from("node-name=rom,driver=file,filename=");
+                    aavmf_code_final.push(&ovmf_code);
+                    aavmf_code_final.push(",read-only=true");
+                    let mut aavmf_vars_final = OsString::from("node-name=efivars,driver=file,filename=");
+                    aavmf_vars_final.push(&ovmf_vars);
+                    Ok(("Boot: EFI (aarch64), OVMF: ".to_string() + ovmf_code.to_str().unwrap(), Some(vec!["-blockdev".into(), aavmf_code_final, "-blockdev".into(), aavmf_vars_final])))
                 } else {
+                    let mut ovmf_code_final = OsString::from("if=pflash,format=raw,unit=0,file=");
+                    ovmf_code_final.push(&ovmf_code);
+                    ovmf_code_final.push(",readonly=on");
+                    let mut ovmf_vars_final = OsString::from("if=pflash,format=raw,unit=1,file=");
+                    ovmf_vars_final.push(&ovmf_vars);
                     let driver = OsString::from("driver=cfi.pflash01,property=secure,value=on");
                     Ok(("Boot: EFI (x86_64), OVMF: ".to_string() + ovmf_code.to_str().unwrap() + ", Secure Boot: " + (*secure_boot).as_str(), 
                             Some(vec!["-global".into(), driver, "-drive".into(), ovmf_code_final, "-drive".into(), ovmf_vars_final])))
                 }
-            }
+            },
             _ => bail!("The specified combination of architecture and boot type is not currently supported."),
         }
     }
@@ -465,18 +467,8 @@ fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> 
     let mut pid = vm_dir.join(vm_name).into_os_string();
     pid.push(".pid");
 
-    let (machine_type, smm) = match guest_os {
-        GuestOS::Windows | GuestOS::WindowsServer => ("q35,hpet=off", "on"),
-        GuestOS::MacOS(_) => ("q35,hpet=off", "off"),
-        GuestOS::FreeDOS => ("pc", "on"),
-        GuestOS::Batocera | GuestOS::Haiku | GuestOS::Solaris | GuestOS::ReactOS | GuestOS::KolibriOS => ("pc", "off"),
-        _ => ("q35", "off"),
-    };
+    let machine = arch.machine_type(guest_os);
 
-    let mut machine = OsString::from(machine_type);
-    machine.push(",smm=");
-    machine.push(smm);
-    machine.push(",vmport=off");
     let mut args = vec!["-name".into(), name, "-pidfile".into(), pid, "-machine".into(), machine];
     if arch.matches_host() {
         args.push("--enable-kvm".into());

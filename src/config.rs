@@ -57,15 +57,6 @@ pub enum Arch {
     aarch64,
     riscv64,
 }
-impl Arch {
-    pub fn matches_host(&self) -> bool {
-        match self {
-            Self::x86_64 => cfg!(target_arch = "x86_64"),
-            Self::aarch64 => cfg!(target_arch = "aarch64"),
-            Self::riscv64 => cfg!(target_arch = "riscv64"),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub enum BootType {

@@ -9,6 +9,8 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 use std::process::Command;
 use sysinfo::{System, RefreshKind, MemoryRefreshKind};
+use std::fs::OpenOptions;
+use std::io::Write;
 
 fn main() {
     let args = CliArgs::parse();
@@ -20,12 +22,14 @@ fn main() {
 
     if args.vm {
         let args = parse_conf_file(args).unwrap();
+        let mut sh = OpenOptions::new().append(true).open(args.vm_dir.join(args.vm_name.clone() + ".sh")).unwrap();
         let (qemu, qemu_args) = args.into_qemu_args().unwrap();
+        write!(sh, "{}", qemu_args.iter().map(|arg| arg.to_string_lossy()).collect::<Vec<_>>().join(" ")).unwrap();
         Command::new(qemu).args(qemu_args).spawn().unwrap();
     } else {
         let args = parse_conf_file(args).unwrap();
         log::debug!("CONFIG ARGS: {:?}", args);
-        let qemu_args = args.into_qemu_args().unwrap();
+        let _qemu_args = args.into_qemu_args().unwrap();
     }
 
     
@@ -70,7 +74,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
 
     let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()));
     log::debug!("{:?}",info);
-    let guest_os = config::GuestOS::try_from((conf.remove("guest_os"), conf.remove("macos-release")))?;
+    let guest_os = config::GuestOS::try_from((conf.remove("guest_os"), conf.remove("macos_release")))?;
 
     let conf_file_path = PathBuf::from(&conf_file)
         .canonicalize()?
