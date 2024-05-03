@@ -139,7 +139,7 @@ const EFI_OVMF: [(&str, &str); 8] = [
     ("/usr/share/edk2-ovmf/x64/OVMF_CODE.fd", "/usr/share/edk2-ovmf/x64/OVMF_VARS.fd"), 
 ];
 const AARCH64_OVMF: [(&str, &str); 1] = [
-    ("/usr/share/AAVMF/AAVMF_VARS.fd", "/usr/share/AAVMF/AAVMF_CODE.fd"),
+    ("/usr/share/AAVMF/AAVMF_CODE.fd", "/usr/share/AAVMF/AAVMF_VARS.fd"),
 ];
 
 impl BootType {
@@ -181,7 +181,7 @@ impl BootType {
                             find_firmware(&EFI_OVMF).ok_or_else(|| anyhow!("EFI firmware could not be found. Please install OVMF firmware."))?
                         };
                         let efi_code = efi_code.canonicalize()?;
-                        if !vm_vars.exists() || !vm_vars.metadata()?.permissions().readonly() {
+                        if !vm_vars.exists() || vm_vars.metadata()?.permissions().readonly() {
                             std::fs::copy(extra_vars, &vm_vars)?;
                         }
                         (efi_code, vm_vars)

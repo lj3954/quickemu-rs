@@ -173,8 +173,8 @@ fn img_arg(img: PathBuf, id: &str) -> OsString {
 const UNSUPPORTED_FORMATS: [&str; 5] = ["qed", "qcow", "vdi", "vpc", "vhdx"];
 fn disk_format(image_name: &str, prealloc: &PreAlloc) -> Result<&'static str> {
     Ok(match image_name.split('.').last().ok_or_else(|| anyhow!("Could not find disk image file extension."))? {
-        "raw" if prealloc == &PreAlloc::Metadata => bail!("`raw` disk images do not support the metadata preallocation type."),
-        "raw" => "raw",
+        "raw" | "img" if prealloc == &PreAlloc::Metadata => bail!("`raw` disk images do not support the metadata preallocation type."),
+        "raw" | "img" => "raw",
         "qcow2" => "qcow2",
         _ if prealloc != &PreAlloc::Off => bail!("Only `raw` and `qcow2` disk images support preallocation."),
         image_type => match UNSUPPORTED_FORMATS.into_iter().find(|format| image_type == *format) {

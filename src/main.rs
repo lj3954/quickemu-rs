@@ -22,7 +22,7 @@ fn main() {
 
     if args.vm {
         let args = parse_conf_file(args).unwrap();
-        let mut sh = OpenOptions::new().append(true).open(args.vm_dir.join(args.vm_name.clone() + ".sh")).unwrap();
+        let mut sh = OpenOptions::new().create(true).append(true).open(args.vm_dir.join(args.vm_name.clone() + ".sh")).unwrap();
         let (qemu, qemu_args) = args.into_qemu_args().unwrap();
         write!(sh, "{}", qemu_args.iter().map(|arg| arg.to_string_lossy()).collect::<Vec<_>>().join(" ")).unwrap();
         Command::new(qemu).args(qemu_args).spawn().unwrap();

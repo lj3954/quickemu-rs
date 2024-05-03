@@ -65,7 +65,8 @@ impl GuestOS {
             "max".to_string()
         };
         let cpu = match arch {
-            Arch::aarch64 | Arch::riscv64 => default_cpu(),
+            Arch::riscv64 => "any".to_string(),
+            Arch::aarch64 => default_cpu(),
             Arch::x86_64 => {
                 let cpu_arg = match self {
                     Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::Solaris => default_cpu(),

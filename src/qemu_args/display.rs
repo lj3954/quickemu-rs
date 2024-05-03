@@ -24,7 +24,7 @@ impl Display {
 
     pub fn display_args(&self, guest_os: &GuestOS, arch: &Arch, resolution: Resolution, accel: bool) -> Result<(Vec<String>, Option<Vec<String>>)> {
         let (display_device, friendly_display_device) = match arch {
-            Arch::x86_64 | Arch::riscv64 => match guest_os {
+            Arch::x86_64 => match guest_os {
                 GuestOS::Linux => match self {
                     Self::None | Self::Spice | Self::SpiceApp => ("virtio-gpu", "VirtIO GPU"),
                     _ => ("virtio-vga-gl", "VirtIO VGA"),
@@ -33,7 +33,8 @@ impl Display {
                 GuestOS::Solaris => ("vmware-svga", "VMware SVGA"),
                 _ => ("qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64", "QXL"),
             },
-            Arch::aarch64 => ("virtio-gpu-gl", "VirtIO GPU"),
+            Arch::riscv64 => ("virtio-vga", "VirtIO VGA"),
+            Arch::aarch64 => ("virtio-gpu", "VirtIO GPU"),
         };
         let gl = if accel { "on" } else { "off" };
 
