@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use std::ffi::OsString;
-use crate::config::{Arch, BooleanDisplay, Display, SoundCard, GuestOS, Resolution};
+use crate::config::{Arch, BooleanDisplay, Display, Monitor, SoundCard, GuestOS, Resolution};
 
 impl SoundCard {
     pub fn to_args(&self) -> (Vec<String>, Option<Vec<String>>) {
@@ -75,5 +75,38 @@ fn display_resolution(name: Option<String>) -> Result<(u32, u32)> {
             .unwrap_or(display_info.first().ok_or_else(|| anyhow!("Could not find a monitor. Please manually specify the resolution in your config file."))?)
     };
 
-    Ok((display.width, display.height))
+    let (width, height) = match display.width {
+        3840.. => (3200, 1800),
+        2560.. => (2048, 1152),
+        1920.. => (1664, 936),
+        1280.. => (1152, 648),
+        _ => (display.width, display.height),
+    };
+
+    Ok((width, height))
+}
+
+impl Monitor {
+    pub fn to_args(&self, variant: &str) -> Result<(Vec<OsString>, Option<Vec<String>>)> {
+        let mut arg = OsString::from("-");
+        let text = variant[0..1].to_uppercase() + &variant[1..] + ": ";
+        arg.push(variant);
+        Ok(match self {
+            Self::None => (vec![arg, "none".into()], Some(vec![text + "None"])),
+            Self::Telnet { port, host } => {
+                let mut telnet = OsString::from("telnet:");
+                telnet.push(host);
+                telnet.push(":");
+                telnet.push(crate::config_parse::port((None, None), *port, 9)?.to_string());
+                telnet.push(",server,nowait");
+                (vec![arg, telnet], Some(vec![text + "On host: telnet " + host + " " + &port.to_string()]))
+            },
+            Self::Socket { socketpath } => {
+                let mut socket = OsString::from("unix:");
+                socket.push(socketpath);
+                socket.push(",server,nowait");
+                (vec![arg, socket], Some(vec![text + "On host: " + &socketpath.to_string_lossy()]))
+            },
+        })
+    }
 }

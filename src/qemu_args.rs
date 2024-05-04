@@ -81,6 +81,12 @@ impl Args {
             publicdir_args(&publicdir, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
         }
         self.mouse.to_args().add_args(&mut qemu_args, &mut print_args);
+        self.monitor.to_args("monitor")?.add_args(&mut qemu_args, &mut print_args);
+        self.serial.to_args("serial")?.add_args(&mut qemu_args, &mut print_args);
+
+        if let Some(args) = self.extra_args {
+            qemu_args.extend(args.into_iter().map(|arg| arg.into()).collect::<Vec<OsString>>());
+        }
         
 
 

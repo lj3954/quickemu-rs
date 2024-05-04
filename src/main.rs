@@ -88,8 +88,8 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
     let vm_dir = disk_img.parent().unwrap().to_path_buf();
     let vm_name = vm_dir.file_name().unwrap().to_os_string().into_string().map_err(|e| anyhow::anyhow!("Unable to parse VM name: {:?}", e))?;
 
-    let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket")).strip_prefix(&conf_file_path)?.to_path_buf();
-    let serial_socketpath = vm_dir.join(format!("{vm_name}-serial.socket")).strip_prefix(&conf_file_path)?.to_path_buf();
+    let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket")).to_path_buf();
+    let serial_socketpath = vm_dir.join(format!("{vm_name}-serial.socket")).to_path_buf();
     
     Ok(config::Args {
         access: config::Access::from(args.access),
@@ -104,7 +104,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         extra_args: args.extra_args,
         floppy: config_parse::parse_optional_path(conf.remove("floppy"), "floppy")?,
         fullscreen: args.fullscreen,
-        image_file: config::Image::try_from((conf.remove("iso"), conf.remove("img")))?,
+        image_file: config::Image::try_from((conf_file_path.as_path(), conf.remove("iso"), conf.remove("img")))?,
         snapshot: config_parse::snapshot(args.snapshot)?,
         status_quo: args.status_quo,
         fixed_iso: config_parse::parse_optional_path(conf.remove("fixed_iso"), "fixed ISO")?,
@@ -194,7 +194,7 @@ struct CliArgs {
     sound_card: Option<config::SoundCard>,
     #[arg(long)]
     usb_controller: Option<config::USBController>,
-    #[arg(long)]
+    #[arg(long, num_args = 1.., allow_hyphen_values = true)]
     extra_args: Option<Vec<String>>,
     #[arg(long)]
     vm: bool,

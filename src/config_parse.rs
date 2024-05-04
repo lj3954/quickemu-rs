@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow, bail};
 use std::convert::TryFrom;
 use std::net::{TcpListener, SocketAddrV4, Ipv4Addr};
 use core::num::NonZeroUsize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 impl From<Option<String>> for Access {
     fn from(value: Option<String>) -> Self {
@@ -134,21 +134,24 @@ impl TryFrom<(Option<String>, Option<Display>)> for Display {
     }
 }
 
-impl TryFrom<(Option<String>, Option<String>)> for Image {
+impl TryFrom<(&Path, Option<String>, Option<String>)> for Image {
     type Error = anyhow::Error;
-    fn try_from(value: (Option<String>, Option<String>)) -> Result<Self> {
+    fn try_from(value: (&Path, Option<String>, Option<String>)) -> Result<Self> {
         let file_path= |file: String, filetype: &str| {
-            let path = file.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} file path: {}", filetype, file))?;
+            let path = value.0.join(&file);
+            let full_path = file.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} file path: {}", filetype, file))?;
             if path.exists() {
                 Ok(path)
+            } else if full_path.exists() {
+                Ok(full_path)
             } else {
                 bail!("{} file does not exist: {}", filetype, file);
             }
         };
         Ok(match value {
-            (Some(_), Some(_)) => bail!("Config file cannot contain both an img and an iso file."),
-            (Some(iso), _) => Self::Iso(file_path(iso, "ISO")?),
-            (_, Some(img)) => Self::Img(file_path(img, "IMG")?),
+            (_, Some(_), Some(_)) => bail!("Config file cannot contain both an img and an iso file."),
+            (_, Some(iso), _) => Self::Iso(file_path(iso, "ISO")?),
+            (.., Some(img)) => Self::Img(file_path(img, "IMG")?),
             _ => Self::None,
         })
     }
@@ -260,7 +263,7 @@ pub fn keyboard_layout(value: (Option<String>, Option<String>)) -> Result<Option
     })
 }
 
-fn find_monitor(monitor: &str, host1: Option<String>, port1: Option<u16>, host2: Option<String>, port2: Option<u16>, socketpath: std::path::PathBuf) -> Result<Monitor> {
+fn find_monitor(monitor: &str, host1: Option<String>, port1: Option<u16>, host2: Option<String>, port2: Option<u16>, socketpath: PathBuf) -> Result<Monitor> {
     match monitor {
         "none" => if host1.is_some() || port1.is_some() || host2.is_some() || port2.is_some() {
             bail!("Monitor type 'none' cannot have any additional parameters.")
@@ -282,9 +285,9 @@ fn find_monitor(monitor: &str, host1: Option<String>, port1: Option<u16>, host2:
 
 
 
-impl TryFrom<([(Option<String>, Option<String>, Option<u16>); 2], std::path::PathBuf)> for Monitor {
+impl TryFrom<([(Option<String>, Option<String>, Option<u16>); 2], PathBuf)> for Monitor {
     type Error = anyhow::Error;
-    fn try_from(value: ([(Option<String>, Option<String>, Option<u16>); 2], std::path::PathBuf)) -> Result<Self> {
+    fn try_from(value: ([(Option<String>, Option<String>, Option<u16>); 2], PathBuf)) -> Result<Self> {
         let (socketpath, host1, port1, host2, port2) = (value.1, value.0[0].1.clone(), value.0[0].2, value.0[1].1.clone(), value.0[1].2);
         match (&value.0[0].0, &value.0[1].0) {
             (_, Some(monitor)) => find_monitor(monitor, host1, port1, host2, port2, socketpath),
