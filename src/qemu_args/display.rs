@@ -23,17 +23,18 @@ impl Display {
     }
 
     pub fn display_args(&self, guest_os: &GuestOS, arch: &Arch, resolution: Resolution, accel: bool) -> Result<(Vec<String>, Option<Vec<String>>)> {
+        let virtio_vga = || if accel { "virtio-vga-gl" } else { "virtio-vga" };
         let (display_device, friendly_display_device) = match arch {
             Arch::x86_64 => match guest_os {
                 GuestOS::Linux => match self {
                     Self::None | Self::Spice | Self::SpiceApp => ("virtio-gpu", "VirtIO GPU"),
-                    _ => ("virtio-vga-gl", "VirtIO VGA"),
+                    _ => (virtio_vga(), "VirtIO VGA"),
                 },
-                GuestOS::Windows | GuestOS::WindowsServer if matches!(self, Self::Sdl | Self::SpiceApp) => ("virtio-vga-gl", "VirtIO VGA"),
+                GuestOS::Windows | GuestOS::WindowsServer if matches!(self, Self::Sdl | Self::SpiceApp) => (virtio_vga(), "VirtIO VGA"),
                 GuestOS::Solaris => ("vmware-svga", "VMware SVGA"),
                 _ => ("qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64", "QXL"),
             },
-            Arch::riscv64 => ("virtio-vga", "VirtIO VGA"),
+            Arch::riscv64 => (virtio_vga(), "VirtIO VGA"),
             Arch::aarch64 => ("virtio-gpu", "VirtIO GPU"),
         };
         let gl = if accel { "on" } else { "off" };
@@ -58,7 +59,7 @@ impl Display {
             _ => display_device.to_string(),
         };
 
-        let message = format!("Display: {}, Device: {}, GL: {}, VirGL: {}", self, friendly_display_device, accel.as_str(), (display_device == "virtio-vga-gl" && accel).as_str());
+        let message = format!("Display: {}, Device: {}, GL: {}, VirGL: {}", self, friendly_display_device, accel.as_str(), (display_device == "virtio-vga-gl").as_str());
 
         Ok((vec!["-display".into(), display_render, "-device".into(), video, "-vga".into(), "none".into()], Some(vec![message])))
     }

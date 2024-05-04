@@ -8,7 +8,7 @@ use anyhow::Result;
 use std::path::PathBuf;
 use std::collections::HashMap;
 use std::process::Command;
-use sysinfo::{System, RefreshKind, MemoryRefreshKind};
+use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 use std::fs::OpenOptions;
 use std::io::Write;
 
@@ -72,7 +72,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
 
     log::debug!("{:?}", conf);
 
-    let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()));
+    let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()).with_cpu(CpuRefreshKind::new()));
     log::debug!("{:?}",info);
     let guest_os = config::GuestOS::try_from((conf.remove("guest_os"), conf.remove("macos_release")))?;
 
@@ -128,6 +128,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         ssh_port: config_parse::port((conf.remove("ssh_port"), args.ssh_port), 22220, 9)?,
         usb_devices: config_parse::usb_devices(conf.remove("usb_devices")),
         viewer: args.viewer,
+        system: info,
         vm_name,
         vm_dir,
         guest_os,

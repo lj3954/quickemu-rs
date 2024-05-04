@@ -21,6 +21,7 @@ pub struct Args {
     pub guest_os: GuestOS,
     pub snapshot: Option<Snapshot>,
     pub status_quo: bool,
+    pub system: sysinfo::System,
     pub network: Network,
     pub port_forwards: Option<Vec<(u16, u16)>>,
     pub prealloc: PreAlloc,

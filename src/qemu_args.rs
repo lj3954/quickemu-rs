@@ -9,7 +9,7 @@ use std::process::{Stdio, Command};
 use anyhow::{anyhow, bail, Result};
 use crate::{config_parse::BYTES_PER_GB, config::*};
 use which::which;
-use sysinfo::{System, RefreshKind, CpuRefreshKind, Cpu, Networks};
+use sysinfo::{System, Cpu, Networks};
 use std::path::{Path, PathBuf};
 
 impl Args {
@@ -32,9 +32,6 @@ impl Args {
             None
         };
             
-        
-        let cpu_info = System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::new()));
-
         // (x86_64 only) Determine whether CPU has the necessary features. VMX support is checked
         // for all operating systems, and macOS checks SSE4.1, and AVX2 for Ventura and newer.
         #[cfg(target_arch = "x86_64")]
@@ -51,7 +48,7 @@ impl Args {
         write(self.vm_dir.join(self.vm_name.clone() + ".sh"), "#!/usr/bin/env bash\n")?;
         
         qemu_args.extend(self.display.audio_arg());
-        cpucores_ram(self.cpu_cores.0, self.cpu_cores.1, cpu_info.cpus(), self.ram, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
+        cpucores_ram(self.cpu_cores.0, self.cpu_cores.1, &self.system, self.ram, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
         qemu_args.push("-cpu".into());
         qemu_args.push(self.guest_os.cpu_argument(&self.arch).into());
         self.network.into_args(&self.vm_name, self.ssh_port, self.port_forwards, publicdir.as_ref(), &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
@@ -324,14 +321,16 @@ fn tpm_args(vm_dir: &Path, vm_name: &str) -> Result<([OsString; 6], String)> {
 }
 
 
-fn cpucores_ram(cores: usize, threads: bool, cpu_info: &[sysinfo::Cpu], ram: u64, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
+fn cpucores_ram(cores: usize, threads: bool, system_info: &System, ram: u64, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
     if ram < 4 * (1024 * 1024 * 1024) {
         if let GuestOS::MacOS(_) | GuestOS::Windows | GuestOS::WindowsServer = guest_os {
             bail!("{} guests require at least 4GB of RAM.", guest_os);
         }
     }
 
-    let mut cpus = cpu_info.iter()
+    let free_ram = system_info.available_memory() as f64 / BYTES_PER_GB as f64;
+    let total_ram = system_info.total_memory() as f64 / BYTES_PER_GB as f64;
+    let mut cpus = system_info.cpus().iter()
         .map(|cpu: &Cpu| cpu.brand())
         .collect::<Vec<&str>>();
     // CPUs should already be in a sorted order. remove duplicates.
@@ -362,7 +361,7 @@ fn cpucores_ram(cores: usize, threads: bool, cpu_info: &[sysinfo::Cpu], ram: u64
         },
     };
 
-    Ok((args, Some(vec![format!("Using {}{}, {} GB of RAM.", socket_text, core_text, ram as f64 / BYTES_PER_GB as f64)])))
+    Ok((args, Some(vec![format!("Using {}{}, {} GiB of RAM ({:.2} / {:.2} GiB available).", socket_text, core_text, ram as f64 / BYTES_PER_GB as f64, free_ram, total_ram)])))
 }
 
 impl USBController {
@@ -440,7 +439,7 @@ fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsStr
 
     match guest_os {
         GuestOS::MacOS(_) => {
-            print_args.push("9P - On guest: `sudo mount_9p ".to_string() + &public_tag.to_string_lossy() + " ~/Public`");
+            print_args.push("9P - On guest: `sudo mount_9p Public-".to_string() + &public_tag.to_string_lossy() + " ~/Public`");
             if PathBuf::from(publicdir).metadata()?.permissions().readonly() {
                 print_args.push("9P - On host - Required for macOS integration: `sudo chmod -r 777 ".to_string() + &publicdir.to_string_lossy() + "`");
             }
