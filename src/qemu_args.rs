@@ -435,7 +435,7 @@ fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsStr
     let mut print_args: Vec<String> = Vec::new();
     let mut args: Vec<OsString> = Vec::new();
     let home_dir = dirs::home_dir().ok_or(anyhow!("Could not find home directory"))?;
-    let public_tag = home_dir.file_name().ok_or(anyhow!("Could not find username"))?;
+    let username = home_dir.file_name().ok_or(anyhow!("Could not find username"))?;
     
     if let GuestOS::MacOS(_) = guest_os {
         print_args.push("WebDAV - On guest: build spice-webdavd (https://gitlab.gnome.org/GNOME/phodav/-/merge_requests/24)\n    Then: Finder -> Connect to Server -> http://localhost:9843/".into());
@@ -445,20 +445,20 @@ fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsStr
 
     match guest_os {
         GuestOS::MacOS(_) => {
-            print_args.push("9P - On guest: `sudo mount_9p Public-".to_string() + &public_tag.to_string_lossy() + " ~/Public`");
+            print_args.push("9P - On guest: `sudo mount_9p Public-".to_string() + &username.to_string_lossy() + " ~/Public`");
             if PathBuf::from(publicdir).metadata()?.permissions().readonly() {
                 print_args.push("9P - On host - Required for macOS integration: `sudo chmod -r 777 ".to_string() + &publicdir.to_string_lossy() + "`");
             }
         },
-        GuestOS::Linux => print_args.push("9P - On guest: `sudo mount -t 9p -o trans=virtio,version=9p2000.L,msize=104857600 `".to_string() + &public_tag.to_string_lossy() + " ~/Public`"),
+        GuestOS::Linux => print_args.push("9P - On guest: `sudo mount -t 9p -o trans=virtio,version=9p2000.L,msize=104857600 Public-".to_string() + &username.to_string_lossy() + " ~/Public`"),
         _ => (),
     }
     if !matches!(guest_os, GuestOS::Windows | GuestOS::WindowsServer) {
         let mut fs = OsString::from("local,id=fsdev0,path=");
         fs.push(publicdir);
         fs.push(",security_model=mapped-xattr");
-        let mut device = OsString::from("virtio-9p-pci,fsdev=fsdev0,mount_tag=");
-        device.push(public_tag);
+        let mut device = OsString::from("virtio-9p-pci,fsdev=fsdev0,mount_tag=Public-");
+        device.push(username);
         args.extend(["-fsdev".into(), fs, "-device".into(), device]);
     }
 
