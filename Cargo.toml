@@ -1,6 +1,6 @@
 [package]
 name = "quickemu-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
@@ -19,4 +19,3 @@ which = "6.0.1"
 [profile.release]
 strip = true
 lto = true
-
