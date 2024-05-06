@@ -49,8 +49,9 @@ impl Args {
         
         qemu_args.extend(self.display.audio_arg());
         cpucores_ram(self.cpu_cores.0, self.cpu_cores.1, &self.system, self.ram, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
-        qemu_args.push("-cpu".into());
-        qemu_args.push(self.guest_os.cpu_argument(&self.arch).into());
+        if let Some(arg) = self.guest_os.cpu_argument(&self.arch) {
+            qemu_args.extend(["-cpu".into(), arg.into()]);
+        }
         self.network.into_args(&self.vm_name, self.ssh_port, self.port_forwards, publicdir.as_ref(), &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
         self.display.display_args(&self.guest_os, &self.arch, self.resolution, self.accelerated)?.add_args(&mut qemu_args, &mut print_args);
         self.sound_card.to_args().add_args(&mut qemu_args, &mut print_args);
@@ -148,7 +149,27 @@ const AARCH64_OVMF: [(&str, &str); 1] = [
 impl BootType {
     fn to_args(&self, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> Result<(String, Option<Vec<OsString>>)> {
         match (self, arch) {
-            (Self::Efi { secure_boot: _ }, Arch::riscv64) => Ok(("Boot: EFI (RISC-V)".to_string(), None)),
+            (Self::Efi { secure_boot: _ }, Arch::riscv64) => {
+                let bios_dirs = [&vm_dir.join("boot"), vm_dir];
+                let bios = bios_dirs.into_iter().filter_map(|directory| {
+                    directory.read_dir().ok()?.filter_map(|file| {
+                        let path = file.ok()?.path();
+                        if path.extension()? == "bin" {
+                            Some(path)
+                        } else {
+                            None
+                        }
+                    }).collect::<Vec<PathBuf>>().into()
+                }).flatten().collect::<Vec<PathBuf>>();
+                match bios.len() {
+                    0 => Ok(("Boot: EFI (RISC-V). \x1b[31mWARNING\x1b[0m: Could not find bootloader in your VM directory. VM may fail to boot. Read more: {PLACEHOLDER}".to_string(), None)),
+                    1 => {
+                        let bios = &bios[0];
+                        Ok(("Boot: EFI (RISC-V), Bootloader: ".to_string() + &bios.to_string_lossy(), Some(vec!["-kernel".into(), bios.into()])))
+                    },
+                    _ => bail!("Could not determine the correct RISC-V bootloader. Please ensure that there are not multiple `.bin` files in your VM directory."),
+                }
+            },
             (Self::Legacy, Arch::x86_64) => if let GuestOS::MacOS(_) = guest_os {
                 bail!("macOS guests require EFI boot.");
             } else {

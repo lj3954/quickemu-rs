@@ -58,14 +58,14 @@ impl GuestOS {
         }
     }
 
-    pub fn cpu_argument(&self, arch: &Arch) -> String {
+    pub fn cpu_argument(&self, arch: &Arch) -> Option<String> {
         let default_cpu = || if arch.matches_host() {
             "host".to_string()
         } else {
             "max".to_string()
         };
         let cpu = match arch {
-            Arch::riscv64 => "any".to_string(),
+            Arch::riscv64 => return None,
             Arch::aarch64 => default_cpu(),
             Arch::x86_64 => {
                 let cpu_arg = match self {
@@ -87,7 +87,7 @@ impl GuestOS {
             cpu + ",kvm=on"
         } else {
             cpu
-        }
+        }.into()
     }       
 
     pub fn disk_size(&self) -> u64 {
