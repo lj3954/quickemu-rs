@@ -34,17 +34,26 @@ pub fn image_args(vm_dir: &Path, images: (Image, Option<PathBuf>, Option<PathBuf
             .map_err(|e| anyhow!("Could not create disk image: {}", e))?;
         print_args.push(format!("Created disk image {} with size {} GiB. Preallocation: {}", disk.to_string_lossy(), disk_size / BYTES_PER_GB, preallocation));
         false
-    } else if guest_os == &GuestOS::KolibriOS {
-        print_args.push(format!("Disk image: {}. Size: {} GiB", disk.to_string_lossy(), disk_size / BYTES_PER_GB));
-        false
     } else {
-        Command::new(qemu_img)
+        let image_info = Command::new(qemu_img)
             .arg("info")
             .arg(&disk)
-            .output()
-            .map_err(|_| anyhow!("Failed to get write lock on disk image. Please ensure that the disk image is not already in use."))?;
-        print_args.push(format!("Using disk image: {}. Size: {} GiB", disk.to_string_lossy(), disk_size / BYTES_PER_GB));
-        preallocation != &PreAlloc::Off || disk.metadata().map_err(|e| anyhow!("Could not read disk size: {}", e))?.len() > MIN_DISK_SIZE
+            .output().map_err(|e| anyhow!("Could not read disk image information using qemu-img: {}", e))?;
+        if !image_info.status.success() {
+            bail!("Failed to get write lock on disk image. Please ensure that the disk image is not already in use.");
+        }
+        let disk_size = String::from_utf8_lossy(&image_info.stdout).lines().find_map(|line| {
+            if line.starts_with("virtual size: ") {
+                Some(line.split_whitespace().skip(2).take(2).collect::<Vec<&str>>().join(" "))
+            } else {
+                None
+            }
+        }).ok_or_else(|| anyhow!("Could not read disk size."))?;
+
+        print_args.push(format!("Using disk image: {}. Size: {}", disk.to_string_lossy(), disk_size));
+        guest_os != &GuestOS::KolibriOS && ( preallocation != &PreAlloc::Off || disk.metadata()
+            .map_err(|e| anyhow!("Could not read disk size: {}", e))?
+            .len() > MIN_DISK_SIZE )
     };
 
     
