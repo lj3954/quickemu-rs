@@ -171,7 +171,7 @@ fn iso_arg(iso: PathBuf, index: &str) -> OsString {
 }
 
 fn img_arg(img: PathBuf, id: &str) -> OsString {
-    let mut argument = OsString::from("-drive id=");
+    let mut argument = OsString::from("id=");
     argument.push(id);
     argument.push(",if=none,format=raw,file=");
     argument.push(img);
