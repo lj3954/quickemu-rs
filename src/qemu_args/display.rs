@@ -31,7 +31,7 @@ impl Display {
                     _ => (virtio_vga(), "VirtIO VGA"),
                 },
                 GuestOS::Windows | GuestOS::WindowsServer if matches!(self, Self::Sdl | Self::SpiceApp) => (virtio_vga(), "VirtIO VGA"),
-                GuestOS::Solaris => ("vmware-svga", "VMware SVGA"),
+                GuestOS::Solaris | GuestOS::LinuxOld => ("vmware-svga", "VMware SVGA"),
                 _ => ("qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64", "QXL"),
             },
             Arch::riscv64 => (virtio_vga(), "VirtIO VGA"),
@@ -52,7 +52,7 @@ impl Display {
                 let (width, height) = display_resolution(Some(display), fullscreen)?;
                 format!("{display_device},xres={width},yres={height}")
             },
-            (Resolution::Default, GuestOS::Linux) => {
+            (Resolution::Default, GuestOS::Linux | GuestOS::LinuxOld) => {
                 let (width, height) = display_resolution(None, fullscreen)?;
                 format!("{display_device},xres={width},yres={height}")
             },

@@ -88,6 +88,7 @@ impl fmt::Display for Display {
 #[derive(Debug, PartialEq)]
 pub enum GuestOS {
     Linux,
+    LinuxOld,
     Windows,
     WindowsServer,
     MacOS(MacOSRelease),
@@ -105,6 +106,7 @@ impl fmt::Display for GuestOS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             GuestOS::Linux => write!(f, "Linux"),
+            GuestOS::LinuxOld => write!(f, "Linux (Old)"),
             GuestOS::Windows => write!(f, "Windows"),
             GuestOS::WindowsServer => write!(f, "Windows Server"),
             GuestOS::MacOS(_) => write!(f, "macOS"),

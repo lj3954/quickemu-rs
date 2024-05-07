@@ -235,6 +235,7 @@ impl TryFrom<(Option<String>, Option<String>)> for GuestOS {
                 "macos" => Self::MacOS(MacOSRelease::try_from(macos_release)?),
                 _ if macos_release.is_some() => bail!("macOS releases are not supported for OS {}", os),
                 "linux" => Self::Linux,
+                "linux_old" => Self::LinuxOld,
                 "windows" => Self::Windows,
                 "windows-server" => Self::WindowsServer,
                 "freebsd" => Self::FreeBSD,

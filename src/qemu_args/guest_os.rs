@@ -53,7 +53,7 @@ impl GuestOS {
                 MacOSRelease::BigSur | MacOSRelease::Monterey | MacOSRelease::Ventura | MacOSRelease::Sonoma => "virtio-net",
                 _ => "vmxnet3",
             },
-            Self::Linux | Self::Solaris | Self::GhostBSD => "virtio-net",
+            Self::Linux | Self::LinuxOld | Self::Solaris | Self::GhostBSD => "virtio-net",
             _ => "rtl8139",
         }
     }
@@ -69,7 +69,7 @@ impl GuestOS {
             Arch::aarch64 => default_cpu(),
             Arch::x86_64 => {
                 let cpu_arg = match self {
-                    Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::Solaris => default_cpu(),
+                    Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::LinuxOld | Self::Solaris => default_cpu(),
                     Self::KolibriOS | Self::ReactOS => "qemu32".to_string(),
                     Self::MacOS(release) if release >= &MacOSRelease::Ventura => "Haswell-noTSX-IBRS,vendor=GenuineIntel,+sse3,+sse4.2,+aes,+xsave,+avx,+xsaveopt,+xsavec,+xgetbv1,+avx2,+bmi2,+smep,+bmi1,+fma,+movbe,+invtsc".to_string(),
                     Self::MacOS(_) => "Penryn,vendor=GenuineIntel,+aes,+avx,+bmi1,+bmi2,+fma,+hypervisor,+invtsc,+kvm_pv_eoi,+kvm_pv_unhalt,+popcnt,+ssse3,+sse4.2,vmware-cpuid-freq=on,+xsave,+xsaveopt,check".to_string(),

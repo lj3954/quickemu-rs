@@ -471,7 +471,7 @@ fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsStr
                 print_args.push("9P - On host - Required for macOS integration: `sudo chmod -r 777 ".to_string() + &publicdir.to_string_lossy() + "`");
             }
         },
-        GuestOS::Linux => print_args.push("9P - On guest: `sudo mount -t 9p -o trans=virtio,version=9p2000.L,msize=104857600 Public-".to_string() + &username.to_string_lossy() + " ~/Public`"),
+        GuestOS::Linux | GuestOS::LinuxOld => print_args.push("9P - On guest: `sudo mount -t 9p -o trans=virtio,version=9p2000.L,msize=104857600 Public-".to_string() + &username.to_string_lossy() + " ~/Public`"),
         _ => (),
     }
     if !matches!(guest_os, GuestOS::Windows | GuestOS::WindowsServer) {
