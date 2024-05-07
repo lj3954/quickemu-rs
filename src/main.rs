@@ -85,7 +85,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         .to_path_buf();
     log::debug!("Config file path: {:?}", conf_file_path);
 
-    println!("{:?} {}", conf_file_path, conf_file);
+    log::debug!("{:?} {}", conf_file_path, conf_file);
     let vm_dir = conf_file[..conf_file.len()-5].parse::<PathBuf>()?;
     let vm_name = vm_dir.file_name().unwrap().to_os_string().into_string().map_err(|e| anyhow!("Unable to parse VM name: {:?}", e))?;
     log::debug!("Found VM Dir: {:?}, VM Name: {}", vm_dir, vm_name);
