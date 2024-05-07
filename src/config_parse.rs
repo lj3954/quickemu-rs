@@ -138,12 +138,12 @@ impl TryFrom<(&Path, Option<String>, Option<String>)> for Image {
     type Error = anyhow::Error;
     fn try_from(value: (&Path, Option<String>, Option<String>)) -> Result<Self> {
         let file_path= |file: String, filetype: &str| {
-            let path = value.0.join(&file);
-            let full_path = file.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} file path: {}", filetype, file))?;
+            let full_path = value.0.join(&file);
+            let path = file.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} file path: {}", filetype, file))?;
             if path.exists() {
                 Ok(path)
             } else if full_path.exists() {
-                Ok(full_path)
+                Ok(full_path.relativize()?)
             } else {
                 bail!("{} file does not exist: {}", filetype, file);
             }
@@ -403,16 +403,32 @@ pub fn usb_devices(input: Option<String>) -> Option<Vec<String>> {
     input.map(|devices| devices.split_whitespace().map(|device| device.trim_matches(['(', ')', ',', ' ', '"']).to_string()).collect())
 }
 
-pub fn parse_optional_path(value: Option<String>, name: &str) -> Result<Option<PathBuf>> {
+pub fn parse_optional_path(value: Option<String>, name: &str, vm_dir: &Path) -> Result<Option<PathBuf>> {
     Ok(match value {
         Some(path_string) => {
             let path = path_string.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} path: {}", name, path_string))?;
+            let absolute_path = vm_dir.join(&path);
+            println!("Path: {:?} {}, Absolute: {:?} {}, name: {}", path, path.exists(), absolute_path, absolute_path.exists(), name);
             if path.exists() {
                 Some(path)
+            } else if absolute_path.exists() {
+                Some(absolute_path)
             } else {
                 bail!("Could not find {} file: {}. Please verify that it exists.", name, path_string);
             }
         },
         None => None,
     })
+}
+
+pub trait Relativize {
+    fn relativize(&self) -> Result<PathBuf>;
+}
+impl Relativize for PathBuf {
+    fn relativize(&self) -> Result<PathBuf> {
+        log::debug!("Relativizing path: {:?}", self);
+        let current_dir = std::env::current_dir()?;
+        pathdiff::diff_paths(self, current_dir)
+            .ok_or_else(|| anyhow!("Could not relativize path: {}", self.display()))
+    }
 }

@@ -11,6 +11,8 @@ use std::process::Command;
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 use std::fs::OpenOptions;
 use std::io::Write;
+use anyhow::{anyhow, bail};
+use config_parse::Relativize;
 
 fn main() {
     let args = CliArgs::parse();
@@ -54,11 +56,11 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
                 _ => file + ".conf",
             }
         },
-        None => anyhow::bail!("You are required to input a valid configuration file."),
+        None => bail!("You are required to input a valid configuration file."),
     };
 
     log::info!("Using configuration file: {}", &conf_file);
-    let conf = std::fs::read_to_string(&conf_file).map_err(|_| anyhow::anyhow!("Configuration file {} does not exist.", &conf_file))?;
+    let conf = std::fs::read_to_string(&conf_file).map_err(|_| anyhow!("Configuration file {} does not exist.", &conf_file))?;
     log::debug!("Configuration file content: {}", conf);
 
     let mut conf: HashMap<String, String> = conf.lines().filter_map(|line| {
@@ -79,17 +81,20 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
     let conf_file_path = PathBuf::from(&conf_file)
         .canonicalize()?
         .parent()
-        .ok_or_else(|| anyhow::anyhow!("The parent directory of the config file cannot be found"))?
+        .ok_or_else(|| anyhow!("The parent directory of the config file cannot be found"))?
         .to_path_buf();
     log::debug!("Config file path: {:?}", conf_file_path);
 
-    let disk_img = conf_file_path.join(conf.remove("disk_img").ok_or_else(|| anyhow::anyhow!("Your configuration file must contain a disk image"))?);
-
-    let vm_dir = disk_img.parent().unwrap().to_path_buf();
-    let vm_name = vm_dir.file_name().unwrap().to_os_string().into_string().map_err(|e| anyhow::anyhow!("Unable to parse VM name: {:?}", e))?;
+    println!("{:?} {}", conf_file_path, conf_file);
+    let vm_dir = conf_file[..conf_file.len()-5].parse::<PathBuf>()?;
+    let vm_name = vm_dir.file_name().unwrap().to_os_string().into_string().map_err(|e| anyhow!("Unable to parse VM name: {:?}", e))?;
+    log::debug!("Found VM Dir: {:?}, VM Name: {}", vm_dir, vm_name);
 
     let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket")).to_path_buf();
     let serial_socketpath = vm_dir.join(format!("{vm_name}-serial.socket")).to_path_buf();
+
+    let disk_img = conf.remove("disk_img").ok_or_else(|| anyhow!("Your configuration file must contain a disk image"))?;
+    let disk_img = config_parse::parse_optional_path(Some(disk_img), "disk image", &conf_file_path)?.unwrap().relativize()?;
     
     Ok(config::Args {
         access: config::Access::from(args.access),
@@ -102,12 +107,12 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         display: config::Display::try_from((conf.remove("display"), args.display))?,
         accelerated: config_parse::parse_optional_bool(conf.remove("accelerated"), true)?,
         extra_args: args.extra_args,
-        floppy: config_parse::parse_optional_path(conf.remove("floppy"), "floppy")?,
+        floppy: config_parse::parse_optional_path(conf.remove("floppy"), "floppy", vm_dir.as_path())?,
         fullscreen: args.fullscreen,
         image_file: config::Image::try_from((conf_file_path.as_path(), conf.remove("iso"), conf.remove("img")))?,
         snapshot: config_parse::snapshot(args.snapshot)?,
         status_quo: args.status_quo,
-        fixed_iso: config_parse::parse_optional_path(conf.remove("fixed_iso"), "fixed ISO")?,
+        fixed_iso: config_parse::parse_optional_path(conf.remove("fixed_iso"), "fixed ISO", vm_dir.as_path())?,
         network: config::Network::try_from((conf.remove("network"), conf.remove("macaddr")))?,
         port_forwards: config_parse::port_forwards(conf.remove("port_forwards"))?,
         prealloc: config::PreAlloc::try_from(conf.remove("preallocation"))?,
