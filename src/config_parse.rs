@@ -408,7 +408,7 @@ pub fn parse_optional_path(value: Option<String>, name: &str, vm_dir: &Path) -> 
         Some(path_string) => {
             let path = path_string.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} path: {}", name, path_string))?;
             let absolute_path = vm_dir.join(&path);
-            println!("Path: {:?} {}, Absolute: {:?} {}, name: {}", path, path.exists(), absolute_path, absolute_path.exists(), name);
+            log::debug!("Path: {:?} {}, Absolute: {:?} {}, name: {}", path, path.exists(), absolute_path, absolute_path.exists(), name);
             if path.exists() {
                 Some(path)
             } else if absolute_path.exists() {
