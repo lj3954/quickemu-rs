@@ -428,7 +428,7 @@ impl Relativize for PathBuf {
     fn relativize(&self) -> Result<PathBuf> {
         log::debug!("Relativizing path: {:?}", self);
         let current_dir = std::env::current_dir()?;
-        pathdiff::diff_paths(self, current_dir)
-            .ok_or_else(|| anyhow!("Could not relativize path: {}", self.display()))
+        Ok(pathdiff::diff_paths(self, current_dir)
+            .unwrap_or(self.clone()))
     }
 }
