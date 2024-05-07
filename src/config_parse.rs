@@ -265,7 +265,7 @@ pub fn keyboard_layout(value: (Option<String>, Option<String>)) -> Result<Option
 
 fn find_monitor(monitor: &str, host1: Option<String>, port1: Option<u16>, host2: Option<String>, port2: Option<u16>, socketpath: PathBuf) -> Result<Monitor> {
     match monitor {
-        "none" => if host1.is_some() || port1.is_some() || host2.is_some() || port2.is_some() {
+        "none" => if host1.is_some() || host2.is_some() || port2.is_some() {
             bail!("Monitor type 'none' cannot have any additional parameters.")
         } else {
             Ok(Monitor::None)
