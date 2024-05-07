@@ -22,7 +22,7 @@ impl Display {
         }
     }
 
-    pub fn display_args(&self, guest_os: &GuestOS, arch: &Arch, resolution: Resolution, accel: bool) -> Result<(Vec<String>, Option<Vec<String>>)> {
+    pub fn display_args(&self, guest_os: &GuestOS, arch: &Arch, resolution: Resolution, fullscreen: bool, accel: bool) -> Result<(Vec<String>, Option<Vec<String>>)> {
         let virtio_vga = || if accel { "virtio-vga-gl" } else { "virtio-vga" };
         let (display_device, friendly_display_device) = match arch {
             Arch::x86_64 => match guest_os {
@@ -49,11 +49,11 @@ impl Display {
         let video = match (resolution, guest_os) {
             (Resolution::Custom { width, height }, _) => format!("{display_device},xres={width},yres={height}"),
             (Resolution::Display(display), _) => {
-                let (width, height) = display_resolution(Some(display))?;
+                let (width, height) = display_resolution(Some(display), fullscreen)?;
                 format!("{display_device},xres={width},yres={height}")
             },
             (Resolution::Default, GuestOS::Linux) => {
-                let (width, height) = display_resolution(None)?;
+                let (width, height) = display_resolution(None, fullscreen)?;
                 format!("{display_device},xres={width},yres={height}")
             },
             _ => display_device.to_string(),
@@ -65,7 +65,7 @@ impl Display {
     }
 }
 
-fn display_resolution(name: Option<String>) -> Result<(u32, u32)> {
+fn display_resolution(name: Option<String>, fullscreen: bool) -> Result<(u32, u32)> {
     let display_info = display_info::DisplayInfo::all()?;
     log::debug!("Displays: {:?}", display_info);
     let display = if let Some(monitor) = name {
@@ -76,6 +76,7 @@ fn display_resolution(name: Option<String>) -> Result<(u32, u32)> {
     };
 
     let (width, height) = match display.width {
+        _ if fullscreen => (display.width, display.height),
         3840.. => (3200, 1800),
         2560.. => (2048, 1152),
         1920.. => (1664, 936),
