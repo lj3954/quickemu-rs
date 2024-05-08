@@ -13,6 +13,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use anyhow::{anyhow, bail};
 use config_parse::Relativize;
+use config::ActionType;
 
 fn main() {
     let args = CliArgs::parse();
@@ -22,34 +23,61 @@ fn main() {
         .filter_level(args.verbose.log_level_filter())
         .init();
 
-    if args.vm {
-        let args = parse_conf_file(args).unwrap();
-        let mut sh = OpenOptions::new().create(true).append(true).open(args.vm_dir.join(args.vm_name.clone() + ".sh")).unwrap();
-        let (qemu, qemu_args) = args.into_qemu_args().unwrap();
-        write!(sh, "{}", qemu_args.iter().map(|arg| arg.to_string_lossy()).collect::<Vec<_>>().join(" ")).unwrap();
-        Command::new(qemu).args(qemu_args).spawn().unwrap();
-    } else {
-        let args = parse_conf_file(args).unwrap();
-        log::debug!("CONFIG ARGS: {:?}", args);
-        let _qemu_args = args.into_qemu_args().unwrap();
+    match args.get_action_type() {
+        ActionType::Launch => {
+            let args = prepare_args(args).unwrap_or_else(|e| {
+                log::error!("{}", e);
+                std::process::exit(1);
+            });
+            let mut sh = OpenOptions::new().create(true).append(true).open(args.vm_dir.join(args.vm_name.clone() + ".sh")).unwrap();
+            let (qemu, qemu_args) = args.into_qemu_args().unwrap_or_else(|e| {
+                log::error!("{}", e);
+                std::process::exit(1);
+            });
+            write!(sh, "{}", qemu_args.iter().map(|arg| arg.to_string_lossy()).collect::<Vec<_>>().join(" ")).unwrap();
+            Command::new(qemu).args(qemu_args).spawn().unwrap();
+        },
+        ActionType::DeleteVM => todo!(),
+        ActionType::DeleteDisk => todo!(),
+        ActionType::Snapshot(_snapshot) => todo!(),
+        ActionType::EditConfig => todo!(),
     }
 
     
 }
 
-fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
-    let valid_position = args.config_file.iter().position(|arg| {
+impl CliArgs {
+    fn get_action_type(&self) -> ActionType {
+        if self.delete_vm {
+            ActionType::DeleteVM
+        } else if self.delete_disk {
+            ActionType::DeleteDisk
+        } else if self.edit_config {
+            ActionType::EditConfig
+        } else if let Some(snapshot) = &self.snapshot {
+            ActionType::Snapshot(snapshot.try_into().unwrap_or_else(|e| {
+                log::error!("{}", e);
+                std::process::exit(1);
+            }))
+        } else {
+            ActionType::Launch
+        }
+    }
+}
+
+fn parse_conf(conf_file: &[String]) -> Result<(String, HashMap<String, String>)> {
+    let valid_position = conf_file.iter().position(|arg| {
         ( arg.ends_with(".conf") && PathBuf::from(arg).exists() ) || PathBuf::from(arg.to_owned() + ".conf").exists()
     });
 
     let conf_file = match valid_position {
         Some(position) => {
-            if args.config_file.len() > 1 {
-                args.config_file.iter().enumerate().filter(|(i, _)| *i != position).for_each(|(_, arg)| {
+            if conf_file.len() > 1 {
+                conf_file.iter().enumerate().filter(|(i, _)| *i != position).for_each(|(_, arg)| {
                     log::error!("Unrecognized argument: {}", arg);
                 });
             }
-            let file = args.config_file[position].clone();
+            let file = conf_file[position].clone();
 
             match &file[file.len()-5..] {
                 ".conf" => file,
@@ -63,7 +91,7 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
     let conf = std::fs::read_to_string(&conf_file).map_err(|_| anyhow!("Configuration file {} does not exist.", &conf_file))?;
     log::debug!("Configuration file content: {}", conf);
 
-    let mut conf: HashMap<String, String> = conf.lines().filter_map(|line| {
+    let conf: HashMap<String, String> = conf.lines().filter_map(|line| {
         log::debug!("Parsing line: {}", line);
         if line.starts_with('#') || !line.contains('=') {
             return None;
@@ -73,6 +101,12 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
     }).collect::<HashMap<String, String>>();
 
     log::debug!("{:?}", conf);
+    Ok((conf_file, conf))
+}
+    
+
+fn prepare_args(args: CliArgs) -> Result<config::Args> {
+    let (conf_file, mut conf) = parse_conf(&args.config_file)?;
 
     let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()).with_cpu(CpuRefreshKind::new()));
     log::debug!("{:?}",info);
@@ -110,7 +144,6 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
         floppy: config_parse::parse_optional_path(conf.remove("floppy"), "floppy", vm_dir.as_path())?,
         fullscreen: args.fullscreen,
         image_file: config::Image::try_from((conf_file_path.as_path(), conf.remove("iso"), conf.remove("img")))?,
-        snapshot: config_parse::snapshot(args.snapshot)?,
         status_quo: args.status_quo,
         fixed_iso: config_parse::parse_optional_path(conf.remove("fixed_iso"), "fixed ISO", vm_dir.as_path())?,
         network: config::Network::try_from((conf.remove("network"), conf.remove("macaddr")))?,
@@ -140,19 +173,23 @@ fn parse_conf_file(args: CliArgs) -> Result<config::Args> {
     })
 }
 
-
 #[derive(Parser, Debug)]
+#[clap(group = clap::ArgGroup::new("action").required(true).multiple(true))]
 struct CliArgs {
+    #[arg(long, group = "action")]
+    vm: bool,
     #[arg(long)]
     access: Option<String>,
     #[arg(long)]
     braille: bool,
-    #[arg(long)]
+    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "snapshot", "edit_config"])]
     delete_disk: bool,
-    #[arg(long)]
+    #[arg(long, group = "action", conflicts_with_all = &["delete_disk", "snapshot", "edit_config"])]
     delete_vm: bool,
     #[arg(long)]
     display: Option<config::Display>,
+    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "delete_disk", "snapshot"])]
+    edit_config: bool,
     #[arg(long)]
     fullscreen: bool,
     #[arg(long)]
@@ -163,7 +200,7 @@ struct CliArgs {
     screenpct: Option<u8>,
     #[arg(long)]
     shortcut: bool,
-    #[arg(long, num_args = 1..=2)]
+    #[arg(long, group = "action", num_args = 1..=2, allow_hyphen_values = true, conflicts_with_all = &["delete_vm", "delete_disk", "edit_config"])]
     snapshot: Option<Vec<String>>,
     #[arg(long)]
     status_quo: bool,
@@ -201,8 +238,6 @@ struct CliArgs {
     usb_controller: Option<config::USBController>,
     #[arg(long, num_args = 1.., allow_hyphen_values = true)]
     extra_args: Option<Vec<String>>,
-    #[arg(long)]
-    vm: bool,
     #[command(flatten)]
     verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::WarnLevel>,
     #[arg(required = true)]

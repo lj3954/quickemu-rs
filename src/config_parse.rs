@@ -157,17 +157,17 @@ impl TryFrom<(&Path, Option<String>, Option<String>)> for Image {
     }
 }
 
-pub fn snapshot(input: Option<Vec<String>>) -> Result<Option<Snapshot>> {
-    Ok(match input {
-        Some(input) => Some(match input[0].as_str() {
-            "apply" if input.len() == 2 => Snapshot::Apply(input[1].clone()),
-            "create" if input.len() == 2 => Snapshot::Create(input[1].clone()),
-            "delete" if input.len() == 2 => Snapshot::Delete(input[1].clone()),
-            "info" if input.len() == 1 => Snapshot::Info,
+impl TryFrom<&Vec<String>> for Snapshot {
+    type Error = anyhow::Error;
+    fn try_from(input: &Vec<String>) -> Result<Self> {
+        Ok(match input[0].as_str() {
+            "apply" if input.len() == 2 => Self::Apply(input[1].clone()),
+            "create" if input.len() == 2 => Self::Create(input[1].clone()),
+            "delete" if input.len() == 2 => Self::Delete(input[1].clone()),
+            "info" if input.len() == 1 => Self::Info,
             _ => bail!("Invalid parameters to argument --snapshot: {}", input.join(" ")),
-        }),
-        None => None,
-    })
+        })
+    }
 }
 
 impl TryFrom<(Option<String>, Option<String>)> for Network {

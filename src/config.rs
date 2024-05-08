@@ -19,7 +19,6 @@ pub struct Args {
     pub image_file: Image,
     pub fixed_iso: Option<PathBuf>,
     pub guest_os: GuestOS,
-    pub snapshot: Option<Snapshot>,
     pub status_quo: bool,
     pub system: sysinfo::System,
     pub network: Network,
@@ -250,6 +249,14 @@ pub enum SoundCard {
     AC97,
     ES1370,
     SB16,
+}
+
+pub enum ActionType {
+    Launch,
+    DeleteDisk,
+    DeleteVM,
+    Snapshot(Snapshot),
+    EditConfig,
 }
 
 pub trait BooleanDisplay {
