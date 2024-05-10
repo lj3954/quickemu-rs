@@ -4,7 +4,7 @@ mod display;
 mod arch;
 
 use std::ffi::OsString;
-use std::{io::Write, fs::{write, OpenOptions, create_dir}};
+use std::{io::Write, fs::{OpenOptions, create_dir}};
 use std::process::{Stdio, Command};
 use anyhow::{anyhow, bail, Result};
 use crate::{config_parse::BYTES_PER_GB, config::*};
@@ -44,8 +44,6 @@ impl Args {
         let mut qemu_args: Vec<OsString> = basic_args(&self.vm_name, &self.vm_dir, &self.guest_os, &self.arch);
         let mut print_args: Vec<String> = Vec::with_capacity(16);
         qemu_args.reserve(32);
-
-        write(self.vm_dir.join(self.vm_name.clone() + ".sh"), "#!/usr/bin/env bash\n")?;
         
         qemu_args.extend(self.display.audio_arg());
         cpucores_ram(self.cpu_cores.0, self.cpu_cores.1, &self.system, self.ram, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
