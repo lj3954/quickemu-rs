@@ -6,7 +6,7 @@ mod actions;
 
 use clap::Parser;
 use anyhow::Result;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::process::Command;
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 use std::fs::{OpenOptions, read_to_string};
@@ -89,8 +89,8 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
             let file = conf_file[position].clone();
 
             match &file[file.len()-5..] {
-                ".conf" => file,
-                _ => file + ".conf",
+                ".toml" => file,
+                _ => file + ".toml",
             }
         },
         None => {
@@ -128,14 +128,25 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
     let conf: ConfigFile = toml::from_str(&conf_data).map_err(|e| anyhow!("Failed to parse config file: {}", e))?;
     Ok((conf_file, conf))
 }
-    
+
+pub fn handle_disk_paths(images: &mut Vec<config::DiskImage>, conf_file_path: &Path) -> Result<()> {
+    for image in images {
+        if !image.path.exists() {
+            image.path = conf_file_path.join(&image.path);
+        }
+        if let Ok(path) = image.path.relativize() {
+            image.path = path;
+        }
+    };
+    Ok(())
+}
 
 fn prepare_args(args: CliArgs) -> Result<config::Args> {
     let (conf_file, mut conf) = parse_conf(args.config_file)?;
 
     let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()).with_cpu(CpuRefreshKind::new()));
     log::debug!("{:?}",info);
-    let guest_os = config::GuestOS::try_from((conf.remove("guest_os"), conf.remove("macos_release")))?;
+    let guest_os = &conf.guest_os;
 
     let conf_file_path = PathBuf::from(&conf_file)
         .canonicalize()?
@@ -153,21 +164,11 @@ fn prepare_args(args: CliArgs) -> Result<config::Args> {
     let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket")).to_path_buf();
     let serial_socketpath = vm_dir.join(format!("{vm_name}-serial.socket")).to_path_buf();
 
-    if conf.disk_images.len() < 1 {
+    if conf.disk_images.is_empty() {
         bail!("Your configuration file must contain at least 1 disk image.");
     }
-    let disk_images = conf.disk_images.into_iter().map(|file| {
-        let disk_size = config_parse::size_unit(file.size, None)?;
-        if file.path.exists() {
-            return Ok((file.path.relativize()?, disk_size))
-        }
-        let full_path = conf_file_path.join(file.path);
-        if full_path.exists() {
-            Ok((full_path.to_path_buf(), disk_size))
-        } else {
-            bail!("Disk image {} does not exist", &file.path.to_string_lossy())
-        }
-    }).collect::<Result<Vec<(PathBuf, Option<u64>)>>>()?;
+    handle_disk_paths(&mut conf.disk_images, &conf_file_path)?;
+    log::debug!("{:?}", conf);
     
     Ok(config::Args {
         access: config::Access::from(args.access),
@@ -175,7 +176,7 @@ fn prepare_args(args: CliArgs) -> Result<config::Args> {
         braille: args.braille,
         boot: conf.boot_type,
         cpu_cores: config_parse::cpu_cores(conf.cpu_cores, num_cpus::get(), num_cpus::get_physical())?,
-        disk_images,
+        disk_images: conf.disk_images,
         display: args.display.unwrap_or(conf.display),
         accelerated: conf.accelerated,
         extra_args: args.extra_args,
@@ -184,7 +185,6 @@ fn prepare_args(args: CliArgs) -> Result<config::Args> {
         status_quo: args.status_quo,
         network: conf.network,
         port_forwards: conf.port_forwards,
-        prealloc: conf.preallocation,
         public_dir: config::PublicDir::from((conf.public_dir, args.public_dir)),
         ram: config_parse::size_unit(conf.ram, Some(info.total_memory()))?.unwrap(),
         tpm: conf.tpm,
@@ -203,7 +203,7 @@ fn prepare_args(args: CliArgs) -> Result<config::Args> {
         system: info,
         vm_name,
         vm_dir,
-        guest_os,
+        guest_os: conf.guest_os,
     })
 }
 

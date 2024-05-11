@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow, bail};
 use std::convert::TryFrom;
 use std::net::{TcpListener, SocketAddrV4, Ipv4Addr};
 use core::num::NonZeroUsize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 impl From<Option<String>> for Access {
     fn from(value: Option<String>) -> Self {
@@ -48,16 +48,16 @@ pub fn cpu_cores(input: Option<NonZeroUsize>, logical: usize, physical: usize) -
     }, logical > physical))
 }
 
-pub fn parse_optional_bool(value: Option<String>, default: bool) -> Result<bool> {
-    match value {
-        Some(text) => match text.as_str() {
-            "true" | "on" => Ok(true),
-            "false" | "off" => Ok(false),
-            _ => bail!("Invalid value: {}", text),
-        },
-        None => Ok(default),
-    }
-}
+//pub fn parse_optional_bool(value: Option<String>, default: bool) -> Result<bool> {
+//    match value {
+//        Some(text) => match text.as_str() {
+//            "true" | "on" => Ok(true),
+//            "false" | "off" => Ok(false),
+//            _ => bail!("Invalid value: {}", text),
+//        },
+//        None => Ok(default),
+//    }
+//}
 
 pub const BYTES_PER_GB: u64 = 1024 * 1024 * 1024;
 pub fn size_unit(input: Option<String>, ram: Option<u64>) -> Result<Option<u64>> {
@@ -118,28 +118,28 @@ impl TryFrom<(Option<String>, Option<Display>)> for Display {
     }
 }
 
-impl TryFrom<(&Path, Option<String>, Option<String>)> for Image {
-    type Error = anyhow::Error;
-    fn try_from(value: (&Path, Option<String>, Option<String>)) -> Result<Self> {
-        let file_path= |file: String, filetype: &str| {
-            let full_path = value.0.join(&file);
-            let path = file.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} file path: {}", filetype, file))?;
-            if path.exists() {
-                Ok(path)
-            } else if full_path.exists() {
-                Ok(full_path.relativize()?)
-            } else {
-                bail!("{} file does not exist: {}", filetype, file);
-            }
-        };
-        Ok(match value {
-            (_, Some(_), Some(_)) => bail!("Config file cannot contain both an img and an iso file."),
-            (_, Some(iso), _) => Self::Iso(file_path(iso, "ISO")?),
-            (.., Some(img)) => Self::Img(file_path(img, "IMG")?),
-            _ => Self::None,
-        })
-    }
-}
+//impl TryFrom<(&Path, Option<String>, Option<String>)> for Image {
+//    type Error = anyhow::Error;
+//    fn try_from(value: (&Path, Option<String>, Option<String>)) -> Result<Self> {
+//        let file_path= |file: String, filetype: &str| {
+//            let full_path = value.0.join(&file);
+//            let path = file.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} file path: {}", filetype, file))?;
+//            if path.exists() {
+//                Ok(path)
+//            } else if full_path.exists() {
+//                Ok(full_path.relativize()?)
+//            } else {
+//                bail!("{} file does not exist: {}", filetype, file);
+//            }
+//        };
+//        Ok(match value {
+//            (_, Some(_), Some(_)) => bail!("Config file cannot contain both an img and an iso file."),
+//            (_, Some(iso), _) => Self::Iso(file_path(iso, "ISO")?),
+//            (.., Some(img)) => Self::Img(file_path(img, "IMG")?),
+//            _ => Self::None,
+//        })
+//    }
+//}
 
 impl TryFrom<&Vec<String>> for Snapshot {
     type Error = anyhow::Error;
@@ -170,17 +170,17 @@ impl TryFrom<(Option<String>, Option<String>)> for Network {
     }
 }
 
-pub fn port_forwards(bash_array: Option<String>) -> Result<Option<Vec<(u16, u16)>>> {
-    match bash_array {
-        Some(array) => {
-            let ports = array.split_whitespace().filter_map(|pair| pair.trim_matches(['(', ')', ',', ' ', '"']).split_once(':'));
-            ports.map(|(host, guest)| {
-                Ok(Some((host.parse::<u16>()?, guest.parse::<u16>()?)))
-            }).collect()
-        },
-        None => Ok(None),
-    }
-}
+//pub fn port_forwards(bash_array: Option<String>) -> Result<Option<Vec<(u16, u16)>>> {
+//    match bash_array {
+//        Some(array) => {
+//            let ports = array.split_whitespace().filter_map(|pair| pair.trim_matches(['(', ')', ',', ' ', '"']).split_once(':'));
+//            ports.map(|(host, guest)| {
+//                Ok(Some((host.parse::<u16>()?, guest.parse::<u16>()?)))
+//            }).collect()
+//        },
+//        None => Ok(None),
+//    }
+//}
 
 impl TryFrom<Option<String>> for PreAlloc {
     type Error = anyhow::Error;
@@ -211,31 +211,31 @@ impl From<(Option<String>, Option<String>)> for PublicDir {
     }
 }
 
-impl TryFrom<(Option<String>, Option<String>)> for GuestOS {
-    type Error = anyhow::Error;
-    fn try_from(value: (Option<String>, Option<String>)) -> Result<Self> {
-        match value {
-            (Some(os), macos_release) => Ok(match os.to_lowercase().as_str() {
-                "macos" => Self::MacOS(MacOSRelease::try_from(macos_release)?),
-                _ if macos_release.is_some() => bail!("macOS releases are not supported for OS {}", os),
-                "linux" => Self::Linux,
-                "linux_old" => Self::LinuxOld,
-                "windows" => Self::Windows,
-                "windows-server" => Self::WindowsServer,
-                "freebsd" => Self::FreeBSD,
-                "ghostbsd" => Self::GhostBSD,
-                "freedos" => Self::FreeDOS,
-                "haiku" => Self::Haiku,
-                "solaris" => Self::Solaris,
-                "kolibrios" => Self::KolibriOS,
-                "reactos" => Self::ReactOS,
-                "batocera" => Self::Batocera,
-                _ => bail!("The guest_os specified in the configuration file is unsupported."),
-            }),
-            _ => bail!("The configuration file must contain a guest_os field"),
-        }
-    }
-}
+//impl TryFrom<(Option<String>, Option<String>)> for GuestOS {
+//    type Error = anyhow::Error;
+//    fn try_from(value: (Option<String>, Option<String>)) -> Result<Self> {
+//        match value {
+//            (Some(os), macos_release) => Ok(match os.to_lowercase().as_str() {
+//                "macos" => Self::MacOS(MacOSRelease::try_from(macos_release)?),
+//                _ if macos_release.is_some() => bail!("macOS releases are not supported for OS {}", os),
+//                "linux" => Self::Linux,
+//                "linux_old" => Self::LinuxOld,
+//                "windows" => Self::Windows,
+//                "windows-server" => Self::WindowsServer,
+//                "freebsd" => Self::FreeBSD,
+//                "ghostbsd" => Self::GhostBSD,
+//                "freedos" => Self::FreeDOS,
+//                "haiku" => Self::Haiku,
+//                "solaris" => Self::Solaris,
+//                "kolibrios" => Self::KolibriOS,
+//                "reactos" => Self::ReactOS,
+//                "batocera" => Self::Batocera,
+//                _ => bail!("The guest_os specified in the configuration file is unsupported."),
+//            }),
+//            _ => bail!("The configuration file must contain a guest_os field"),
+//        }
+//    }
+//}
 
 pub fn keyboard_layout(value: (Option<String>, Option<String>)) -> Result<Option<String>> {
     Ok(match value {
@@ -251,7 +251,7 @@ pub fn keyboard_layout(value: (Option<String>, Option<String>)) -> Result<Option
 impl TryFrom<(SerdeMonitor, Option<String>, Option<String>, Option<u16>, u16, PathBuf)> for Monitor {
     type Error = anyhow::Error;
     fn try_from(value: (SerdeMonitor, Option<String>, Option<String>, Option<u16>, u16, PathBuf)) -> Result<Self> {
-        let monitor_type = value.1.unwrap_or(value.0.monitor_type);
+        let monitor_type = value.1.unwrap_or(value.0.r#type);
         let host = value.2.or(value.0.telnet_host);
         let port = value.3.or(value.0.telnet_port).unwrap_or(value.4);
         let socketpath = value.5;
@@ -308,7 +308,7 @@ impl From<&GuestOS> for USBController {
     fn from(value: &GuestOS) -> Self {
         match value {
             GuestOS::Solaris => Self::Xhci,
-            GuestOS::MacOS(release) if release >= &MacOSRelease::BigSur => Self::Xhci,
+            GuestOS::MacOS { release } if release >= &MacOSRelease::BigSur => Self::Xhci,
             _ => Self::Ehci,
         }
     }
@@ -343,27 +343,27 @@ pub fn port(input: (Option<String>, Option<u16>), default: u16, offset: u16) -> 
     })
 }
 
-pub fn usb_devices(input: Option<String>) -> Option<Vec<String>> {
-    input.map(|devices| devices.split_whitespace().map(|device| device.trim_matches(['(', ')', ',', ' ', '"']).to_string()).collect())
-}
+//pub fn usb_devices(input: Option<String>) -> Option<Vec<String>> {
+//    input.map(|devices| devices.split_whitespace().map(|device| device.trim_matches(['(', ')', ',', ' ', '"']).to_string()).collect())
+//}
 
-pub fn parse_optional_path(value: Option<String>, name: &str, vm_dir: &Path) -> Result<Option<PathBuf>> {
-    Ok(match value {
-        Some(path_string) => {
-            let path = path_string.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} path: {}", name, path_string))?;
-            let absolute_path = vm_dir.join(&path);
-            log::debug!("Path: {:?} {}, Absolute: {:?} {}, name: {}", path, path.exists(), absolute_path, absolute_path.exists(), name);
-            if path.exists() {
-                Some(path)
-            } else if absolute_path.exists() {
-                Some(absolute_path)
-            } else {
-                bail!("Could not find {} file: {}. Please verify that it exists.", name, path_string);
-            }
-        },
-        None => None,
-    })
-}
+//pub fn parse_optional_path(value: Option<String>, name: &str, vm_dir: &Path) -> Result<Option<PathBuf>> {
+//    Ok(match value {
+//        Some(path_string) => {
+//            let path = path_string.parse::<PathBuf>().map_err(|_| anyhow!("Could not parse {} path: {}", name, path_string))?;
+//            let absolute_path = vm_dir.join(&path);
+//            log::debug!("Path: {:?} {}, Absolute: {:?} {}, name: {}", path, path.exists(), absolute_path, absolute_path.exists(), name);
+//            if path.exists() {
+//                Some(path)
+//            } else if absolute_path.exists() {
+//                Some(absolute_path)
+//            } else {
+//                bail!("Could not find {} file: {}. Please verify that it exists.", name, path_string);
+//            }
+//        },
+//        None => None,
+//    })
+//}
 
 pub trait Relativize {
     fn relativize(&self) -> Result<PathBuf>;

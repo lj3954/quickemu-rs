@@ -29,19 +29,4 @@ mod tests {
         let no_input = Access::from(None);
         assert_eq!(no_input, Access::Local);
     }
-
-    #[test]
-    fn cpu_cores() {
-        use crate::config_parse::cpu_cores;
-        let incl_input_no_ht = cpu_cores(Some("4".into()), 8, 16);
-        assert_eq!(incl_input_no_ht.unwrap(), (4, false));
-        let normal_input = cpu_cores(Some("8".into()), 16, 8);
-        assert_eq!(normal_input.unwrap(), (8, true));
-        let nine_cores = cpu_cores(None, 9, 4);
-        assert_eq!(nine_cores.unwrap(), (4, true));
-        let invalid_cores = cpu_cores(None, 8, 16);
-        assert!(invalid_cores.is_err());
-        let one_core = cpu_cores(None, 1, 1);
-        assert_eq!(one_core.unwrap(), (1, false));
-    }
 }

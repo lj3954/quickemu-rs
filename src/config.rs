@@ -1,7 +1,7 @@
 use clap::ValueEnum;
-use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
 use std::fmt;
-use serde::{Serialize, Deserialize};
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct Args {
@@ -10,7 +10,7 @@ pub struct Args {
     pub braille: bool,
     pub boot: BootType,
     pub cpu_cores: (usize, bool),
-    pub disk_images: Vec<(PathBuf, Option<u64>)>,
+    pub disk_images: Vec<DiskImage>,
     pub display: Display,
     pub accelerated: bool,
     pub extra_args: Option<Vec<String>>,
@@ -21,7 +21,6 @@ pub struct Args {
     pub system: sysinfo::System,
     pub network: Network,
     pub port_forwards: Option<Vec<PortForward>>,
-    pub prealloc: PreAlloc,
     pub public_dir: PublicDir,
     pub ram: u64,
     pub tpm: bool,
@@ -41,7 +40,7 @@ pub struct Args {
     pub vm_name: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigFile {
     pub guest_os: GuestOS,
     #[serde(default = "default_arch")]
@@ -58,8 +57,6 @@ pub struct ConfigFile {
     #[serde(default = "default_network")]
     pub network: Network,
     pub port_forwards: Option<Vec<PortForward>>,
-    #[serde(default = "default_prealloc")]
-    pub preallocation: PreAlloc,
     pub public_dir: Option<String>,
     pub ram: Option<String>,
     #[serde(default)]
@@ -94,7 +91,7 @@ fn default_prealloc() -> PreAlloc { PreAlloc::Off }
 fn default_keyboard() -> Keyboard { Keyboard::Usb }
 fn default_soundcard() -> SoundCard { SoundCard::IntelHDA }
 fn default_network() -> Network { Network::Nat }
-fn default_monitor() -> SerdeMonitor { SerdeMonitor { monitor_type: "socket".to_string(), telnet_host: None, telnet_port: None } }
+fn default_monitor() -> SerdeMonitor { SerdeMonitor { r#type: "socket".to_string(), telnet_host: None, telnet_port: None } }
 
 #[derive(Debug, PartialEq)]
 pub enum Access {
@@ -120,7 +117,17 @@ pub enum BootType {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskImage {
     pub path: PathBuf,
-    pub size: Option<String>,
+    #[serde(deserialize_with = "deserialize_disk", default)]
+    pub size: Option<u64>,
+    #[serde(default = "default_prealloc")]
+    pub preallocation: PreAlloc,
+}
+pub fn deserialize_disk<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<String>::deserialize(deserializer)?;
+    crate::config_parse::size_unit(value, None).map_err(serde::de::Error::custom)
 }
 
 #[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
@@ -149,7 +156,7 @@ pub enum GuestOS {
     LinuxOld,
     Windows,
     WindowsServer,
-    MacOS(MacOSRelease),
+    MacOS { release: MacOSRelease },
     FreeBSD,
     GhostBSD,
     FreeDOS,
@@ -167,7 +174,7 @@ impl fmt::Display for GuestOS {
             GuestOS::LinuxOld => write!(f, "Linux (Old)"),
             GuestOS::Windows => write!(f, "Windows"),
             GuestOS::WindowsServer => write!(f, "Windows Server"),
-            GuestOS::MacOS(_) => write!(f, "macOS"),
+            GuestOS::MacOS {..} => write!(f, "macOS"),
             GuestOS::FreeBSD => write!(f, "FreeBSD"),
             GuestOS::GhostBSD => write!(f, "GhostBSD"),
             GuestOS::FreeDOS => write!(f, "FreeDOS"),
@@ -188,14 +195,17 @@ pub enum MacOSRelease {
     BigSur,
     Monterey,
     Ventura,
-    Sonoma
+    Sonoma,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Network {
     None,
     Restrict,
-    Bridged { bridge: String, mac_addr: Option<String> },
+    Bridged {
+        bridge: String,
+        mac_addr: Option<String>,
+    },
     Nat,
 }
 
@@ -219,8 +229,8 @@ impl fmt::Display for Image {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PortForward {
-    host: u16,
-    guest: u16,
+    pub host: u16,
+    pub guest: u16,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -279,9 +289,9 @@ pub enum Monitor {
     Telnet { port: u16, host: String },
     Socket { socketpath: PathBuf },
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SerdeMonitor {
-    pub monitor_type: String,
+    pub r#type: String,
     pub telnet_host: Option<String>,
     pub telnet_port: Option<u16>,
 }

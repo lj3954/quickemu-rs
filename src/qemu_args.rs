@@ -66,7 +66,7 @@ impl Args {
             qemu_args.append(&mut args);
         }
         
-        images::image_args(&self.vm_dir, (self.image_file, self.fixed_iso, self.floppy), self.disk_img, self.disk_size, &self.guest_os, &self.prealloc, self.status_quo)?.add_args(&mut qemu_args, &mut print_args);
+        images::image_args(&self.vm_dir, self.image_files, self.disk_images, &self.guest_os, self.status_quo)?.add_args(&mut qemu_args, &mut print_args);
         self.usb_controller.to_args(&self.guest_os, smartcard, self.usb_devices)?.add_args(&mut qemu_args, &mut print_args);
         self.keyboard.to_args().add_args(&mut qemu_args, &mut print_args);
 
@@ -168,14 +168,14 @@ impl BootType {
                     _ => bail!("Could not determine the correct RISC-V bootloader. Please ensure that there are not multiple `.bin` files in your VM directory."),
                 }
             },
-            (Self::Legacy, Arch::x86_64) => if let GuestOS::MacOS(_) = guest_os {
+            (Self::Legacy, Arch::x86_64) => if let GuestOS::MacOS {..} = guest_os {
                 bail!("macOS guests require EFI boot.");
             } else {
                 Ok(("Boot: Legacy/BIOS".to_string(), None))
             },
             (Self::Efi { secure_boot }, _) => {
                 let (ovmf_code, ovmf_vars) = match guest_os {
-                    GuestOS::MacOS(_) => {
+                    GuestOS::MacOS {..} => {
                         if *secure_boot {
                             bail!("macOS guests do not support Secure Boot.");
                         }
@@ -245,14 +245,14 @@ fn find_firmware(firmware: &[(&str, &str)]) -> Option<(PathBuf, PathBuf)> {
 }
 
 impl Network {
-    fn into_args(self, vmname: &str, ssh: u16, port_forwards: Option<Vec<(u16, u16)>>, publicdir: Option<&OsString>, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
+    fn into_args(self, vmname: &str, ssh: u16, port_forwards: Option<Vec<PortForward>>, publicdir: Option<&OsString>, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
         match self {
             Self::None => Ok((vec!["-nic".into(), "none".into()], Some(vec!["Network: Disabled".into()]))),
             Self::Restrict | Self::Nat => {
                 let mut msgs = Vec::new();
                 let port_forwards = port_forwards.map(|forwards| {
                     let data: (Vec<String>, Vec<String>) = forwards.iter()
-                        .map(|(host, guest)| (format!(",hostfwd=tcp::{}-:{},hostfwd=udp::{}-:{}", host, guest, host, guest), format!("{} => {}", host, guest)))
+                        .map(|pf| (format!(",hostfwd=tcp::{}-:{},hostfwd=udp::{}-:{}", pf.host, pf.guest, pf.host, pf.guest), format!("{} => {}", pf.host, pf.guest)))
                         .unzip();
                     msgs.push(format!("Port forwards: {}", data.1.join(", ")));
                     data.0.join("")
@@ -348,7 +348,7 @@ fn tpm_args(vm_dir: &Path, vm_name: &str) -> Result<([OsString; 6], String)> {
 
 fn cpucores_ram(cores: usize, threads: bool, system_info: &System, ram: u64, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
     if ram < 4 * (1024 * 1024 * 1024) {
-        if let GuestOS::MacOS(_) | GuestOS::Windows | GuestOS::WindowsServer = guest_os {
+        if let GuestOS::MacOS {..} | GuestOS::Windows | GuestOS::WindowsServer = guest_os {
             bail!("{} guests require at least 4GB of RAM.", guest_os);
         }
     }
@@ -379,7 +379,7 @@ fn cpucores_ram(cores: usize, threads: bool, system_info: &System, ram: u64, gue
     args.push(ram.to_string() + "b");
 
     match guest_os {
-        GuestOS::MacOS(release) if !matches!(release, MacOSRelease::HighSierra | MacOSRelease::Mojave | MacOSRelease::Catalina) => (),
+        GuestOS::MacOS { release } if !matches!(release, MacOSRelease::HighSierra | MacOSRelease::Mojave | MacOSRelease::Catalina) => (),
         _ => {
             args.push("-device".into());
             args.push("virtio-balloon".into());
@@ -392,7 +392,7 @@ fn cpucores_ram(cores: usize, threads: bool, system_info: &System, ram: u64, gue
 impl USBController {
     fn to_args(&self, guest_os: &GuestOS, smartcard: Option<std::process::Child>, usb_devices: Option<Vec<String>>) -> Result<(Vec<String>, Option<Vec<String>>)> {
         let passthrough_controller = match guest_os {
-            GuestOS::MacOS(release) if release < &MacOSRelease::BigSur => "usb-ehci",
+            GuestOS::MacOS { release } if release < &MacOSRelease::BigSur => "usb-ehci",
             _ => "qemu-xhci",
         };
         let mut args = vec!["-device".into(), "virtio-rng-pci,rng=rng0".into(),
@@ -456,14 +456,14 @@ fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsStr
     let home_dir = dirs::home_dir().ok_or(anyhow!("Could not find home directory"))?;
     let username = home_dir.file_name().ok_or(anyhow!("Could not find username"))?;
     
-    if let GuestOS::MacOS(_) = guest_os {
+    if let GuestOS::MacOS {..} = guest_os {
         print_args.push("WebDAV - On guest: build spice-webdavd (https://gitlab.gnome.org/GNOME/phodav/-/merge_requests/24)\n    Then: Finder -> Connect to Server -> http://localhost:9843/".into());
     } else {
         print_args.push("WebDAV - On guest: dav://localhost:9843/".into());
     }
 
     match guest_os {
-        GuestOS::MacOS(_) => {
+        GuestOS::MacOS {..} => {
             print_args.push("9P - On guest: `sudo mount_9p Public-".to_string() + &username.to_string_lossy() + " ~/Public`");
             if PathBuf::from(publicdir).metadata()?.permissions().readonly() {
                 print_args.push("9P - On host - Required for macOS integration: `sudo chmod -r 777 ".to_string() + &publicdir.to_string_lossy() + "`");

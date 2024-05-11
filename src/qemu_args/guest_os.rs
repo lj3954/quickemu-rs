@@ -28,7 +28,7 @@ impl GuestOS {
             bail!("CPU Virtualization{} is required for x86_64 guests. Please enable it in your BIOS.", virtualization_type);
         }
 
-        if let GuestOS::MacOS(release) = self {
+        if let GuestOS::MacOS { release} = self {
             if matches!(release, MacOSRelease::Ventura | MacOSRelease::Sonoma) {
                 if let Some(extended_features) = cpuid.get_extended_feature_info() {
                     if !(cpu_features.has_sse42() || extended_features.has_avx2()) {
@@ -49,7 +49,7 @@ impl GuestOS {
         match self {
             Self::Batocera | Self::FreeDOS | Self::Haiku => "rtl8139",
             Self::ReactOS => "e1000",
-            Self::MacOS(release) => match release {
+            Self::MacOS { release } => match release {
                 MacOSRelease::BigSur | MacOSRelease::Monterey | MacOSRelease::Ventura | MacOSRelease::Sonoma => "virtio-net",
                 _ => "vmxnet3",
             },
@@ -71,8 +71,8 @@ impl GuestOS {
                 let cpu_arg = match self {
                     Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::LinuxOld | Self::Solaris => default_cpu(),
                     Self::KolibriOS | Self::ReactOS => "qemu32".to_string(),
-                    Self::MacOS(release) if release >= &MacOSRelease::Ventura => "Haswell-noTSX-IBRS,vendor=GenuineIntel,+sse3,+sse4.2,+aes,+xsave,+avx,+xsaveopt,+xsavec,+xgetbv1,+avx2,+bmi2,+smep,+bmi1,+fma,+movbe,+invtsc".to_string(),
-                    Self::MacOS(_) => "Penryn,vendor=GenuineIntel,+aes,+avx,+bmi1,+bmi2,+fma,+hypervisor,+invtsc,+kvm_pv_eoi,+kvm_pv_unhalt,+popcnt,+ssse3,+sse4.2,vmware-cpuid-freq=on,+xsave,+xsaveopt,check".to_string(),
+                    Self::MacOS { release } if release >= &MacOSRelease::Ventura => "Haswell-noTSX-IBRS,vendor=GenuineIntel,+sse3,+sse4.2,+aes,+xsave,+avx,+xsaveopt,+xsavec,+xgetbv1,+avx2,+bmi2,+smep,+bmi1,+fma,+movbe,+invtsc".to_string(),
+                    Self::MacOS {..} => "Penryn,vendor=GenuineIntel,+aes,+avx,+bmi1,+bmi2,+fma,+hypervisor,+invtsc,+kvm_pv_eoi,+kvm_pv_unhalt,+popcnt,+ssse3,+sse4.2,vmware-cpuid-freq=on,+xsave,+xsaveopt,check".to_string(),
                     Self::Windows | Self::WindowsServer => default_cpu() + ",+hypervisor,+invtsc,l3-cache=on,migratable=no,hv_passthrough",
                 };
 
@@ -93,7 +93,7 @@ impl GuestOS {
     pub fn disk_size(&self) -> u64 {
         match self {
             Self::Windows | Self::WindowsServer => 64 * BYTES_PER_GB,
-            Self::MacOS(_) => 96 * BYTES_PER_GB,
+            Self::MacOS {..} => 96 * BYTES_PER_GB,
             Self::ReactOS | Self::KolibriOS => 16 * BYTES_PER_GB,
             _ => 32 * BYTES_PER_GB,
         }
@@ -101,7 +101,7 @@ impl GuestOS {
 
     pub fn guest_tweaks(&self) -> Option<Vec<OsString>> {
         match self {
-            Self::MacOS(_) => {
+            Self::MacOS {..} => {
                 let mut osk = OsString::from("isa-applesmc,osk=");
                 osk.push(String::from_utf8_lossy(OSK).to_string());
                 Some(vec!["-global".into(), "kvm-pit.lost_tick_policy=discard".into(), "-global".into(), "ICH9-LPC.disable_s3=1".into(), "-device".into(), osk])
