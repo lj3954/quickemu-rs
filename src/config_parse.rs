@@ -34,9 +34,9 @@ impl TryFrom<Option<String>> for Arch {
     }
 }
     
-pub fn cpu_cores(input: Option<String>, logical: usize, physical: usize) -> Result<(usize, bool)> {
+pub fn cpu_cores(input: Option<NonZeroUsize>, logical: usize, physical: usize) -> Result<(usize, bool)> {
     Ok((match input {
-        Some(core_string) => core_string.parse::<NonZeroUsize>()?.get(),
+        Some(cores) => cores.into(),
         None => match logical {
             _ if physical > logical => bail!("Found more physical cores than logical cores. Please manually set your core count in the configuration file."),
             32.. => 16,
@@ -46,22 +46,6 @@ pub fn cpu_cores(input: Option<String>, logical: usize, physical: usize) -> Resu
             _ => 1,
         },
     }, logical > physical))
-}
-
-impl TryFrom<(Option<String>, Option<String>)> for BootType {
-    type Error = anyhow::Error;
-    fn try_from(value: (Option<String>, Option<String>)) -> Result<Self> {
-        let secure_boot = parse_optional_bool(value.1, false)?;
-        Ok(match value.0 {
-            Some(boot_type) => match boot_type.as_str() {
-                "efi" => Self::Efi { secure_boot },
-                _ if secure_boot => bail!("Secure boot is only supported with the EFI boot type."),
-                "legacy" | "bios" => Self::Legacy,
-                _ => bail!("Specified boot type {} is invalid. Please check your config file. Valid boot types are 'efi', 'legacy'/'bios'", boot_type),
-            },
-            _ => Self::Efi { secure_boot },
-        })
-    }
 }
 
 pub fn parse_optional_bool(value: Option<String>, default: bool) -> Result<bool> {
@@ -264,56 +248,30 @@ pub fn keyboard_layout(value: (Option<String>, Option<String>)) -> Result<Option
     })
 }
 
-fn find_monitor(monitor: &str, host1: Option<String>, port1: Option<u16>, host2: Option<String>, port2: Option<u16>, socketpath: PathBuf) -> Result<Monitor> {
-    match monitor {
-        "none" => if host1.is_some() || host2.is_some() || port2.is_some() {
-            bail!("Monitor type 'none' cannot have any additional parameters.")
-        } else {
-            Ok(Monitor::None)
-        },
-        "telnet" => Ok(Monitor::Telnet {
-            host: match (host1, host2) {
-                (_, Some(host)) => host,
-                (Some(host), _) => host,
-                _ => "localhost".to_string(),
-            },
-            port: port2.unwrap_or(port1.unwrap()),
-        }),
-        "socket" => Ok(Monitor::Socket { socketpath }),
-        _ => bail!("Invalid monitor type: {}", monitor),
-    }
-}
-
-
-
-impl TryFrom<([(Option<String>, Option<String>, Option<u16>); 2], PathBuf)> for Monitor {
+impl TryFrom<(SerdeMonitor, Option<String>, Option<String>, Option<u16>, u16, PathBuf)> for Monitor {
     type Error = anyhow::Error;
-    fn try_from(value: ([(Option<String>, Option<String>, Option<u16>); 2], PathBuf)) -> Result<Self> {
-        let (socketpath, host1, port1, host2, port2) = (value.1, value.0[0].1.clone(), value.0[0].2, value.0[1].1.clone(), value.0[1].2);
-        match (&value.0[0].0, &value.0[1].0) {
-            (_, Some(monitor)) => find_monitor(monitor, host1, port1, host2, port2, socketpath),
-            (Some(monitor), _) => find_monitor(monitor, host1, port1, host2, port2, socketpath),
-            _ => find_monitor("socket", host1, port1, host2, port2, socketpath),
+    fn try_from(value: (SerdeMonitor, Option<String>, Option<String>, Option<u16>, u16, PathBuf)) -> Result<Self> {
+        let monitor_type = value.1.unwrap_or(value.0.monitor_type);
+        let host = value.2.or(value.0.telnet_host);
+        let port = value.3.or(value.0.telnet_port).unwrap_or(value.4);
+        let socketpath = value.5;
+
+        match monitor_type.as_str() {
+            "none" if host.is_some() || value.3.is_some() => bail!("Monitor type 'none' cannot have any additional parameters."),
+            "none" => Ok(Monitor::None),
+            "telnet" => Ok(Monitor::Telnet { host: host.unwrap_or("localhost".to_string()), port }),
+            "socket" => Ok(Monitor::Socket { socketpath }),
+            _ => bail!("Invalid monitor type: {}", monitor_type),
         }
     }
 }
 
-impl TryFrom<(Option<String>, Option<Mouse>, &GuestOS)> for Mouse {
-    type Error = anyhow::Error;
-    fn try_from(value: (Option<String>, Option<Mouse>, &GuestOS)) -> Result<Self> {
-        Ok(match value {
-            (_, Some(mouse), _) => mouse,
-            (Some(mouse), ..) => match mouse.as_str() {
-                "usb" => Mouse::Usb,
-                "ps2" => Mouse::PS2,
-                "virtio" => Mouse::Virtio,
-                _ => bail!("Invalid mouse type: {}", mouse),
-            },
-            (_, _, os) => match os {
-                GuestOS::FreeBSD | GuestOS::GhostBSD => Mouse::Usb,
-                _ => Mouse::Tablet,
-            },
-        })
+impl From<&GuestOS> for Mouse {
+    fn from(value: &GuestOS) -> Self {
+        match value {
+            GuestOS::FreeBSD | GuestOS::GhostBSD => Self::Usb,
+            _ => Self::Tablet,
+        }
     }
 }
 
@@ -336,38 +294,23 @@ impl TryFrom<Option<String>> for MacOSRelease {
     }
 }
 
-impl TryFrom<(Option<String>, Option<String>, Option<String>)> for Resolution {
-    type Error = anyhow::Error;
-    fn try_from(value: (Option<String>, Option<String>, Option<String>)) -> Result<Self> {
+impl From<(Resolution, Option<u32>, Option<u32>, Option<String>)> for Resolution {
+    fn from(value: (Resolution, Option<u32>, Option<u32>, Option<String>)) -> Self {
         match value {
-            (Some(resolution), ..) | (.., Some(resolution)) => {
-                let (width, height) = resolution.split_once('x').ok_or_else(|| anyhow!("Invalid resolution: {}", resolution))?;
-                Ok(Resolution::Custom {
-                    width: width.parse()?,
-                    height: height.parse()?,
-                })
-            },
-            (_, Some(screen), _) => Ok(Resolution::Display(screen)),
-            _ => Ok(Resolution::Default),
+            (_, Some(width), Some(height), _) => Self::Custom { width, height },
+            (.., Some(screen)) => Self::Display(screen),
+            (res, ..) => res,
         }
     }
 }
 
-impl TryFrom<(Option<String>, Option<USBController>, &GuestOS)> for USBController {
-    type Error = anyhow::Error;
-    fn try_from(value: (Option<String>, Option<USBController>, &GuestOS)) -> Result<Self> {
-        Ok(match value {
-            (_, Some(controller), _) => controller,
-            (Some(controller), ..) => match controller.as_str() {
-                "none" => Self::None,
-                "ehci" => Self::Ehci,
-                "xhci" => Self::Xhci,
-                _ => bail!("Invalid USB controller: {}", controller),
-            },
-            (.., GuestOS::Solaris) => Self::Xhci,
-            (.., GuestOS::MacOS(release)) if release >= &MacOSRelease::BigSur => Self::Xhci,
+impl From<&GuestOS> for USBController {
+    fn from(value: &GuestOS) -> Self {
+        match value {
+            GuestOS::Solaris => Self::Xhci,
+            GuestOS::MacOS(release) if release >= &MacOSRelease::BigSur => Self::Xhci,
             _ => Self::Ehci,
-        })
+        }
     }
 }
 

@@ -7,14 +7,13 @@ mod actions;
 use clap::Parser;
 use anyhow::Result;
 use std::path::PathBuf;
-use std::collections::HashMap;
 use std::process::Command;
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
-use std::fs::OpenOptions;
+use std::fs::{OpenOptions, read_to_string};
 use std::io::Write;
 use anyhow::{anyhow, bail};
 use config_parse::Relativize;
-use config::ActionType;
+use config::{ActionType, ConfigFile};
 use std::os::unix::fs::PermissionsExt;
 
 fn main() {
@@ -43,7 +42,7 @@ fn main() {
         },
         ActionType::DeleteVM => todo!(),
         ActionType::DeleteDisk => todo!(),
-        ActionType::Snapshot(snapshot) => match snapshot.perform_action(&args.config_file) {
+        ActionType::Snapshot(snapshot) => match snapshot.perform_action(args.config_file) {
             Ok(output) => println!("{}", output),
             Err(e) => {
                 log::error!("{}", e);
@@ -75,9 +74,9 @@ impl CliArgs {
     }
 }
 
-fn parse_conf(conf_file: &[String]) -> Result<(String, HashMap<String, String>)> {
+fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
     let valid_position = conf_file.iter().position(|arg| {
-        ( arg.ends_with(".conf") && PathBuf::from(arg).exists() ) || PathBuf::from(arg.to_owned() + ".conf").exists()
+        ( arg.ends_with(".toml") && PathBuf::from(arg).exists() ) || PathBuf::from(arg.to_owned() + ".toml").exists()
     });
 
     let conf_file = match valid_position {
@@ -94,29 +93,45 @@ fn parse_conf(conf_file: &[String]) -> Result<(String, HashMap<String, String>)>
                 _ => file + ".conf",
             }
         },
-        None => bail!("You are required to input a valid configuration file."),
+        None => {
+            let pkg = env!("CARGO_PKG_NAME");
+            match conf_file.into_iter().find_map(|arg| {
+                let arg = if arg.ends_with(".conf") { arg } else { arg + ".conf" };
+                if PathBuf::from(&arg).exists() {
+                    Some(arg)
+                } else {
+                    None
+                }
+            }) {
+                Some(conf) =>bail!("{} no longer supports '.conf' configuration files.\nPlease convert your configuration file to the TOML format using `{} --migrate-config {} {}`.", pkg, pkg, conf, conf.replace(".conf", ".toml")),
+                None => bail!("You are required to input a valid configuration file."),
+            }
+        },
     };
 
     log::info!("Using configuration file: {}", &conf_file);
-    let conf = std::fs::read_to_string(&conf_file).map_err(|_| anyhow!("Configuration file {} does not exist.", &conf_file))?;
-    log::debug!("Configuration file content: {}", conf);
+    //let conf = std::fs::read_to_string(&conf_file).map_err(|_| anyhow!("Configuration file {} does not exist.", &conf_file))?;
+    //log::debug!("Configuration file content: {}", conf);
 
-    let conf: HashMap<String, String> = conf.lines().filter_map(|line| {
-        log::debug!("Parsing line: {}", line);
-        if line.starts_with('#') || !line.contains('=') {
-            return None;
-        }
-        let split = line.split_once('=').unwrap();
-        Some((split.0.to_string(), split.1.trim_matches('"').to_string()))
-    }).collect::<HashMap<String, String>>();
+    //let conf: HashMap<String, String> = conf.lines().filter_map(|line| {
+    //    log::debug!("Parsing line: {}", line);
+    //    if line.starts_with('#') || !line.contains('=') {
+    //        return None;
+    //    }
+    //    let split = line.split_once('=').unwrap();
+    //    Some((split.0.to_string(), split.1.trim_matches('"').to_string()))
+    //}).collect::<HashMap<String, String>>();
 
-    log::debug!("{:?}", conf);
+    //log::debug!("{:?}", conf);
+
+    let conf_data = read_to_string(&conf_file).map_err(|_| anyhow!("Could not read configuration file: {}", &conf_file))?;
+    let conf: ConfigFile = toml::from_str(&conf_data).map_err(|e| anyhow!("Failed to parse config file: {}", e))?;
     Ok((conf_file, conf))
 }
     
 
 fn prepare_args(args: CliArgs) -> Result<config::Args> {
-    let (conf_file, mut conf) = parse_conf(&args.config_file)?;
+    let (conf_file, mut conf) = parse_conf(args.config_file)?;
 
     let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()).with_cpu(CpuRefreshKind::new()));
     log::debug!("{:?}",info);
@@ -131,50 +146,59 @@ fn prepare_args(args: CliArgs) -> Result<config::Args> {
 
     log::debug!("{:?} {}", conf_file_path, conf_file);
     let vm_dir = conf_file[..conf_file.len()-5].parse::<PathBuf>()?;
+        
     let vm_name = vm_dir.file_name().unwrap().to_os_string().into_string().map_err(|e| anyhow!("Unable to parse VM name: {:?}", e))?;
     log::debug!("Found VM Dir: {:?}, VM Name: {}", vm_dir, vm_name);
 
     let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket")).to_path_buf();
     let serial_socketpath = vm_dir.join(format!("{vm_name}-serial.socket")).to_path_buf();
 
-    let disk_img = conf.remove("disk_img").ok_or_else(|| anyhow!("Your configuration file must contain a disk image"))?;
-    let disk_img = config_parse::parse_optional_path(Some(disk_img), "disk image", &conf_file_path)?.unwrap().relativize()?;
+    if conf.disk_images.len() < 1 {
+        bail!("Your configuration file must contain at least 1 disk image.");
+    }
+    let disk_images = conf.disk_images.into_iter().map(|file| {
+        let disk_size = config_parse::size_unit(file.size, None)?;
+        if file.path.exists() {
+            return Ok((file.path.relativize()?, disk_size))
+        }
+        let full_path = conf_file_path.join(file.path);
+        if full_path.exists() {
+            Ok((full_path.to_path_buf(), disk_size))
+        } else {
+            bail!("Disk image {} does not exist", &file.path.to_string_lossy())
+        }
+    }).collect::<Result<Vec<(PathBuf, Option<u64>)>>>()?;
     
     Ok(config::Args {
         access: config::Access::from(args.access),
-        arch: config::Arch::try_from(conf.remove("arch"))?,
+        arch: conf.arch,
         braille: args.braille,
-        boot: config::BootType::try_from((conf.remove("boot"), conf.remove("secureboot")))?,
-        cpu_cores: config_parse::cpu_cores(conf.remove("cpu_cores"), num_cpus::get(), num_cpus::get_physical())?,
-        disk_img,
-        disk_size: config_parse::size_unit(conf.remove("disk_size"), None)?,
-        display: config::Display::try_from((conf.remove("display"), args.display))?,
-        accelerated: config_parse::parse_optional_bool(conf.remove("accelerated"), true)?,
+        boot: conf.boot_type,
+        cpu_cores: config_parse::cpu_cores(conf.cpu_cores, num_cpus::get(), num_cpus::get_physical())?,
+        disk_images,
+        display: args.display.unwrap_or(conf.display),
+        accelerated: conf.accelerated,
         extra_args: args.extra_args,
-        floppy: config_parse::parse_optional_path(conf.remove("floppy"), "floppy", vm_dir.as_path())?,
         fullscreen: args.fullscreen,
-        image_file: config::Image::try_from((conf_file_path.as_path(), conf.remove("iso"), conf.remove("img")))?,
+        image_files: conf.image_files,
         status_quo: args.status_quo,
-        fixed_iso: config_parse::parse_optional_path(conf.remove("fixed_iso"), "fixed ISO", vm_dir.as_path())?,
-        network: config::Network::try_from((conf.remove("network"), conf.remove("macaddr")))?,
-        port_forwards: config_parse::port_forwards(conf.remove("port_forwards"))?,
-        prealloc: config::PreAlloc::try_from(conf.remove("preallocation"))?,
-        public_dir: config::PublicDir::from((conf.remove("public_dir"), args.public_dir)),
-        ram: config_parse::size_unit(conf.remove("ram"), Some(info.total_memory()))?.unwrap(),
-        tpm: config_parse::parse_optional_bool(conf.remove("tpm"), false)?,
-        keyboard: config::Keyboard::try_from((conf.remove("keyboard"), args.keyboard))?,
-        keyboard_layout: config_parse::keyboard_layout((conf.remove("keyboard_layout"), args.keyboard_layout))?,
-        monitor: config::Monitor::try_from(([(conf.remove("monitor"), conf.remove("monitor_telnet_host"), Some(conf.remove("monitor_telnet_port").and_then(|port| port.parse::<u16>().ok()).unwrap_or(4440))),
-            (args.monitor, args.monitor_telnet_host, args.monitor_telnet_port)], monitor_socketpath))?,
-        mouse: config::Mouse::try_from((conf.remove("mouse"), args.mouse, &guest_os))?,
-        resolution: config::Resolution::try_from((conf.remove("resolution"), args.screen, args.resolution))?,
-        serial: config::Monitor::try_from(([(conf.remove("serial"), conf.remove("serial_telnet_host"), Some(conf.remove("serial_telnet_port").and_then(|port| port.parse::<u16>().ok()).unwrap_or(6660))),
-            (args.serial, args.serial_telnet_host, args.serial_telnet_port)], serial_socketpath))?,
-        usb_controller: config::USBController::try_from((conf.remove("usb_controller"), args.usb_controller, &guest_os))?,
-        sound_card: config::SoundCard::try_from((conf.remove("sound_card"), args.sound_card))?,
-        spice_port: config_parse::port((conf.remove("spice_port"), args.spice_port), 5930, 9)?,
-        ssh_port: config_parse::port((conf.remove("ssh_port"), args.ssh_port), 22220, 9)?,
-        usb_devices: config_parse::usb_devices(conf.remove("usb_devices")),
+        network: conf.network,
+        port_forwards: conf.port_forwards,
+        prealloc: conf.preallocation,
+        public_dir: config::PublicDir::from((conf.public_dir, args.public_dir)),
+        ram: config_parse::size_unit(conf.ram, Some(info.total_memory()))?.unwrap(),
+        tpm: conf.tpm,
+        keyboard: args.keyboard.unwrap_or(conf.keyboard),
+        keyboard_layout: config_parse::keyboard_layout((conf.keyboard_layout, args.keyboard_layout))?,
+        monitor: config::Monitor::try_from((conf.monitor, args.monitor, args.monitor_telnet_host, args.monitor_telnet_port, 4440, monitor_socketpath))?,
+        mouse: args.mouse.or(conf.mouse).unwrap_or(guest_os.into()),
+        resolution: (conf.resolution, args.width, args.height, args.screen).into(),
+        serial: config::Monitor::try_from((conf.serial, args.serial, args.serial_telnet_host, args.serial_telnet_port, 6660, serial_socketpath))?,
+        usb_controller: args.usb_controller.or(conf.usb_controller).unwrap_or(guest_os.into()),
+        sound_card: args.sound_card.unwrap_or(conf.soundcard),
+        spice_port: args.spice_port.unwrap_or(conf.spice_port),
+        ssh_port: args.ssh_port.unwrap_or(conf.ssh_port),
+        usb_devices: conf.usb_devices,
         viewer: args.viewer,
         system: info,
         vm_name,
@@ -202,11 +226,13 @@ struct CliArgs {
     edit_config: bool,
     #[arg(long)]
     fullscreen: bool,
-    #[arg(long)]
-    resolution: Option<String>,
-    #[arg(long)]
+    #[arg(long, requires = "height")]
+    width: Option<u32>,
+    #[arg(long, requires = "width")]
+    height: Option<u32>,
+    #[arg(long, conflicts_with_all = &["width", "height"])]
     screen: Option<String>,
-    #[arg(long)]
+    #[arg(long, conflicts_with_all = &["width", "height"])]
     screenpct: Option<u8>,
     #[arg(long)]
     shortcut: bool,

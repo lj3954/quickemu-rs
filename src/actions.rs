@@ -6,7 +6,7 @@ use std::process::Command;
 use std::path::{Path, PathBuf};
 
 impl Snapshot {
-    pub fn perform_action(&self, conf_data: &[String]) -> Result<String> {
+    pub fn perform_action(&self, conf_data: Vec<String>) -> Result<String> {
         let qemu_img = which("qemu-img").map_err(|_| anyhow!("qemu-img could not be found. Please verify that QEMU is installed on your system."))?;
         let (conf_file, mut conf_data) = crate::parse_conf(conf_data)?;
         let conf_file_path = PathBuf::from(&conf_file)
@@ -42,7 +42,7 @@ fn snapshot_command(qemu_img: PathBuf, arg: &str, tag: &str, disk_img: &Path) ->
         .arg("snapshot")
         .arg(arg)
         .arg(tag)
-        .arg(&disk_img)
+        .arg(disk_img)
         .output()?;
     if command.status.success() {
         Ok(())
