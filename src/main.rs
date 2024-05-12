@@ -180,7 +180,6 @@ fn prepare_args(args: CliArgs) -> Result<config::Args> {
         display: args.display.unwrap_or(conf.display),
         accelerated: conf.accelerated,
         extra_args: args.extra_args,
-        fullscreen: args.fullscreen,
         image_files: conf.image_files,
         status_quo: args.status_quo,
         network: conf.network,
@@ -193,6 +192,7 @@ fn prepare_args(args: CliArgs) -> Result<config::Args> {
         monitor: config::Monitor::try_from((conf.monitor, args.monitor, args.monitor_telnet_host, args.monitor_telnet_port, 4440, monitor_socketpath))?,
         mouse: args.mouse.or(conf.mouse).unwrap_or(guest_os.into()),
         resolution: (conf.resolution, args.width, args.height, args.screen).into(),
+        screenpct: args.screenpct,
         serial: config::Monitor::try_from((conf.serial, args.serial, args.serial_telnet_host, args.serial_telnet_port, 6660, serial_socketpath))?,
         usb_controller: args.usb_controller.or(conf.usb_controller).unwrap_or(guest_os.into()),
         sound_card: args.sound_card.unwrap_or(conf.soundcard),
@@ -224,16 +224,14 @@ struct CliArgs {
     display: Option<config::Display>,
     #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "delete_disk", "snapshot"])]
     edit_config: bool,
-    #[arg(long)]
-    fullscreen: bool,
     #[arg(long, requires = "height")]
     width: Option<u32>,
     #[arg(long, requires = "width")]
     height: Option<u32>,
     #[arg(long, conflicts_with_all = &["width", "height"])]
     screen: Option<String>,
-    #[arg(long, conflicts_with_all = &["width", "height"])]
-    screenpct: Option<u8>,
+    #[arg(long, value_parser = clap::value_parser!(u32).range(1..=100), conflicts_with_all = &["width", "height"])]
+    screenpct: Option<u32>,
     #[arg(long)]
     shortcut: bool,
     #[arg(long, group = "action", num_args = 1..=2, allow_hyphen_values = true, conflicts_with_all = &["delete_vm", "delete_disk", "edit_config"])]

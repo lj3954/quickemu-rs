@@ -22,7 +22,7 @@ impl Display {
         }
     }
 
-    pub fn display_args(&self, guest_os: &GuestOS, arch: &Arch, resolution: Resolution, fullscreen: bool, accel: bool) -> Result<(Vec<String>, Option<Vec<String>>)> {
+    pub fn display_args(&self, guest_os: &GuestOS, arch: &Arch, resolution: Resolution, screenpct: Option<u32>, accel: bool) -> Result<(Vec<String>, Option<Vec<String>>)> {
         let virtio_vga = || if accel { "virtio-vga-gl" } else { "virtio-vga" };
         let (display_device, friendly_display_device) = match arch {
             Arch::x86_64 => match guest_os {
@@ -31,7 +31,8 @@ impl Display {
                     _ => (virtio_vga(), "VirtIO VGA"),
                 },
                 GuestOS::Windows | GuestOS::WindowsServer if matches!(self, Self::Sdl | Self::SpiceApp) => (virtio_vga(), "VirtIO VGA"),
-                GuestOS::Solaris | GuestOS::LinuxOld => ("vmware-svga", "VMware SVGA"),
+                GuestOS::Solaris | GuestOS::LinuxOld => ("vmware-svga,vgamem_mb=256", "VMware SVGA"),
+                GuestOS::MacOS { .. } | GuestOS::FreeBSD | GuestOS::GhostBSD => ("VGA,vgamem_mb=256", "VGA"),
                 _ => ("qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64", "QXL"),
             },
             Arch::riscv64 => (virtio_vga(), "VirtIO VGA"),
@@ -46,26 +47,25 @@ impl Display {
             Self::SpiceApp => "spice-app,gl=".to_string() + gl,
         };
 
-        let video = match (resolution, guest_os) {
-            (Resolution::Custom { width, height }, _) => format!("{display_device},xres={width},yres={height}"),
-            (Resolution::Display(display), _) => {
-                let (width, height) = display_resolution(Some(display), fullscreen)?;
-                format!("{display_device},xres={width},yres={height}")
-            },
-            (Resolution::Default, GuestOS::Linux | GuestOS::LinuxOld) => {
-                let (width, height) = display_resolution(None, fullscreen)?;
-                format!("{display_device},xres={width},yres={height}")
-            },
-            _ => display_device.to_string(),
-        };
+        let mut message = format!("Display: {}, Device: {}, GL: {}, VirGL: {}", self, friendly_display_device, accel.as_str(), (display_device == "virtio-vga-gl").as_str());
 
-        let message = format!("Display: {}, Device: {}, GL: {}, VirGL: {}", self, friendly_display_device, accel.as_str(), (display_device == "virtio-vga-gl").as_str());
+        let video = if matches!(guest_os, GuestOS::LinuxOld | GuestOS::Solaris) {
+            display_device.to_string()
+        } else {
+            let (width, height) = match resolution {
+                Resolution::Custom { width, height } => (width, height),
+                Resolution::Display(display) => display_resolution(Some(display), screenpct)?,
+                Resolution::Default => display_resolution(None, screenpct)?,
+            };
+            message.push_str(&format!(", Resolution: {width}x{height}"));
+            format!("{display_device},xres={width},yres={height}")
+        };
 
         Ok((vec!["-display".into(), display_render, "-device".into(), video, "-vga".into(), "none".into()], Some(vec![message])))
     }
 }
 
-fn display_resolution(name: Option<String>, fullscreen: bool) -> Result<(u32, u32)> {
+fn display_resolution(name: Option<String>, screenpct: Option<u32>) -> Result<(u32, u32)> {
     let display_info = display_info::DisplayInfo::all()?;
     log::debug!("Displays: {:?}", display_info);
     let display = if let Some(monitor) = name {
@@ -76,7 +76,7 @@ fn display_resolution(name: Option<String>, fullscreen: bool) -> Result<(u32, u3
     };
 
     let (width, height) = match display.width {
-        _ if fullscreen => (display.width, display.height),
+        _ if screenpct.is_some() => ((screenpct.unwrap() * display.width) / 100, (screenpct.unwrap() * display.height) / 100),
         3840.. => (3200, 1800),
         2560.. => (2048, 1152),
         1920.. => (1664, 936),

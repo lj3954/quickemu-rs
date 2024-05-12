@@ -51,7 +51,7 @@ impl Args {
             qemu_args.extend(["-cpu".into(), arg.into()]);
         }
         self.network.into_args(&self.vm_name, self.ssh_port, self.port_forwards, publicdir.as_ref(), &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
-        self.display.display_args(&self.guest_os, &self.arch, self.resolution, self.fullscreen, self.accelerated)?.add_args(&mut qemu_args, &mut print_args);
+        self.display.display_args(&self.guest_os, &self.arch, self.resolution, self.screenpct, self.accelerated)?.add_args(&mut qemu_args, &mut print_args);
         self.sound_card.to_args().add_args(&mut qemu_args, &mut print_args);
         
         if self.tpm {
