@@ -25,6 +25,13 @@ fn main() {
         .init();
 
     match args.get_action_type() {
+        ActionType::MigrateConfig => match actions::migrate_config(args.config_file) {
+            Ok(output) => println!("{}", output),
+            Err(e) => {
+                log::error!("{}", e);
+                std::process::exit(1);
+            }
+        },
         ActionType::Launch => {
             let args = prepare_args(args).unwrap_or_else(|e| {
                 log::error!("{}", e);
@@ -57,7 +64,9 @@ fn main() {
 
 impl CliArgs {
     fn get_action_type(&self) -> ActionType {
-        if self.delete_vm {
+        if self.migrate_config {
+            ActionType::MigrateConfig
+        } else if self.delete_vm {
             ActionType::DeleteVM
         } else if self.delete_disk {
             ActionType::DeleteDisk
@@ -103,28 +112,15 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
                     None
                 }
             }) {
-                Some(conf) =>bail!("{} no longer supports '.conf' configuration files.\nPlease convert your configuration file to the TOML format using `{} --migrate-config {} {}`.", pkg, pkg, conf, conf.replace(".conf", ".toml")),
+                Some(conf) => bail!("{} no longer supports '.conf' configuration files.\nPlease convert your configuration file to the TOML format using `{} --migrate-config {} {}`.", pkg, pkg, conf, conf.replace(".conf", ".toml")),
                 None => bail!("You are required to input a valid configuration file."),
             }
         },
     };
 
     log::info!("Using configuration file: {}", &conf_file);
-    //let conf = std::fs::read_to_string(&conf_file).map_err(|_| anyhow!("Configuration file {} does not exist.", &conf_file))?;
-    //log::debug!("Configuration file content: {}", conf);
 
-    //let conf: HashMap<String, String> = conf.lines().filter_map(|line| {
-    //    log::debug!("Parsing line: {}", line);
-    //    if line.starts_with('#') || !line.contains('=') {
-    //        return None;
-    //    }
-    //    let split = line.split_once('=').unwrap();
-    //    Some((split.0.to_string(), split.1.trim_matches('"').to_string()))
-    //}).collect::<HashMap<String, String>>();
-
-    //log::debug!("{:?}", conf);
-
-    let conf_data = read_to_string(&conf_file).map_err(|_| anyhow!("Could not read configuration file: {}", &conf_file))?;
+    let conf_data = read_to_string(&conf_file).map_err(|e| anyhow!("Could not read configuration file {}: {}", &conf_file, e))?;
     let conf: ConfigFile = toml::from_str(&conf_data).map_err(|e| anyhow!("Failed to parse config file: {}", e))?;
     Ok((conf_file, conf))
 }
@@ -148,11 +144,9 @@ fn prepare_args(args: CliArgs) -> Result<config::Args> {
     log::debug!("{:?}",info);
     let guest_os = &conf.guest_os;
 
-    let conf_file_path = PathBuf::from(&conf_file)
-        .canonicalize()?
-        .parent()
-        .ok_or_else(|| anyhow!("The parent directory of the config file cannot be found"))?
-        .to_path_buf();
+    let conf_file_path = PathBuf::from(&conf_file);
+    let conf_file_path = conf_file_path.parent()
+        .ok_or_else(|| anyhow!("The parent directory of the config file cannot be found"))?;
     log::debug!("Config file path: {:?}", conf_file_path);
 
     log::debug!("{:?} {}", conf_file_path, conf_file);
@@ -167,7 +161,7 @@ fn prepare_args(args: CliArgs) -> Result<config::Args> {
     if conf.disk_images.is_empty() {
         bail!("Your configuration file must contain at least 1 disk image.");
     }
-    handle_disk_paths(&mut conf.disk_images, &conf_file_path)?;
+    handle_disk_paths(&mut conf.disk_images, conf_file_path)?;
     log::debug!("{:?}", conf);
     
     Ok(config::Args {
@@ -216,13 +210,13 @@ struct CliArgs {
     access: Option<String>,
     #[arg(long)]
     braille: bool,
-    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "snapshot", "edit_config"])]
+    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "snapshot", "edit_config", "migrate_config"])]
     delete_disk: bool,
-    #[arg(long, group = "action", conflicts_with_all = &["delete_disk", "snapshot", "edit_config"])]
+    #[arg(long, group = "action", conflicts_with_all = &["delete_disk", "snapshot", "edit_config", "migrate_config"])]
     delete_vm: bool,
     #[arg(long)]
     display: Option<config::Display>,
-    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "delete_disk", "snapshot"])]
+    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "delete_disk", "snapshot", "migrate_config"])]
     edit_config: bool,
     #[arg(long, requires = "height")]
     width: Option<u32>,
@@ -234,7 +228,7 @@ struct CliArgs {
     screenpct: Option<u32>,
     #[arg(long)]
     shortcut: bool,
-    #[arg(long, group = "action", num_args = 1..=2, allow_hyphen_values = true, conflicts_with_all = &["delete_vm", "delete_disk", "edit_config"])]
+    #[arg(long, group = "action", num_args = 1..=2, allow_hyphen_values = true, conflicts_with_all = &["delete_vm", "delete_disk", "edit_config", "migrate_config"])]
     snapshot: Option<Vec<String>>,
     #[arg(long)]
     status_quo: bool,
@@ -276,4 +270,6 @@ struct CliArgs {
     verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::WarnLevel>,
     #[arg(required = true)]
     config_file: Vec<String>,
+    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "delete_disk", "edit_config", "snapshot","vm"])]
+    migrate_config: bool,
 }

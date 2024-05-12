@@ -43,55 +43,50 @@ pub struct Args {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigFile {
     pub guest_os: GuestOS,
-    #[serde(default = "default_arch")]
+    #[serde(default)]
     pub arch: Arch,
-    #[serde(default = "default_boottype")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub boot_type: BootType,
     pub cpu_cores: Option<std::num::NonZeroUsize>,
-    #[serde(default = "default_display")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub display: Display,
     pub disk_images: Vec<DiskImage>,
-    #[serde(default = "true_bool")]
+    #[serde(default = "true_bool", skip_serializing_if = "is_true")]
     pub accelerated: bool,
     pub image_files: Option<Vec<Image>>,
-    #[serde(default = "default_network")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub network: Network,
     pub port_forwards: Option<Vec<PortForward>>,
     pub public_dir: Option<String>,
     pub ram: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub tpm: bool,
-    #[serde(default = "default_keyboard")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub keyboard: Keyboard,
     pub keyboard_layout: Option<String>,
-    #[serde(default = "default_monitor")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub monitor: SerdeMonitor,
-    #[serde(default = "default_monitor")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub serial: SerdeMonitor,
-    #[serde(default = "default_soundcard")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub soundcard: SoundCard,
     pub mouse: Option<Mouse>,
-    #[serde(default = "default_resolution")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub resolution: Resolution,
     pub usb_controller: Option<USBController>,
-    #[serde(default = "default_spice_port")]
+    #[serde(default = "default_spice_port", skip_serializing_if = "is_default_spice")]
     pub spice_port: u16,
-    #[serde(default = "default_ssh_port")]
+    #[serde(default = "default_ssh_port", skip_serializing_if = "is_default_ssh")]
     pub ssh_port: u16,
     pub usb_devices: Option<Vec<String>>,
 }
 fn true_bool() -> bool { true }
-fn default_arch() -> Arch { Arch::x86_64 }
-fn default_boottype() -> BootType { BootType::Efi { secure_boot: false } }
-fn default_display() -> Display { Display::Sdl }
 fn default_spice_port() -> u16 { 5930 }
 fn default_ssh_port() -> u16 { 22220 }
-fn default_resolution() -> Resolution { Resolution::Default }
-fn default_prealloc() -> PreAlloc { PreAlloc::Off }
-fn default_keyboard() -> Keyboard { Keyboard::Usb }
-fn default_soundcard() -> SoundCard { SoundCard::IntelHDA }
-fn default_network() -> Network { Network::Nat }
-fn default_monitor() -> SerdeMonitor { SerdeMonitor { r#type: "socket".to_string(), telnet_host: None, telnet_port: None } }
+fn is_default<T: Default + PartialEq>(input: &T) -> bool { input == &T::default() }
+fn is_default_ssh(input: &u16) -> bool { *input == default_ssh_port() }
+fn is_default_spice(input: &u16) -> bool { *input == default_spice_port() }
+fn is_true(input: &bool) -> bool { *input }
 
 #[derive(Debug, PartialEq)]
 pub enum Access {
@@ -107,11 +102,22 @@ pub enum Arch {
     aarch64,
     riscv64,
 }
+impl Default for Arch {
+    fn default() -> Self { Self::x86_64 }
+}
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum BootType {
-    Efi { secure_boot: bool },
+    #[serde(alias = "EFI", alias = "efi")]
+    Efi {
+        #[serde(default)]
+        secure_boot: bool
+    },
+    #[serde(alias = "legacy", alias = "bios")]
     Legacy,
+}
+impl Default for BootType {
+    fn default() -> Self { Self::Efi { secure_boot: false } }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -119,23 +125,25 @@ pub struct DiskImage {
     pub path: PathBuf,
     #[serde(deserialize_with = "deserialize_disk", default)]
     pub size: Option<u64>,
-    #[serde(default = "default_prealloc")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub preallocation: PreAlloc,
 }
-pub fn deserialize_disk<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
+pub fn deserialize_disk<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error> where D: serde::Deserializer<'de>, {
     let value = Option::<String>::deserialize(deserializer)?;
     crate::config_parse::size_unit(value, None).map_err(serde::de::Error::custom)
 }
 
-#[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
+#[derive(ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Display {
+    #[serde(alias = "none")]
     None,
+    #[serde(alias = "sdl", alias = "SDL")]
     Sdl,
+    #[serde(alias = "gtk", alias = "GTK")]
     Gtk,
+    #[serde(alias = "spice")]
     Spice,
+    #[serde(alias = "spice_app", alias = "spice-app")]
     SpiceApp,
 }
 impl fmt::Display for Display {
@@ -149,21 +157,37 @@ impl fmt::Display for Display {
         }
     }
 }
+impl Default for Display {
+    fn default() -> Self { Self::Sdl }
+}
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum GuestOS {
+    #[serde(alias = "linux")]
     Linux,
+    #[serde(alias = "linux_old")]
     LinuxOld,
+    #[serde(alias = "windows")]
     Windows,
+    #[serde(alias = "windows_server")]
     WindowsServer,
+    #[serde(alias = "macOS", alias = "macos")]
     MacOS { release: MacOSRelease },
+    #[serde(alias = "freebsd")]
     FreeBSD,
+    #[serde(alias = "ghostbsd")]
     GhostBSD,
+    #[serde(alias = "freedos")]
     FreeDOS,
+    #[serde(alias = "haiku")]
     Haiku,
+    #[serde(alias = "solaris")]
     Solaris,
+    #[serde(alias = "kolibrios")]
     KolibriOS,
+    #[serde(alias = "reactos")]
     ReactOS,
+    #[serde(alias = "batocera")]
     Batocera,
 }
 
@@ -189,31 +213,50 @@ impl fmt::Display for GuestOS {
 
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum MacOSRelease {
+    #[serde(alias = "highsierra", alias = "10.13")]
     HighSierra,
+    #[serde(alias = "mojave", alias = "10.14")]
     Mojave,
+    #[serde(alias = "catalina", alias = "10.15")]
     Catalina,
+    #[serde(alias = "bigsur", alias = "11")]
     BigSur,
+    #[serde(alias = "monterey", alias = "12")]
     Monterey,
+    #[serde(alias = "ventura", alias = "13")]
     Ventura,
+    #[serde(alias = "sonoma", alias = "14")]
     Sonoma,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Network {
+    #[serde(alias = "none")]
     None,
+    #[serde(alias = "restrict")]
     Restrict,
+    #[serde(alias = "bridged")]
     Bridged {
         bridge: String,
+        #[serde(alias = "MAC Address", alias = "macaddr")]
         mac_addr: Option<String>,
     },
+    #[serde(alias = "nat", alias = "NAT", alias = "user")]
     Nat,
+}
+impl Default for Network {
+    fn default() -> Self { Self::Nat }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Image {
+    #[serde(alias = "iso", alias = "ISO")]
     Iso(PathBuf),
+    #[serde(alias = "fixed_iso", alias = "cdrom", alias = "CD-ROM")]
     FixedIso(PathBuf),
+    #[serde(alias = "floppy")]
     Floppy(PathBuf),
+    #[serde(alias = "img", alias = "IMG")]
     Img(PathBuf),
 }
 impl fmt::Display for Image {
@@ -260,6 +303,9 @@ impl std::fmt::Display for PreAlloc {
         }
     }
 }
+impl Default for PreAlloc {
+    fn default() -> Self { Self::Off }
+}
 
 #[derive(Debug)]
 pub enum PublicDir {
@@ -289,18 +335,26 @@ pub enum Monitor {
     Telnet { port: u16, host: String },
     Socket { socketpath: PathBuf },
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct SerdeMonitor {
+    #[serde(skip_serializing_if = "is_socket")]
     pub r#type: String,
     pub telnet_host: Option<String>,
     pub telnet_port: Option<u16>,
 }
+impl Default for SerdeMonitor {
+    fn default() -> Self { Self { r#type: "socket".to_string(), telnet_host: None, telnet_port: None } }
+}
+fn is_socket(input: &str) -> bool { input == "socket" }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Resolution {
     Default,
     Display(String),
     Custom { width: u32, height: u32 },
+}
+impl Default for Resolution {
+    fn default() -> Self { Self::Default }
 }
 
 #[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
@@ -310,11 +364,14 @@ pub enum USBController {
     Xhci,
 }
 
-#[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
+#[derive(ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Keyboard {
     Usb,
     Virtio,
     PS2,
+}
+impl Default for Keyboard {
+    fn default() -> Self { Self::Usb }
 }
 
 #[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
@@ -325,7 +382,7 @@ pub enum Mouse {
     PS2,
 }
 
-#[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
+#[derive(ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum SoundCard {
     None,
     IntelHDA,
@@ -333,9 +390,13 @@ pub enum SoundCard {
     ES1370,
     SB16,
 }
+impl Default for SoundCard {
+    fn default() -> Self { SoundCard::IntelHDA }
+}
 
 pub enum ActionType {
     Launch,
+    MigrateConfig,
     DeleteDisk,
     DeleteVM,
     Snapshot(Snapshot),
