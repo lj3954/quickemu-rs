@@ -32,7 +32,6 @@ impl Display {
                 },
                 GuestOS::Windows | GuestOS::WindowsServer if matches!(self, Self::Sdl | Self::SpiceApp) => (virtio_vga(), "VirtIO VGA"),
                 GuestOS::Solaris | GuestOS::LinuxOld => ("vmware-svga,vgamem_mb=256", "VMware SVGA"),
-                GuestOS::MacOS { .. } | GuestOS::FreeBSD | GuestOS::GhostBSD => ("VGA,vgamem_mb=256", "VGA"),
                 _ => ("qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64", "QXL"),
             },
             Arch::riscv64 => (virtio_vga(), "VirtIO VGA"),
