@@ -137,6 +137,9 @@ pub fn migrate_config(config: Vec<String>) -> Result<String> {
         conf.remove("img").map(|path| Image::Img(PathBuf::from(path)))]
         .into_iter().flatten().collect();
     let image_files = if image_files.is_empty() { None } else { Some(image_files) };
+    if !conf.is_empty() {
+        log::warn!("Ignoring values: {:?}", conf);
+    }
     
     let config = ConfigFile {
         guest_os, arch, boot_type, cpu_cores, display, disk_images, accelerated, image_files, network, port_forwards, public_dir, ram, tpm, keyboard, keyboard_layout, monitor, serial, soundcard, mouse, resolution, usb_controller, spice_port, ssh_port, usb_devices
