@@ -427,7 +427,7 @@ impl USBController {
         let mut args = vec!["-device".into(), "virtio-rng-pci,rng=rng0".into(),
             "-object".into(), "rng-random,id=rng0,filename=/dev/urandom".into()];
 
-        #[cfg(target_os = "linux")]
+        #[cfg(not(target_os = "macos"))]
         args.extend(["-device".into(), passthrough_controller.to_string() + ",id=spicepass",
             "-chardev".into(), "spicevmc,id=usbredirchardev1,name=usbredir".into(),
             "-device".into(), "usb-redir,chardev=usbredirchardev1,id=usbredirdev1".into(),

@@ -241,9 +241,9 @@ impl TryFrom<Option<String>> for Display {
             Some(display) => match display.as_str() {
                 "sdl" => Display::Sdl,
                 "gtk" => Display::Gtk,
-                #[cfg(target_os = "linux")]
+                #[cfg(not(target_os = "macos"))]
                 "spice" => Display::Spice,
-                #[cfg(target_os = "linux")]
+                #[cfg(not(target_os = "macos"))]
                 "spice-app" => Display::SpiceApp,
                 #[cfg(target_os = "macos")]
                 "cocoa" => Display::Cocoa,

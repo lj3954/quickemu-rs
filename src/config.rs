@@ -26,7 +26,7 @@ pub struct Args {
     pub usb_devices: Option<Vec<String>>,
     pub viewer: Option<Viewer>,
     pub ssh_port: u16,
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_os = "macos"))]
     pub spice_port: u16,
     pub monitor: Monitor,
     pub resolution: Resolution,
@@ -140,10 +140,10 @@ pub enum Display {
     Sdl,
     #[serde(alias = "gtk", alias = "GTK")]
     Gtk,
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_os = "macos"))]
     #[serde(alias = "spice")]
     Spice,
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_os = "macos"))]
     #[serde(alias = "spice_app", alias = "spice-app")]
     SpiceApp,
     #[cfg(target_os = "macos")]
@@ -156,9 +156,9 @@ impl fmt::Display for Display {
             Self::None => write!(f, "None"),
             Self::Sdl => write!(f, "SDL"),
             Self::Gtk => write!(f, "GTK"),
-            #[cfg(target_os = "linux")]
+            #[cfg(not(target_os = "macos"))]
             Self::Spice => write!(f, "Spice"),
-            #[cfg(target_os = "linux")]
+            #[cfg(not(target_os = "macos"))]
             Self::SpiceApp => write!(f, "Spice App"),
             #[cfg(target_os = "macos")]
             Self::Cocoa => write!(f, "Cocoa"),

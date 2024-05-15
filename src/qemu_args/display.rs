@@ -18,7 +18,7 @@ impl SoundCard {
 impl Display {
     pub fn audio_arg(&self) -> [OsString; 2] {
         match self {
-            #[cfg(target_os = "linux")]
+            #[cfg(not(target_os = "macos"))]
             Self::None | Self::Spice | Self::SpiceApp => ["-audiodev".into(), "spice,id=audio0".into()],
             #[cfg(target_os = "macos")]
             _ => ["-audiodev".into(), "coreaudio,id=audio0".into()],
@@ -33,12 +33,12 @@ impl Display {
             Arch::x86_64 => match guest_os {
                 GuestOS::Linux => match self {
                     Self::None => ("virtio-gpu", "VirtIO GPU"),
-                    #[cfg(target_os = "linux")]
+                    #[cfg(not(target_os = "macos"))]
                     Self::Spice | Self::SpiceApp => ("virtio-gpu", "VirtIO GPU"),
                     _ => (virtio_vga(), "VirtIO VGA"),
                 },
                 GuestOS::Windows | GuestOS::WindowsServer if self == &Self::Sdl => (virtio_vga(), "VirtIO VGA"),
-                #[cfg(target_os = "linux")]
+                #[cfg(not(target_os = "macos"))]
                 GuestOS::Windows | GuestOS::WindowsServer if self == &Self::SpiceApp => (virtio_vga(), "VirtIO VGA"),
                 #[cfg(target_os = "macos")]
                 GuestOS::Windows | GuestOS::WindowsServer if self == &Self::Cocoa => ("virtio-vga", "VirtIO VGA"),
@@ -54,9 +54,9 @@ impl Display {
             Self::Gtk => "gtk,grab-on-hover=on,zoom-to-fit=off,gl=".to_string() + gl,
             Self::None => "none".to_string(),
             Self::Sdl => "sdl,gl=".to_string() + gl,
-            #[cfg(target_os = "linux")]
+            #[cfg(not(target_os = "macos"))]
             Self::Spice => "none".to_string(),
-            #[cfg(target_os = "linux")]
+            #[cfg(not(target_os = "macos"))]
             Self::SpiceApp => "spice-app,gl=".to_string() + gl,
             #[cfg(target_os = "macos")]
             Self::Cocoa => "cocoa".to_string(),
