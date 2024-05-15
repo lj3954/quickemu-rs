@@ -155,17 +155,16 @@ const AARCH64_OVMF: [(&str, &str); 1] = [
 ];
 
 fn qemu_share_dir() -> PathBuf {
-    let mut share_dir = PathBuf::from("/usr/share");
     #[cfg(target_os = "macos")]
     if let Ok(output) = Command::new("brew").arg("--prefix").arg("qemu").output() {
         if output.status.success() {
             if let Ok(prefix) = std::str::from_utf8(&output.stdout) {
                 log::debug!("Found QEMU prefix: {}", prefix);
-                share_dir = PathBuf::from(prefix.trim()).join("share");
+                return PathBuf::from(prefix.trim()).join("share");
             }
         }
     }
-    share_dir
+    PathBuf::from("/usr/share")
 }
 
 impl BootType {
@@ -517,15 +516,23 @@ fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsStr
 }
 
 fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> Vec<OsString> {
-    let mut name = OsString::from(vm_name);
-    name.push(",process=");
-    name.push(vm_name);
+    let machine = arch.machine_type(guest_os);
     let mut pid = vm_dir.join(vm_name).into_os_string();
     pid.push(".pid");
 
-    let machine = arch.machine_type(guest_os);
+    #[cfg(not(target_os = "macos"))]
+    let name = {
+        let mut name = OsString::from(vm_name);
+        name.push(",process=");
+        name.push(vm_name);
+        name
+    };
 
+    #[cfg(target_os = "macos")]
+    let mut args = vec!["-pidfile".into(), pid, "-machine".into(), machine];
+    #[cfg(not(target_os = "macos"))]
     let mut args = vec!["-name".into(), name, "-pidfile".into(), pid, "-machine".into(), machine];
+
     if arch.matches_host() {
         #[cfg(target_os = "linux")]
         args.extend(["-accel".into(), "kvm".into()]);
