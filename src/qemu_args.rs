@@ -4,16 +4,17 @@ mod display;
 mod arch;
 
 use std::ffi::OsString;
-use std::{io::Write, fs::{OpenOptions, create_dir}};
+use std::{io::Write, fs::{OpenOptions, File, create_dir}};
 use std::process::{Stdio, Command};
 use anyhow::{anyhow, bail, Result};
 use crate::{config_parse::BYTES_PER_GB, config::*};
 use which::which;
 use sysinfo::{System, Cpu, Networks};
 use std::path::{Path, PathBuf};
+use std::os::unix::fs::PermissionsExt;
 
 impl Args {
-    pub fn into_qemu_args(self) -> Result<(OsString, Vec<OsString>)> {
+    pub fn launch_qemu(self) -> Result<()> {
         let qemu_bin = match &self.arch {
             Arch::x86_64 => "qemu-system-x86_64",
             Arch::aarch64 => "qemu-system-aarch64",
@@ -24,6 +25,9 @@ impl Args {
         if !self.vm_dir.exists() {
             create_dir(&self.vm_dir).map_err(|e| anyhow!("Could not create VM directory: {:?}", e))?;
         }
+
+        let mut sh_file = OpenOptions::new().create(true).write(true).truncate(true).open(self.vm_dir.join(self.vm_name.clone() + ".sh")).unwrap();
+        writeln!(sh_file, "#!/usr/bin/env bash").unwrap();
 
         let qemu_version = Command::new(&qemu_bin).stdout(Stdio::piped()).arg("--version").spawn()?;
         let smartcard = if matches!(self.arch, Arch::x86_64 | Arch::riscv64) {
@@ -55,7 +59,7 @@ impl Args {
         self.sound_card.to_args().add_args(&mut qemu_args, &mut print_args);
         
         if self.tpm {
-            let (args, print) = tpm_args(&self.vm_dir, &self.vm_name)?;
+            let (args, print) = tpm_args(&self.vm_dir, &self.vm_name, &mut sh_file)?;
             qemu_args.extend(args);
             print_args.push(print);
         }
@@ -101,10 +105,15 @@ impl Args {
             bail!("QEMU version 7.0.0 or higher is required. Found version {}.", friendly_ver);
         }
 
+        sh_file.set_permissions(PermissionsExt::from_mode(0o755)).unwrap();
+        write!(sh_file, "{} {}", qemu_bin.to_string_lossy(), qemu_args.iter().map(|arg| "\"".to_string() + &arg.to_string_lossy() + "\"").collect::<Vec<_>>().join(" ")).unwrap();
+
+        Command::new(&qemu_bin).args(qemu_args).spawn()?;
+
         println!("QuickemuRS {} using {} {}.", env!("CARGO_PKG_VERSION"), qemu_bin.to_string_lossy(), friendly_ver);
         print_args.iter().for_each(|arg| println!(" - {}", arg));
 
-        Ok((qemu_bin.into_os_string(), qemu_args))
+        Ok(())
     }
 }
 
@@ -122,27 +131,41 @@ impl<T> AddToLists for (Vec<T>, Option<Vec<String>>) where T: Into<OsString> {
 }
 
 const SECURE_BOOT_OVMF: [(&str, &str); 7] = [
-    ("/usr/share/OVMF/OVMF_CODE_4M.secboot.fd", "/usr/share/OVMF/OVMF_VARS_4M.fd"),
-    ("/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd" ,"/usr/share/edk2/ovmf/OVMF_VARS.fd"),
-    ("/usr/share/OVMF/x64/OVMF_CODE.secboot.fd", "/usr/share/OVMF/x64/OVMF_VARS.fd"),
-    ("/usr/share/edk2-ovmf/OVMF_CODE.secboot.fd", "/usr/share/edk2-ovmf/OVMF_VARS.fd"),
-    ("/usr/share/qemu/ovmf-x86_64-smm-ms-code.bin", "/usr/share/qemu/ovmf-x86_64-smm-ms-vars.bin"), 
-    ("/usr/share/qemu/edk2-x86_64-secure-code.fd", "/usr/share/qemu/edk2-x86_64-code.fd"),
-    ("/usr/share/edk2-ovmf/x64/OVMF_CODE.secboot.fd", "/usr/share/edk2-ovmf/x64/OVMF_VARS.fd"),
+    ("OVMF/OVMF_CODE_4M.secboot.fd", "OVMF/OVMF_VARS_4M.fd"),
+    ("edk2/ovmf/OVMF_CODE.secboot.fd" ,"edk2/ovmf/OVMF_VARS.fd"),
+    ("OVMF/x64/OVMF_CODE.secboot.fd", "OVMF/x64/OVMF_VARS.fd"),
+    ("edk2-ovmf/OVMF_CODE.secboot.fd", "edk2-ovmf/OVMF_VARS.fd"),
+    ("qemu/ovmf-x86_64-smm-ms-code.bin", "qemu/ovmf-x86_64-smm-ms-vars.bin"), 
+    ("qemu/edk2-x86_64-secure-code.fd", "qemu/edk2-x86_64-code.fd"),
+    ("edk2-ovmf/x64/OVMF_CODE.secboot.fd", "edk2-ovmf/x64/OVMF_VARS.fd"),
 ];
 const EFI_OVMF: [(&str, &str); 8] = [
-    ("/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_VARS_4M.fd"),
-    ("/usr/share/edk2/ovmf/OVMF_CODE.fd", "/usr/share/edk2/ovmf/OVMF_VARS.fd"),
-    ("/usr/share/OVMF/OVMF_CODE.fd", "/usr/share/OVMF/OVMF_VARS.fd"),
-    ("/usr/share/OVMF/x64/OVMF_CODE.fd", "/usr/share/OVMF/x64/OVMF_VARS.fd"),
-    ("/usr/share/edk2-ovmf/OVMF_CODE.fd", "/usr/share/edk2-ovmf/OVMF_VARS.fd"),
-    ("/usr/share/qemu/ovmf-x86_64-4m-code.bin", "/usr/share/qemu/ovmf-x86_64-4m-vars.bin"),
-    ("/usr/share/qemu/edk2-x86_64-code.fd", "/usr/share/qemu/edk2-x86_64-code.fd"),
-    ("/usr/share/edk2-ovmf/x64/OVMF_CODE.fd", "/usr/share/edk2-ovmf/x64/OVMF_VARS.fd"), 
+    ("OVMF/OVMF_CODE_4M.fd", "OVMF/OVMF_VARS_4M.fd"),
+    ("edk2/ovmf/OVMF_CODE.fd", "edk2/ovmf/OVMF_VARS.fd"),
+    ("OVMF/OVMF_CODE.fd", "OVMF/OVMF_VARS.fd"),
+    ("OVMF/x64/OVMF_CODE.fd", "OVMF/x64/OVMF_VARS.fd"),
+    ("edk2-ovmf/OVMF_CODE.fd", "edk2-ovmf/OVMF_VARS.fd"),
+    ("qemu/ovmf-x86_64-4m-code.bin", "qemu/ovmf-x86_64-4m-vars.bin"),
+    ("qemu/edk2-x86_64-code.fd", "qemu/edk2-x86_64-code.fd"),
+    ("edk2-ovmf/x64/OVMF_CODE.fd", "edk2-ovmf/x64/OVMF_VARS.fd"), 
 ];
 const AARCH64_OVMF: [(&str, &str); 1] = [
-    ("/usr/share/AAVMF/AAVMF_CODE.fd", "/usr/share/AAVMF/AAVMF_VARS.fd"),
+    ("AAVMF/AAVMF_CODE.fd", "AAVMF/AAVMF_VARS.fd"),
 ];
+
+fn qemu_share_dir() -> PathBuf {
+    let mut share_dir = PathBuf::from("/usr/share");
+    #[cfg(target_os = "macos")]
+    if let Ok(output) = Command::new("brew").arg("--prefix").arg("qemu").output() {
+        if output.status.success() {
+            if let Ok(prefix) = std::str::from_utf8(&output.stdout) {
+                log::debug!("Found QEMU prefix: {}", prefix);
+                share_dir = PathBuf::from(prefix.trim()).join("share");
+            }
+        }
+    }
+    share_dir
+}
 
 impl BootType {
     fn to_args(&self, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> Result<(String, Option<Vec<OsString>>)> {
@@ -233,9 +256,10 @@ impl BootType {
 }
 
 fn find_firmware(firmware: &[(&str, &str)]) -> Option<(PathBuf, PathBuf)> {
+    let share_dir = qemu_share_dir();
     firmware.iter().find_map(|(code, vars)| {
-        let code = PathBuf::from(code);
-        let vars = PathBuf::from(vars);
+        let code = share_dir.join(code);
+        let vars = share_dir.join(vars);
         if code.exists() && vars.exists() {
             Some((code, vars))
         } else {
@@ -312,11 +336,9 @@ impl TryInto<Option<OsString>> for PublicDir {
     }
 }
 
-fn tpm_args(vm_dir: &Path, vm_name: &str) -> Result<([OsString; 6], String)> {
+fn tpm_args(vm_dir: &Path, vm_name: &str, sh_file: &mut File) -> Result<([OsString; 6], String)> {
     let swtpm = which("swtpm").map_err(|_| anyhow!("swtpm must be installed for TPM support."))?;
 
-    let sh_file = vm_dir.join(vm_name.to_string() + ".sh");
-    let mut sh_file = OpenOptions::new().append(true).open(sh_file)?;
     let log_file = vm_dir.join(vm_name.to_string() + ".log");
     let log_file = OpenOptions::new().append(true).create(true).open(log_file)?;
     let tpm_socket = vm_dir.join(vm_name.to_string() + ".swtpm-sock");

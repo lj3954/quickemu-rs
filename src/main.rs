@@ -7,14 +7,11 @@ mod actions;
 use clap::Parser;
 use anyhow::Result;
 use std::path::{PathBuf, Path};
-use std::process::Command;
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
-use std::fs::{OpenOptions, read_to_string};
-use std::io::Write;
+use std::fs::read_to_string;
 use anyhow::{anyhow, bail};
 use config_parse::Relativize;
 use config::{ActionType, ConfigFile};
-use std::os::unix::fs::PermissionsExt;
 
 fn main() {
     let args = CliArgs::parse();
@@ -37,15 +34,10 @@ fn main() {
                 log::error!("{}", e);
                 std::process::exit(1);
             });
-            let mut sh = OpenOptions::new().create(true).write(true).truncate(true).open(args.vm_dir.join(args.vm_name.clone() + ".sh")).unwrap();
-            writeln!(sh, "#!/usr/bin/env bash").unwrap();
-            let (qemu, qemu_args) = args.into_qemu_args().unwrap_or_else(|e| {
+            args.launch_qemu().unwrap_or_else(|e| {
                 log::error!("{}", e);
                 std::process::exit(1);
             });
-            sh.set_permissions(PermissionsExt::from_mode(0o755)).unwrap();
-            write!(sh, "{} {}", qemu.to_string_lossy(), qemu_args.iter().map(|arg| "\"".to_string() + &arg.to_string_lossy() + "\"").collect::<Vec<_>>().join(" ")).unwrap();
-            Command::new(qemu).args(qemu_args).spawn().unwrap();
         },
         ActionType::DeleteVM => todo!(),
         ActionType::DeleteDisk => todo!(),
