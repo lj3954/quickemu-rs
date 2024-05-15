@@ -79,7 +79,7 @@ impl GuestOS {
                     Self::KolibriOS | Self::ReactOS => "qemu32".to_string(),
                     Self::MacOS { release } => {
                         if vendor == "GenuineIntel" {
-                            default_cpu()
+                            macos_cpu_flags("host")
                         } else if release >= &MacOSRelease::Catalina {
                             macos_cpu_flags("Haswell-v4,vendor=GenuineIntel,+avx,+avx2,+sse,+sse2,+sse3,+sse4.2,vmware-cpuid-freq=on")
                         } else {
@@ -125,45 +125,46 @@ fn macos_cpu_flags(input: &str) -> String {
         let cpuid = raw_cpuid::CpuId::new();
 
         if let Some(features) = cpuid.get_feature_info() {
-            [(features.has_aesni(), ",aes"),
-            (features.has_cmpxchg8b(), ",cx8"),
-            (features.has_eist(), ",eist"),
-            (features.has_f16c(), ",f16c"),
-            (features.has_fma(), ",fma"),
-            (features.has_mmx(), ",mmx"),
-            (features.has_movbe(), ",movbe"),
-            (features.has_popcnt(), ",popcnt"),
-            (features.has_xsave(), ",xsave")]
+            [(features.has_aesni(), ",+aes"),
+            (features.has_cmpxchg8b(), ",+cx8"),
+            (features.has_eist(), ",+eist"),
+            (features.has_f16c(), ",+f16c"),
+            (features.has_fma(), ",+fma"),
+            (features.has_mmx(), ",+mmx"),
+            (features.has_movbe(), ",+movbe"),
+            (features.has_popcnt(), ",+popcnt"),
+            (features.has_xsave(), ",+xsave"),
+            (!features.has_pcid(), ",-pcid")]
             .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
         }
         if let Some(features) = cpuid.get_extended_feature_info() {
-            [(features.has_bmi1(), ",abm,bmi1"),
-            (features.has_bmi2(), ",bmi2"),
-            (features.has_adx(), ",adx"),
-            (features.has_mpx(), ",mpx"),
-            (features.has_smep(), ",smep"),
-            (features.has_vaes(), ",vaes"),
-            (features.has_av512vbmi2(), "vbmi2"),
-            (features.has_vpclmulqdq(), ",vpclmulqdq")]
+            [(features.has_bmi1(), ",+abm,+bmi1"),
+            (features.has_bmi2(), ",+bmi2"),
+            (features.has_adx(), ",+adx"),
+            (features.has_mpx(), ",+mpx"),
+            (features.has_smep(), ",+smep"),
+            (features.has_vaes(), ",+vaes"),
+            (features.has_av512vbmi2(), ",+avx512vbmi2"),
+            (features.has_vpclmulqdq(), ",+vpclmulqdq")]
             .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
         }
         if let Some(features) = cpuid.get_extended_processor_and_feature_identifiers() {
             if features.has_data_access_bkpt_extension() {
-                cpu_arg.push_str(",amd-ssbd");
+                cpu_arg.push_str(",+amd-ssbd");
             }
             #[cfg(not(target_os = "macos"))]
             if features.has_1gib_pages() {
-                cpu_arg.push_str(",pdpe1gb");
+                cpu_arg.push_str(",+pdpe1gb");
             }
         }
         if let Some(features) = cpuid.get_advanced_power_mgmt_info() {
             if features.has_invariant_tsc() {
-                cpu_arg.push_str(",invtsc");
+                cpu_arg.push_str(",+invtsc");
             }
         }
         if let Some(features) = cpuid.get_extended_state_info() {
-            [(features.has_xgetbv(), ",xgetbv1"),
-            (features.has_xsaveopt(), ",xsaveopt")]
+            [(features.has_xgetbv(), ",+xgetbv1"),
+            (features.has_xsaveopt(), ",+xsaveopt")]
             .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
         }
     }
