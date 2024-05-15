@@ -13,7 +13,7 @@ env_logger = "0.11.3"
 log = "0.4.21"
 num_cpus = "1.16.0"
 pathdiff = "0.2.1"
-raw-cpuid = "11.0.1"
+raw-cpuid = "11.0.2"
 serde = { version = "1.0.201", features = ["derive"] }
 sysinfo = "0.30.10"
 toml = "0.8.12"

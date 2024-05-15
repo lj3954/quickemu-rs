@@ -2,7 +2,6 @@ use crate::config::*;
 use crate::validate;
 use anyhow::{Result, anyhow, bail};
 use std::convert::TryFrom;
-use std::net::{TcpListener, SocketAddrV4, Ipv4Addr};
 use core::num::NonZeroUsize;
 use std::path::PathBuf;
 
@@ -143,17 +142,6 @@ impl From<&GuestOS> for USBController {
     }
 }
 
-pub fn port(input: (Option<String>, Option<u16>), default: u16, offset: u16) -> Result<u16> {
-    Ok(match input {
-        (_, Some(port)) => port,
-        (Some(port), _) => port.parse()?,
-        _ => (default..=default+offset).find(|port| {
-            let port = SocketAddrV4::new(Ipv4Addr::LOCALHOST, *port);
-            TcpListener::bind(port).is_ok()
-        }).ok_or_else(|| anyhow!("Unable to find a free port in range {}-{}", default, default+offset))?,
-    })
-}
-
 pub trait Relativize {
     fn relativize(&self) -> Result<PathBuf>;
 }
@@ -253,8 +241,12 @@ impl TryFrom<Option<String>> for Display {
             Some(display) => match display.as_str() {
                 "sdl" => Display::Sdl,
                 "gtk" => Display::Gtk,
+                #[cfg(target_os = "linux")]
                 "spice" => Display::Spice,
+                #[cfg(target_os = "linux")]
                 "spice-app" => Display::SpiceApp,
+                #[cfg(target_os = "macos")]
+                "cocoa" => Display::Cocoa,
                 _ => bail!("Invalid display type: {}", display),
             },
             _ => Default::default(),

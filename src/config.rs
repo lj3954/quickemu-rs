@@ -141,10 +141,15 @@ pub enum Display {
     Sdl,
     #[serde(alias = "gtk", alias = "GTK")]
     Gtk,
+    #[cfg(target_os = "linux")]
     #[serde(alias = "spice")]
     Spice,
+    #[cfg(target_os = "linux")]
     #[serde(alias = "spice_app", alias = "spice-app")]
     SpiceApp,
+    #[cfg(target_os = "macos")]
+    #[serde(alias = "cocoa")]
+    Cocoa,
 }
 impl fmt::Display for Display {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -152,12 +157,19 @@ impl fmt::Display for Display {
             Self::None => write!(f, "None"),
             Self::Sdl => write!(f, "SDL"),
             Self::Gtk => write!(f, "GTK"),
+            #[cfg(target_os = "linux")]
             Self::Spice => write!(f, "Spice"),
+            #[cfg(target_os = "linux")]
             Self::SpiceApp => write!(f, "Spice App"),
+            #[cfg(target_os = "macos")]
+            Self::Cocoa => write!(f, "Cocoa"),
         }
     }
 }
 impl Default for Display {
+    #[cfg(target_os = "macos")]
+    fn default() -> Self { Self::Cocoa }
+    #[cfg(not(target_os = "macos"))]
     fn default() -> Self { Self::Sdl }
 }
 

@@ -12,6 +12,7 @@ use which::which;
 use sysinfo::{System, Cpu, Networks};
 use std::path::{Path, PathBuf};
 use std::os::unix::fs::PermissionsExt;
+use std::net::{TcpListener, SocketAddrV4, Ipv4Addr};
 
 impl Args {
     pub fn launch_qemu(self) -> Result<()> {
@@ -31,11 +32,11 @@ impl Args {
 
         let qemu_version = Command::new(&qemu_bin).stdout(Stdio::piped()).arg("--version").spawn()?;
         let smartcard = if matches!(self.arch, Arch::x86_64 | Arch::riscv64) {
-            Some(Command::new(&qemu_bin).arg("-chardev").arg("spicevmc,id=ccid,name=").stderr(Stdio::piped()).spawn()?)
+            Some(Command::new(&qemu_bin).arg("-device").arg("help").stdout(Stdio::piped()).spawn()?)
         } else {
             None
         };
-            
+
         // (x86_64 only) Determine whether CPU has the necessary features. VMX support is checked
         // for all operating systems, and macOS checks SSE4.1, and AVX2 for Ventura and newer.
         #[cfg(target_arch = "x86_64")]
@@ -270,6 +271,14 @@ fn find_firmware(firmware: &[(&str, &str)]) -> Option<(PathBuf, PathBuf)> {
 
 impl Network {
     fn into_args(self, vmname: &str, ssh: u16, port_forwards: Option<Vec<PortForward>>, publicdir: Option<&OsString>, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
+        let (ssh_arg, ssh_msg) = match find_port(ssh, 9) {
+            Some(port) => {
+                let ssh_arg = format!(",hostfwd=tcp::{port}-:22");
+                let ssh_msg = format!(", SSH (On host): ssh {{user}}@localhost -p {port}");
+                (ssh_arg, ssh_msg)
+            },
+            None => Default::default(),
+        };
         match self {
             Self::None => Ok((vec!["-nic".into(), "none".into()], Some(vec!["Network: Disabled".into()]))),
             Self::Restrict | Self::Nat => {
@@ -287,16 +296,14 @@ impl Network {
                         msgs.push("smbd on guest: `smb://10.0.2.4/qemu`".into());
                         format!(",smb={}", dir.to_string_lossy())
                     })).unwrap_or_default();
-                    let ssh = format!(",hostfwd=tcp::{}-:22", ssh);
-                    format!("user,hostname={vmname}{ssh}{}{samba}", port_forwards.unwrap_or_default())
+                    format!("user,hostname={vmname}{ssh_arg}{}{samba}", port_forwards.unwrap_or_default())
                 };
 
                 let device = guest_os.net_device();
                 let device_arg = format!("{},netdev=nic", device);
                 let netdev = format!("{}{},id=nic", net, if self == Self::Restrict { ",restrict=y" } else { "" });
 
-
-                msgs.insert(0, format!("Network: {} ({}), SSH (On host): ssh user@localhost -p {ssh}", if self == Self::Restrict { "Restricted" } else { "User" }, device));
+                msgs.insert(0, format!("Network: {} ({}){ssh_msg}", if self == Self::Restrict { "Restricted" } else { "User" }, device));
                 Ok((vec!["-netdev".into(), netdev, "-device".into(), device_arg], Some(msgs)))
             },
             Self::Bridged { bridge, mac_addr } => {
@@ -418,8 +425,10 @@ impl USBController {
             _ => "qemu-xhci",
         };
         let mut args = vec!["-device".into(), "virtio-rng-pci,rng=rng0".into(),
-            "-object".into(), "rng-random,id=rng0,filename=/dev/urandom".into(),
-            "-device".into(), passthrough_controller.to_string() + ",id=spicepass",
+            "-object".into(), "rng-random,id=rng0,filename=/dev/urandom".into()];
+
+        #[cfg(target_os = "linux")]
+        args.extend(["-device".into(), passthrough_controller.to_string() + ",id=spicepass",
             "-chardev".into(), "spicevmc,id=usbredirchardev1,name=usbredir".into(),
             "-device".into(), "usb-redir,chardev=usbredirchardev1,id=usbredirdev1".into(),
             "-chardev".into(), "spicevmc,id=usbredirchardev2,name=usbredir".into(),
@@ -428,7 +437,8 @@ impl USBController {
             "-device".into(), "usb-redir,chardev=usbredirchardev3,id=usbredirdev3".into(),
             "-device".into(), "pci-ohci,id=smartpass".into(),
             "-device".into(), "usb-ccid".into(),
-        ];
+        ]);
+
         match self {
             Self::Ehci => args.extend(["-device".into(), "usb-ehci,id=input".into()]),
             Self::Xhci => args.extend(["-device".into(), "qemu-xhci,id=input".into()]),
@@ -436,7 +446,7 @@ impl USBController {
         }
         if let Some(child) = smartcard {
             let smartcard = child.wait_with_output()?;
-            if std::str::from_utf8(&smartcard.stderr)?.contains("smartcard") {
+            if std::str::from_utf8(&smartcard.stdout)?.contains("smartcard") {
                 args.extend(["-chardev".into(), "spicevmc,id=ccid,name=smartcard".into(),
                     "-device".into(), "ccid-card-passthru,chardev=ccid".into()]);
             } else {
@@ -517,10 +527,20 @@ fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> 
 
     let mut args = vec!["-name".into(), name, "-pidfile".into(), pid, "-machine".into(), machine];
     if arch.matches_host() {
-        args.push("--enable-kvm".into());
+        #[cfg(target_os = "linux")]
+        args.extend(["-accel".into(), "kvm".into()]);
+        #[cfg(target_os = "macos")]
+        args.extend(["-accel".into(), "hvf".into()]);
     }
     if let Some(mut tweaks) = guest_os.guest_tweaks() {
         args.append(&mut tweaks);
     }
     args
+}
+
+pub fn find_port(default: u16, offset: u16) -> Option<u16> {
+    (default..=default+offset).find(|port| {
+        let port = SocketAddrV4::new(Ipv4Addr::LOCALHOST, *port);
+        TcpListener::bind(port).is_ok()
+    })
 }

@@ -60,35 +60,43 @@ impl GuestOS {
 
     pub fn cpu_argument(&self, arch: &Arch) -> Option<String> {
         let default_cpu = || if arch.matches_host() {
-            "host".to_string()
+            if cfg!(target_os = "macos") {
+                "host,-pdpe1gb".to_string()
+            } else {
+                "host".to_string()
+            }
         } else {
             "max".to_string()
         };
-        let cpu = match arch {
+        let cpu_info = System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::new()));
+        let vendor = cpu_info.cpus()[0].vendor_id();
+        Some(match arch {
             Arch::riscv64 => return None,
             Arch::aarch64 => default_cpu(),
             Arch::x86_64 => {
                 let cpu_arg = match self {
                     Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::LinuxOld | Self::Solaris => default_cpu(),
                     Self::KolibriOS | Self::ReactOS => "qemu32".to_string(),
-                    Self::MacOS { release } if release >= &MacOSRelease::Ventura => "Haswell-noTSX-IBRS,vendor=GenuineIntel,+sse3,+sse4.2,+aes,+xsave,+avx,+xsaveopt,+xsavec,+xgetbv1,+avx2,+bmi2,+smep,+bmi1,+fma,+movbe,+invtsc".to_string(),
-                    Self::MacOS {..} => "Penryn,vendor=GenuineIntel,+aes,+avx,+bmi1,+bmi2,+fma,+hypervisor,+invtsc,+kvm_pv_eoi,+kvm_pv_unhalt,+popcnt,+ssse3,+sse4.2,vmware-cpuid-freq=on,+xsave,+xsaveopt,check".to_string(),
+                    Self::MacOS { release } => {
+                        if vendor == "GenuineIntel" {
+                            default_cpu()
+                        } else if release >= &MacOSRelease::Catalina {
+                            macos_cpu_flags("Haswell-v4,vendor=GenuineIntel,+avx,+avx2,+sse,+sse2,+sse3,+sse4.2,vmware-cpuid-freq=on")
+                        } else {
+                            macos_cpu_flags("Penryn,vendor=GenuineIntel,+avx,+sse,+sse2,+sse3,+sse4.1,vmware-cpuid-freq=on")
+                        }
+                    },
                     Self::Windows | Self::WindowsServer => default_cpu() + ",+hypervisor,+invtsc,l3-cache=on,migratable=no,hv_passthrough",
                 };
 
-                if System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::new())).cpus()[0].vendor_id().contains("AuthenticAMD") {
+                if vendor == "AuthenticAMD" {
                     cpu_arg + ",topoext"
                 } else {
                     cpu_arg
                 }
             }
-        };
-        if arch.matches_host() {
-            cpu + ",kvm=on"
-        } else {
-            cpu
-        }.into()
-    }       
+        })
+    }
 
     pub fn disk_size(&self) -> u64 {
         match self {
@@ -110,4 +118,54 @@ impl GuestOS {
             _ => None,
         }
     }
+}
+fn macos_cpu_flags(input: &str) -> String {
+    let mut cpu_arg = input.to_string();
+    #[cfg(target_arch = "x86_64")] {
+        let cpuid = raw_cpuid::CpuId::new();
+
+        if let Some(features) = cpuid.get_feature_info() {
+            [(features.has_aesni(), ",aes"),
+            (features.has_cmpxchg8b(), ",cx8"),
+            (features.has_eist(), ",eist"),
+            (features.has_f16c(), ",f16c"),
+            (features.has_fma(), ",fma"),
+            (features.has_mmx(), ",mmx"),
+            (features.has_movbe(), ",movbe"),
+            (features.has_popcnt(), ",popcnt"),
+            (features.has_xsave(), ",xsave")]
+            .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
+        }
+        if let Some(features) = cpuid.get_extended_feature_info() {
+            [(features.has_bmi1(), ",abm,bmi1"),
+            (features.has_bmi2(), ",bmi2"),
+            (features.has_adx(), ",adx"),
+            (features.has_mpx(), ",mpx"),
+            (features.has_smep(), ",smep"),
+            (features.has_vaes(), ",vaes"),
+            (features.has_av512vbmi2(), "vbmi2"),
+            (features.has_vpclmulqdq(), ",vpclmulqdq")]
+            .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
+        }
+        if let Some(features) = cpuid.get_extended_processor_and_feature_identifiers() {
+            if features.has_data_access_bkpt_extension() {
+                cpu_arg.push_str(",amd-ssbd");
+            }
+            #[cfg(not(target_os = "macos"))]
+            if features.has_1gib_pages() {
+                cpu_arg.push_str(",pdpe1gb");
+            }
+        }
+        if let Some(features) = cpuid.get_advanced_power_mgmt_info() {
+            if features.has_invariant_tsc() {
+                cpu_arg.push_str(",invtsc");
+            }
+        }
+        if let Some(features) = cpuid.get_extended_state_info() {
+            [(features.has_xgetbv(), ",xgetbv1"),
+            (features.has_xsaveopt(), ",xsaveopt")]
+            .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
+        }
+    }
+    cpu_arg
 }

@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use std::ffi::OsString;
 use crate::config::{Arch, BooleanDisplay, Display, Monitor, SoundCard, GuestOS, Resolution};
+use crate::qemu_args::find_port;
 
 impl SoundCard {
     pub fn to_args(&self) -> (Vec<String>, Option<Vec<String>>) {
@@ -17,7 +18,11 @@ impl SoundCard {
 impl Display {
     pub fn audio_arg(&self) -> [OsString; 2] {
         match self {
+            #[cfg(target_os = "linux")]
             Self::None | Self::Spice | Self::SpiceApp => ["-audiodev".into(), "spice,id=audio0".into()],
+            #[cfg(target_os = "macos")]
+            _ => ["-audiodev".into(), "coreaudio,id=audio0".into()],
+            #[cfg(not(target_os = "macos"))]
             _ => ["-audiodev".into(), "pa,id=audio0".into()],
         }
     }
@@ -27,10 +32,16 @@ impl Display {
         let (display_device, friendly_display_device) = match arch {
             Arch::x86_64 => match guest_os {
                 GuestOS::Linux => match self {
-                    Self::None | Self::Spice | Self::SpiceApp => ("virtio-gpu", "VirtIO GPU"),
+                    Self::None => ("virtio-gpu", "VirtIO GPU"),
+                    #[cfg(target_os = "linux")]
+                    Self::Spice | Self::SpiceApp => ("virtio-gpu", "VirtIO GPU"),
                     _ => (virtio_vga(), "VirtIO VGA"),
                 },
-                GuestOS::Windows | GuestOS::WindowsServer if matches!(self, Self::Sdl | Self::SpiceApp) => (virtio_vga(), "VirtIO VGA"),
+                GuestOS::Windows | GuestOS::WindowsServer if self == &Self::Sdl => (virtio_vga(), "VirtIO VGA"),
+                #[cfg(target_os = "linux")]
+                GuestOS::Windows | GuestOS::WindowsServer if self == &Self::SpiceApp => (virtio_vga(), "VirtIO VGA"),
+                #[cfg(target_os = "macos")]
+                GuestOS::Windows | GuestOS::WindowsServer if self == &Self::Cocoa => ("virtio-vga", "VirtIO VGA"),
                 GuestOS::Solaris | GuestOS::LinuxOld => ("vmware-svga,vgamem_mb=256", "VMware SVGA"),
                 _ => ("qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64", "QXL"),
             },
@@ -41,9 +52,14 @@ impl Display {
 
         let display_render = match self {
             Self::Gtk => "gtk,grab-on-hover=on,zoom-to-fit=off,gl=".to_string() + gl,
-            Self::None | Self::Spice => "none".to_string(),
+            Self::None => "none".to_string(),
             Self::Sdl => "sdl,gl=".to_string() + gl,
+            #[cfg(target_os = "linux")]
+            Self::Spice => "none".to_string(),
+            #[cfg(target_os = "linux")]
             Self::SpiceApp => "spice-app,gl=".to_string() + gl,
+            #[cfg(target_os = "macos")]
+            Self::Cocoa => "cocoa".to_string(),
         };
 
         let mut message = format!("Display: {}, Device: {}, GL: {}, VirGL: {}", self, friendly_display_device, accel.as_str(), (display_device == "virtio-vga-gl").as_str());
@@ -97,7 +113,9 @@ impl Monitor {
                 let mut telnet = OsString::from("telnet:");
                 telnet.push(host);
                 telnet.push(":");
-                telnet.push(crate::config_parse::port((None, None), *port, 9)?.to_string());
+                telnet.push(find_port(*port, 9)
+                    .ok_or_else(|| anyhow!("Could not find an open telnet port between {} and {}", port, port + 9))?
+                    .to_string());
                 telnet.push(",server,nowait");
                 (vec![arg, telnet], Some(vec![text + "On host: telnet " + host + " " + &port.to_string()]))
             },
