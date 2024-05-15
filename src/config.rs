@@ -26,6 +26,7 @@ pub struct Args {
     pub usb_devices: Option<Vec<String>>,
     pub viewer: Option<Viewer>,
     pub ssh_port: u16,
+    #[cfg(target_os = "linux")]
     pub spice_port: u16,
     pub monitor: Monitor,
     pub resolution: Resolution,

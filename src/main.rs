@@ -182,6 +182,7 @@ fn prepare_args(args: CliArgs) -> Result<config::Args> {
         serial: config::Monitor::try_from((conf.serial, args.serial, args.serial_telnet_host, args.serial_telnet_port, 6660, serial_socketpath))?,
         usb_controller: args.usb_controller.or(conf.usb_controller).unwrap_or(guest_os.into()),
         sound_card: args.sound_card.unwrap_or(conf.soundcard),
+        #[cfg(target_os = "linux")]
         spice_port: args.spice_port.unwrap_or(conf.spice_port),
         ssh_port: args.ssh_port.unwrap_or(conf.ssh_port),
         usb_devices: conf.usb_devices,
