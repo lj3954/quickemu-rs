@@ -96,14 +96,12 @@ pub enum Access {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Arch {
+    #[default]
     x86_64,
     aarch64,
     riscv64,
-}
-impl Default for Arch {
-    fn default() -> Self { Self::x86_64 }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -241,7 +239,7 @@ pub enum MacOSRelease {
     Sonoma,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Network {
     #[serde(alias = "none")]
     None,
@@ -253,11 +251,9 @@ pub enum Network {
         #[serde(alias = "MAC Address", alias = "macaddr")]
         mac_addr: Option<String>,
     },
+    #[default]
     #[serde(alias = "nat", alias = "NAT", alias = "user")]
     Nat,
-}
-impl Default for Network {
-    fn default() -> Self { Self::Nat }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -288,8 +284,9 @@ pub struct PortForward {
     pub guest: u16,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub enum PreAlloc {
+    #[default]
     Off,
     Metadata,
     Falloc,
@@ -314,9 +311,6 @@ impl std::fmt::Display for PreAlloc {
             Self::Full => write!(f, "full"),
         }
     }
-}
-impl Default for PreAlloc {
-    fn default() -> Self { Self::Off }
 }
 
 #[derive(Debug)]
@@ -359,14 +353,12 @@ impl Default for SerdeMonitor {
 }
 fn is_socket(input: &str) -> bool { input == "socket" }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Resolution {
+    #[default]
     Default,
     Display(String),
     Custom { width: u32, height: u32 },
-}
-impl Default for Resolution {
-    fn default() -> Self { Self::Default }
 }
 
 #[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
@@ -376,14 +368,12 @@ pub enum USBController {
     Xhci,
 }
 
-#[derive(ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Keyboard {
+    #[default]
     Usb,
     Virtio,
     PS2,
-}
-impl Default for Keyboard {
-    fn default() -> Self { Self::Usb }
 }
 
 #[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
@@ -394,16 +384,14 @@ pub enum Mouse {
     PS2,
 }
 
-#[derive(ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum SoundCard {
     None,
+    #[default]
     IntelHDA,
     AC97,
     ES1370,
     SB16,
-}
-impl Default for SoundCard {
-    fn default() -> Self { SoundCard::IntelHDA }
 }
 
 pub enum ActionType {
