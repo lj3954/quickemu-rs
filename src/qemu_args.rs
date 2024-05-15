@@ -443,6 +443,7 @@ impl USBController {
             Self::Xhci => args.extend(["-device".into(), "qemu-xhci,id=input".into()]),
             _ => ()
         }
+        #[cfg(not(target_os = "macos"))]
         if let Some(child) = smartcard {
             let smartcard = child.wait_with_output()?;
             if std::str::from_utf8(&smartcard.stdout)?.contains("smartcard") {
