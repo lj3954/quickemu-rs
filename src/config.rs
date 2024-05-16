@@ -2,6 +2,7 @@ use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
+use std::net::SocketAddr;
 
 #[derive(Debug)]
 pub struct Args {
@@ -29,6 +30,7 @@ pub struct Args {
     #[cfg(not(target_os = "macos"))]
     pub spice_port: u16,
     pub monitor: Monitor,
+    pub monitor_cmd: Option<String>,
     pub resolution: Resolution,
     pub screenpct: Option<u32>,
     pub serial: Monitor,
@@ -342,7 +344,7 @@ pub enum Viewer {
 #[derive(Debug)]
 pub enum Monitor {
     None,
-    Telnet { port: u16, host: String },
+    Telnet { address: SocketAddr },
     Socket { socketpath: PathBuf },
 }
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -400,6 +402,7 @@ pub enum SoundCard {
 
 pub enum ActionType {
     Launch,
+    Kill,
     MigrateConfig,
     DeleteDisk,
     DeleteVM,

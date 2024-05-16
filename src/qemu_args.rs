@@ -46,7 +46,17 @@ impl Args {
 
         let publicdir: Option<OsString> = self.public_dir.try_into()?;
 
-        let mut qemu_args: Vec<OsString> = basic_args(&self.vm_name, &self.vm_dir, &self.guest_os, &self.arch);
+        let mut qemu_args = match basic_args(&self.vm_name, &self.vm_dir, &self.guest_os, &self.arch) {
+            Some(args) => args,
+            None => {
+                if let Some(cmd) = self.monitor_cmd {
+                    return self.monitor.send_command(&cmd);
+                } else {
+                    bail!("VM is already running. Use `{} --kill {{conf_file}}` to forcibly stop it.", env!("CARGO_PKG_NAME")); 
+                }
+            }
+        };
+
         let mut print_args: Vec<String> = Vec::with_capacity(16);
         qemu_args.reserve(32);
         
@@ -113,6 +123,10 @@ impl Args {
 
         println!("QuickemuRS {} using {} {}.", env!("CARGO_PKG_VERSION"), qemu_bin.to_string_lossy(), friendly_ver);
         print_args.iter().for_each(|arg| println!(" - {}", arg));
+
+        if let Some(cmd) = self.monitor_cmd {
+            self.monitor.send_command(&cmd)?;
+        }
 
         Ok(())
     }
@@ -516,10 +530,12 @@ fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsStr
     Ok((args, Some(print_args)))
 }
 
-fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> Vec<OsString> {
+fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> Option<Vec<OsString>> {
     let machine = arch.machine_type(guest_os);
-    let mut pid = vm_dir.join(vm_name).into_os_string();
-    pid.push(".pid");
+    let pid = vm_dir.join(vm_name.to_owned() + ".pid");
+    if pid.exists() {
+        return None;
+    }
 
     #[cfg(not(target_os = "macos"))]
     let name = {
@@ -532,7 +548,7 @@ fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> 
     #[cfg(target_os = "macos")]
     let mut args = vec!["-pidfile".into(), pid, "-machine".into(), machine];
     #[cfg(not(target_os = "macos"))]
-    let mut args = vec!["-name".into(), name, "-pidfile".into(), pid, "-machine".into(), machine];
+    let mut args = vec!["-name".into(), name, "-pidfile".into(), pid.into(), "-machine".into(), machine];
 
     if arch.matches_host() {
         #[cfg(target_os = "linux")]
@@ -543,7 +559,7 @@ fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> 
     if let Some(mut tweaks) = guest_os.guest_tweaks() {
         args.append(&mut tweaks);
     }
-    args
+    Some(args)
 }
 
 pub fn find_port(default: u16, offset: u16) -> Option<u16> {

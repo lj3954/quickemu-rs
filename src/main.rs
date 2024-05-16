@@ -11,7 +11,7 @@ use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 use std::fs::read_to_string;
 use anyhow::{anyhow, bail};
 use config_parse::Relativize;
-use config::{ActionType, ConfigFile};
+use config::{Args, ActionType, ConfigFile};
 
 fn main() {
     let args = CliArgs::parse();
@@ -30,7 +30,7 @@ fn main() {
             }
         },
         ActionType::Launch => {
-            let args = prepare_args(args).unwrap_or_else(|e| {
+            let args: Args = args.try_into().unwrap_or_else(|e| {
                 log::error!("{}", e);
                 std::process::exit(1);
             });
@@ -49,14 +49,15 @@ fn main() {
             }
         },
         ActionType::EditConfig => todo!(),
+        ActionType::Kill => todo!(),
     }
-
-    
 }
 
 impl CliArgs {
     fn get_action_type(&self) -> ActionType {
-        if self.migrate_config {
+        if self.kill {
+            ActionType::Kill
+        } else if self.migrate_config {
             ActionType::MigrateConfig
         } else if self.delete_vm {
             ActionType::DeleteVM
@@ -129,69 +130,73 @@ pub fn handle_disk_paths(images: &mut Vec<config::DiskImage>, conf_file_path: &P
     Ok(())
 }
 
-fn prepare_args(args: CliArgs) -> Result<config::Args> {
-    let (conf_file, mut conf) = parse_conf(args.config_file)?;
+impl TryFrom<CliArgs> for Args {
+    type Error = anyhow::Error;
+    fn try_from(args: CliArgs) -> Result<Self> {
+        let (conf_file, mut conf) = parse_conf(args.config_file)?;
 
-    let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()).with_cpu(CpuRefreshKind::new()));
-    log::debug!("{:?}",info);
-    let guest_os = &conf.guest_os;
+        let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()).with_cpu(CpuRefreshKind::new()));
+        log::debug!("{:?}",info);
+        let guest_os = &conf.guest_os;
 
-    let conf_file_path = PathBuf::from(&conf_file);
-    let conf_file_path = conf_file_path.parent()
-        .ok_or_else(|| anyhow!("The parent directory of the config file cannot be found"))?;
-    log::debug!("Config file path: {:?}", conf_file_path);
+        let conf_file_path = PathBuf::from(&conf_file);
+        let conf_file_path = conf_file_path.parent()
+            .ok_or_else(|| anyhow!("The parent directory of the config file cannot be found"))?;
+        log::debug!("Config file path: {:?}", conf_file_path);
 
-    log::debug!("{:?} {}", conf_file_path, conf_file);
-    let vm_dir = conf_file[..conf_file.len()-5].parse::<PathBuf>()?;
+        log::debug!("{:?} {}", conf_file_path, conf_file);
+        let vm_dir = conf_file[..conf_file.len()-5].parse::<PathBuf>()?;
+            
+        let vm_name = vm_dir.file_name().unwrap().to_os_string().into_string().map_err(|e| anyhow!("Unable to parse VM name: {:?}", e))?;
+        log::debug!("Found VM Dir: {:?}, VM Name: {}", vm_dir, vm_name);
+
+        let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket")).to_path_buf();
+        let serial_socketpath = vm_dir.join(format!("{vm_name}-serial.socket")).to_path_buf();
+
+        if conf.disk_images.is_empty() {
+            bail!("Your configuration file must contain at least 1 disk image.");
+        }
+        handle_disk_paths(&mut conf.disk_images, conf_file_path)?;
+        log::debug!("{:?}", conf);
         
-    let vm_name = vm_dir.file_name().unwrap().to_os_string().into_string().map_err(|e| anyhow!("Unable to parse VM name: {:?}", e))?;
-    log::debug!("Found VM Dir: {:?}, VM Name: {}", vm_dir, vm_name);
-
-    let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket")).to_path_buf();
-    let serial_socketpath = vm_dir.join(format!("{vm_name}-serial.socket")).to_path_buf();
-
-    if conf.disk_images.is_empty() {
-        bail!("Your configuration file must contain at least 1 disk image.");
+        Ok(Self {
+            access: config::Access::from(args.access),
+            arch: conf.arch,
+            braille: args.braille,
+            boot: conf.boot_type,
+            cpu_cores: config_parse::cpu_cores(conf.cpu_cores, num_cpus::get(), num_cpus::get_physical())?,
+            disk_images: conf.disk_images,
+            display: args.display.unwrap_or(conf.display),
+            accelerated: conf.accelerated,
+            extra_args: args.extra_args,
+            image_files: conf.image_files,
+            status_quo: args.status_quo,
+            network: conf.network,
+            port_forwards: conf.port_forwards,
+            public_dir: config::PublicDir::from((conf.public_dir, args.public_dir)),
+            ram: config_parse::size_unit(conf.ram, Some(info.total_memory()))?.unwrap(),
+            tpm: conf.tpm,
+            keyboard: args.keyboard.unwrap_or(conf.keyboard),
+            keyboard_layout: config_parse::keyboard_layout((conf.keyboard_layout, args.keyboard_layout))?,
+            monitor: config::Monitor::try_from((conf.monitor, args.monitor, args.monitor_telnet_host, args.monitor_telnet_port, 4440, monitor_socketpath))?,
+            monitor_cmd: args.monitor_cmd,
+            mouse: args.mouse.or(conf.mouse).unwrap_or(guest_os.into()),
+            resolution: (conf.resolution, args.width, args.height, args.screen).into(),
+            screenpct: args.screenpct,
+            serial: config::Monitor::try_from((conf.serial, args.serial, args.serial_telnet_host, args.serial_telnet_port, 6660, serial_socketpath))?,
+            usb_controller: args.usb_controller.or(conf.usb_controller).unwrap_or(guest_os.into()),
+            sound_card: args.sound_card.unwrap_or(conf.soundcard),
+            #[cfg(not(target_os = "macos"))]
+            spice_port: args.spice_port.unwrap_or(conf.spice_port),
+            ssh_port: args.ssh_port.unwrap_or(conf.ssh_port),
+            usb_devices: conf.usb_devices,
+            viewer: args.viewer,
+            system: info,
+            vm_name,
+            vm_dir,
+            guest_os: conf.guest_os,
+        })
     }
-    handle_disk_paths(&mut conf.disk_images, conf_file_path)?;
-    log::debug!("{:?}", conf);
-    
-    Ok(config::Args {
-        access: config::Access::from(args.access),
-        arch: conf.arch,
-        braille: args.braille,
-        boot: conf.boot_type,
-        cpu_cores: config_parse::cpu_cores(conf.cpu_cores, num_cpus::get(), num_cpus::get_physical())?,
-        disk_images: conf.disk_images,
-        display: args.display.unwrap_or(conf.display),
-        accelerated: conf.accelerated,
-        extra_args: args.extra_args,
-        image_files: conf.image_files,
-        status_quo: args.status_quo,
-        network: conf.network,
-        port_forwards: conf.port_forwards,
-        public_dir: config::PublicDir::from((conf.public_dir, args.public_dir)),
-        ram: config_parse::size_unit(conf.ram, Some(info.total_memory()))?.unwrap(),
-        tpm: conf.tpm,
-        keyboard: args.keyboard.unwrap_or(conf.keyboard),
-        keyboard_layout: config_parse::keyboard_layout((conf.keyboard_layout, args.keyboard_layout))?,
-        monitor: config::Monitor::try_from((conf.monitor, args.monitor, args.monitor_telnet_host, args.monitor_telnet_port, 4440, monitor_socketpath))?,
-        mouse: args.mouse.or(conf.mouse).unwrap_or(guest_os.into()),
-        resolution: (conf.resolution, args.width, args.height, args.screen).into(),
-        screenpct: args.screenpct,
-        serial: config::Monitor::try_from((conf.serial, args.serial, args.serial_telnet_host, args.serial_telnet_port, 6660, serial_socketpath))?,
-        usb_controller: args.usb_controller.or(conf.usb_controller).unwrap_or(guest_os.into()),
-        sound_card: args.sound_card.unwrap_or(conf.soundcard),
-        #[cfg(not(target_os = "macos"))]
-        spice_port: args.spice_port.unwrap_or(conf.spice_port),
-        ssh_port: args.ssh_port.unwrap_or(conf.ssh_port),
-        usb_devices: conf.usb_devices,
-        viewer: args.viewer,
-        system: info,
-        vm_name,
-        vm_dir,
-        guest_os: conf.guest_os,
-    })
 }
 
 #[derive(Parser, Debug)]
@@ -203,13 +208,13 @@ struct CliArgs {
     access: Option<String>,
     #[arg(long)]
     braille: bool,
-    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "snapshot", "edit_config", "migrate_config"])]
+    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "snapshot", "edit_config", "migrate_config", "kill"])]
     delete_disk: bool,
-    #[arg(long, group = "action", conflicts_with_all = &["delete_disk", "snapshot", "edit_config", "migrate_config"])]
+    #[arg(long, group = "action", conflicts_with_all = &["delete_disk", "snapshot", "edit_config", "migrate_config", "kill"])]
     delete_vm: bool,
     #[arg(long)]
     display: Option<config::Display>,
-    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "delete_disk", "snapshot", "migrate_config"])]
+    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "delete_disk", "snapshot", "migrate_config", "kill"])]
     edit_config: bool,
     #[arg(long, requires = "height")]
     width: Option<u32>,
@@ -221,7 +226,7 @@ struct CliArgs {
     screenpct: Option<u32>,
     #[arg(long)]
     shortcut: bool,
-    #[arg(long, group = "action", num_args = 1..=2, allow_hyphen_values = true, conflicts_with_all = &["delete_vm", "delete_disk", "edit_config", "migrate_config"])]
+    #[arg(long, group = "action", num_args = 1..=2, allow_hyphen_values = true, conflicts_with_all = &["delete_vm", "delete_disk", "edit_config", "migrate_config", "kill"])]
     snapshot: Option<Vec<String>>,
     #[arg(long)]
     status_quo: bool,
@@ -263,6 +268,8 @@ struct CliArgs {
     verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::WarnLevel>,
     #[arg(required = true)]
     config_file: Vec<String>,
-    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "delete_disk", "edit_config", "snapshot","vm"])]
+    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "delete_disk", "edit_config", "snapshot", "kill"])]
     migrate_config: bool,
+    #[arg(long, group = "action", conflicts_with_all = &["delete_vm", "delete_disk", "edit_config", "snapshot", "migrate_config"])]
+    kill: bool,
 }

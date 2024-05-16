@@ -1,6 +1,9 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use std::ffi::OsString;
 use crate::config::{Arch, BooleanDisplay, Display, Monitor, SoundCard, GuestOS, Resolution};
+use std::net::TcpStream;
+use std::os::unix::net::UnixStream;
+use std::io::Write;
 use crate::qemu_args::find_port;
 
 impl SoundCard {
@@ -109,15 +112,13 @@ impl Monitor {
         arg.push(variant);
         Ok(match self {
             Self::None => (vec![arg, "none".into()], Some(vec![text + "None"])),
-            Self::Telnet { port, host } => {
+            Self::Telnet { address } => {
+                let port = find_port(address.port(), 9).ok_or_else(|| anyhow!("Could not find an open port for the telnet monitor."))?;
+                let address = address.ip().to_string() + ":" + &port.to_string();
                 let mut telnet = OsString::from("telnet:");
-                telnet.push(host);
-                telnet.push(":");
-                telnet.push(find_port(*port, 9)
-                    .ok_or_else(|| anyhow!("Could not find an open telnet port between {} and {}", port, port + 9))?
-                    .to_string());
+                telnet.push(&address);
                 telnet.push(",server,nowait");
-                (vec![arg, telnet], Some(vec![text + "On host: telnet " + host + " " + &port.to_string()]))
+                (vec![arg, telnet], Some(vec![text + "On host: telnet " + &address]))
             },
             Self::Socket { socketpath } => {
                 let mut socket = OsString::from("unix:");
@@ -126,5 +127,23 @@ impl Monitor {
                 (vec![arg, socket], Some(vec![text + "On host: " + &socketpath.to_string_lossy()]))
             },
         })
+    }
+
+    pub fn send_command(&self, command: &str) -> Result<()> {
+        let command = command.to_string() + "\n";
+        match self {
+            Self::None => bail!("A command was requested to be sent to the guest, but no monitor is enabled."),
+            Self::Telnet { address } => {
+                let mut stream = TcpStream::connect(address)?;
+                stream.write_all(command.as_bytes())?;
+                log::debug!("Sent command {} to address {:?}", command, stream);
+            },
+            Self::Socket { socketpath } => {
+                let mut stream = UnixStream::connect(socketpath)?;
+                stream.write_all(command.as_bytes())?;
+                log::debug!("Sent command {} to socket {:?}", command, stream);
+            },
+        };
+        Ok(())
     }
 }

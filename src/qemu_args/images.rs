@@ -32,7 +32,7 @@ pub fn image_args(vm_dir: &Path, images: Option<Vec<Image>>, disks: Vec<DiskImag
             let image_info = Command::new(&qemu_img)
                 .arg("info")
                 .arg(&disk.path)
-                .output().map_err(|e| anyhow!("Could notread disk image information using qemu-img: {}", e))?;
+                .output().map_err(|e| anyhow!("Could not read disk image information using qemu-img: {}", e))?;
             if !image_info.status.success() {
                 bail!("Failed to get write lock on disk image {}. Please ensure that the disk image is not already in use.", &disk.path.display());
             }

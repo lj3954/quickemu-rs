@@ -106,7 +106,7 @@ impl TryFrom<(SerdeMonitor, Option<String>, Option<String>, Option<u16>, u16, Pa
         match monitor_type.as_str() {
             "none" if host.is_some() || value.3.is_some() => bail!("Monitor type 'none' cannot have any additional parameters."),
             "none" => Ok(Monitor::None),
-            "telnet" => Ok(Monitor::Telnet { host: host.unwrap_or("localhost".to_string()), port }),
+            "telnet" => Ok(Monitor::Telnet { address: (host.unwrap_or("127.0.0.1".to_string()) + ":" + &port.to_string()).parse()? }),
             "socket" => Ok(Monitor::Socket { socketpath }),
             _ => bail!("Invalid monitor type: {}", monitor_type),
         }
