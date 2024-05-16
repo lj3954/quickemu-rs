@@ -562,7 +562,7 @@ fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> 
     };
 
     #[cfg(target_os = "macos")]
-    let mut args = vec!["-pidfile".into(), pid, "-machine".into(), machine];
+    let mut args: Vec<OsString> = vec!["-pidfile".into(), pid.into(), "-machine".into(), machine.into()];
     #[cfg(not(target_os = "macos"))]
     let mut args = vec!["-name".into(), name, "-pidfile".into(), pid.into(), "-machine".into(), machine];
 
