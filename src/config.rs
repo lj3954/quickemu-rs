@@ -52,7 +52,7 @@ pub struct ConfigFile {
     #[serde(default, skip_serializing_if = "is_default")]
     pub display: Display,
     pub disk_images: Vec<DiskImage>,
-    #[serde(default = "true_bool", skip_serializing_if = "is_true")]
+    #[serde(default = "default_accel", skip_serializing_if = "is_true")]
     pub accelerated: bool,
     pub image_files: Option<Vec<Image>>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -81,7 +81,10 @@ pub struct ConfigFile {
     pub ssh_port: u16,
     pub usb_devices: Option<Vec<String>>,
 }
-fn true_bool() -> bool { true }
+#[cfg(target_os = "macos")]
+fn default_accel() -> bool { false }
+#[cfg(not(target_os = "macos"))]
+fn default_accel() -> bool { true }
 fn default_spice_port() -> u16 { 5930 }
 fn default_ssh_port() -> u16 { 22220 }
 fn is_default<T: Default + PartialEq>(input: &T) -> bool { input == &T::default() }
