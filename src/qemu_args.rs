@@ -4,12 +4,12 @@ mod display;
 mod arch;
 
 use std::ffi::OsString;
-use std::{io::Write, fs::{OpenOptions, File, create_dir}};
+use std::{io::Write, fs::{read_to_string, OpenOptions, File, create_dir}};
 use std::process::{Stdio, Command};
 use anyhow::{anyhow, bail, Result};
 use crate::{config_parse::BYTES_PER_GB, config::*};
 use which::which;
-use sysinfo::{System, Cpu, Networks};
+use sysinfo::{System, Cpu, Networks, Pid, RefreshKind, ProcessRefreshKind};
 use std::path::{Path, PathBuf};
 use std::os::unix::fs::PermissionsExt;
 use std::net::{TcpListener, SocketAddrV4, Ipv4Addr};
@@ -126,6 +126,22 @@ impl Args {
 
         if let Some(cmd) = self.monitor_cmd {
             self.monitor.send_command(&cmd)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn kill(self) -> Result<()> {
+        let pid_path = self.vm_dir.join(self.vm_name + ".pid");
+        let pid = read_to_string(&pid_path).map_err(|_| anyhow!("Unable to read PID file. Are you sure the VM is active?"))?;
+        let pid = pid.trim().parse::<u32>().map_err(|_| anyhow!("Invalid PID: {}", pid))?;
+        
+        std::fs::remove_file(pid_path)?;
+        let processes = System::new_with_specifics(RefreshKind::new().with_processes(ProcessRefreshKind::new()));
+        if let Some(process) = processes.process(Pid::from_u32(pid)) {
+            process.kill();
+        } else {
+            bail!("Process {} does not exist.", pid);
         }
 
         Ok(())

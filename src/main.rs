@@ -49,7 +49,16 @@ fn main() {
             }
         },
         ActionType::EditConfig => todo!(),
-        ActionType::Kill => todo!(),
+        ActionType::Kill => {
+            let args: Args = args.try_into().unwrap_or_else(|e| {
+                log::error!("{}", e);
+                std::process::exit(1);
+            });
+            args.kill().unwrap_or_else(|e| {
+            log::error!("{}", e);
+            std::process::exit(1);
+            })
+        },
     }
 }
 
