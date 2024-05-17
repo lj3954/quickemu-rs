@@ -80,10 +80,12 @@ impl GuestOS {
                     Self::MacOS { release } => {
                         if vendor == "GenuineIntel" {
                             macos_cpu_flags("host")
+                        } else if release >= &MacOSRelease::Ventura {
+                            macos_cpu_flags("Haswell-v2,vendor=GenuineIntel,+avx,+avx2,+sse,+sse2,+ssse3,+sse4.1,+sse4.2,+rdtscp")
                         } else if release >= &MacOSRelease::Catalina {
-                            macos_cpu_flags("Haswell-v4,vendor=GenuineIntel,+avx,+avx2,+sse,+sse2,+sse3,+sse4.2,vmware-cpuid-freq=on")
+                            macos_cpu_flags("Haswell-v2,vendor=GenuineIntel,+avx,+sse,+sse2,+ssse3,+sse4.1,+sse4.2,+rdtscp")
                         } else {
-                            macos_cpu_flags("Penryn,vendor=GenuineIntel,+avx,+sse,+sse2,+sse3,+sse4.1,vmware-cpuid-freq=on")
+                            macos_legacy_cpu_flag()
                         }
                     },
                     Self::Windows | Self::WindowsServer => default_cpu() + ",+hypervisor,+invtsc,l3-cache=on,migratable=no,hv_passthrough",
@@ -119,13 +121,55 @@ impl GuestOS {
         }
     }
 }
+
+fn macos_legacy_cpu_flag() -> String {
+    let mut cpu_arg = "Penryn,vendor=GenuineIntel,+sse,+sse2,+ssse3,+sse4.1".to_string();
+    #[cfg(target_arch = "x86_64")] {
+        let cpuid = raw_cpuid::CpuId::new();
+        
+        if let Some(features) = cpuid.get_feature_info() {
+            [(features.has_tsc(), ",+tsc"),
+            (features.has_vme(), ",+vme"),
+            (features.has_fxsave_fxstor(), ",+fxsr"),
+            (features.has_mmx(), ",+mmx"),
+            (features.has_clflush(), ",+clflush"),
+            (features.has_pse36(), ",+pse36"),
+            (features.has_pat(), ",+pat"),
+            (features.has_cmov(), ",+cmov"),
+            (features.has_mca(), ",+mca"),
+            (features.has_pge(), ",+pge"),
+            (features.has_mtrr(), ",+mtrr"),
+            (features.has_sysenter_sysexit(), ",+sep"),
+            (features.has_apic(), ",+apic"),
+            (features.has_cmpxchg8b(), ",+cx8"),
+            (features.has_mce(), ",+mce"),
+            (features.has_pae(), ",+pae"),
+            (features.has_msr(), ",+msr"),
+            (features.has_pse(), ",+pse"),
+            (features.has_de(), ",+de"),
+            (features.has_fpu(), ",+fpu"),
+            (features.has_cmpxchg16b(), ",+cx16")]
+            .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
+        }
+        if let Some(features) = cpuid.get_extended_processor_and_feature_identifiers() {
+            [(features.has_64bit_mode(), ",+lm"),
+            (features.has_execute_disable(), ",+nx"),
+            (features.has_syscall_sysret(), ",+syscall"),
+            (features.has_lahf_sahf(), ",+lahf-lm"),]
+            .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
+        }
+    }
+    cpu_arg
+}
+
 fn macos_cpu_flags(input: &str) -> String {
     let mut cpu_arg = input.to_string();
     #[cfg(target_arch = "x86_64")] {
         let cpuid = raw_cpuid::CpuId::new();
 
         if let Some(features) = cpuid.get_feature_info() {
-            [(features.has_aesni(), ",+aes"),
+            [(features.has_vmx(), ",+vmx"),
+            (features.has_aesni(), ",+aes"),
             (features.has_cmpxchg8b(), ",+cx8"),
             (features.has_eist(), ",+eist"),
             (features.has_f16c(), ",+f16c"),
@@ -133,25 +177,54 @@ fn macos_cpu_flags(input: &str) -> String {
             (features.has_mmx(), ",+mmx"),
             (features.has_movbe(), ",+movbe"),
             (features.has_popcnt(), ",+popcnt"),
+            (features.has_fxsave_fxstor(), ",+fxsr"),
+            (features.has_clflush(), ",+clflush"),
+            (features.has_pse36(), ",+pse36"),
+            (features.has_pat(), ",+pat"),
+            (features.has_cmov(), ",+cmov"),
+            (features.has_mca(), ",+mca"),
+            (features.has_mce(), ",+mce"),
+            (features.has_pae(), ",+pae"),
+            (features.has_msr(), ",+msr"),
+            (features.has_pge(), ",+pge"),
+            (features.has_mtrr(), ",+mtrr"),
+            (features.has_sysenter_sysexit(), ",+sep"),
+            (features.has_apic(), ",+apic"),
+            (features.has_cmpxchg16b(), ",+cx16"),
+            (features.has_fpu(), ",+fpu"),
+            (features.has_de(), ",+de"),
+            (features.has_pse(), ",+pse"),
+            (features.has_x2apic(), ",+x2apic"),
             (features.has_xsave(), ",+xsave"),
-            (!features.has_pcid(), ",-pcid")]
+            (features.has_rdrand(), ",+rdrand"),
+            (!features.has_pcid(), ",-pcid"),
+            (features.has_tsc(), ",+tsc")]
             .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
         }
         if let Some(features) = cpuid.get_extended_feature_info() {
-            [(features.has_bmi1(), ",+abm,+bmi1"),
+            [(features.has_bmi1(), ",+bmi1"),
             (features.has_bmi2(), ",+bmi2"),
             (features.has_adx(), ",+adx"),
             (features.has_mpx(), ",+mpx"),
             (features.has_smep(), ",+smep"),
             (features.has_vaes(), ",+vaes"),
             (features.has_av512vbmi2(), ",+avx512vbmi2"),
-            (features.has_vpclmulqdq(), ",+vpclmulqdq")]
+            (features.has_vpclmulqdq(), ",+vpclmulqdq"),
+            (features.has_fsgsbase(), ",+fsgsbase"),
+            (features.has_rep_movsb_stosb(), ",+erms"),
+            (features.has_tsc_adjust_msr(), ",+tsc-adjust"),
+            (features.has_invpcid(), ",+invpcid")]
             .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
         }
         if let Some(features) = cpuid.get_extended_processor_and_feature_identifiers() {
-            if features.has_data_access_bkpt_extension() {
-                cpu_arg.push_str(",+amd-ssbd");
-            }
+            [(features.has_data_access_bkpt_extension(), ",+amd-ssbd"),
+            (features.has_lzcnt(), ",abm"),
+            (features.has_64bit_mode(), ",+lm"),
+            (features.has_execute_disable(), ",+nx"),
+            (features.has_syscall_sysret(), ",+syscall"),
+            (features.has_lahf_sahf(), ",+lahf-lm")]
+            .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
+
             #[cfg(not(target_os = "macos"))]
             if features.has_1gib_pages() {
                 cpu_arg.push_str(",+pdpe1gb");
@@ -166,6 +239,11 @@ fn macos_cpu_flags(input: &str) -> String {
             [(features.has_xgetbv(), ",+xgetbv1"),
             (features.has_xsaveopt(), ",+xsaveopt")]
             .iter().for_each(|(has_feature, flag)| if *has_feature { cpu_arg.push_str(flag) });
+        }
+        if let Some(features) = cpuid.get_thermal_power_info() {
+            if features.has_arat() {
+                cpu_arg.push_str(",+arat");
+            }
         }
     }
     cpu_arg
