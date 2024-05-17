@@ -30,14 +30,8 @@ fn main() {
             }
         },
         ActionType::Launch => {
-            let args: Args = args.try_into().unwrap_or_else(|e| {
-                log::error!("{}", e);
-                std::process::exit(1);
-            });
-            args.launch_qemu().unwrap_or_else(|e| {
-                log::error!("{}", e);
-                std::process::exit(1);
-            });
+            let args: Args = args.try_into().unwrap_or_exit();
+            args.launch_qemu().unwrap_or_exit();
         },
         ActionType::DeleteVM => todo!(),
         ActionType::DeleteDisk => todo!(),
@@ -50,15 +44,21 @@ fn main() {
         },
         ActionType::EditConfig => todo!(),
         ActionType::Kill => {
-            let args: Args = args.try_into().unwrap_or_else(|e| {
-                log::error!("{}", e);
-                std::process::exit(1);
-            });
-            args.kill().unwrap_or_else(|e| {
+            let args: Args = args.try_into().unwrap_or_exit();
+            args.kill().unwrap_or_exit();
+        },
+    }
+}
+
+pub trait UnwrapOrExit<T> {
+    fn unwrap_or_exit(self) -> T;
+}
+impl<T> UnwrapOrExit<T> for Result<T> {
+    fn unwrap_or_exit(self) -> T {
+        self.unwrap_or_else(|e| {
             log::error!("{}", e);
             std::process::exit(1);
-            })
-        },
+        })
     }
 }
 
