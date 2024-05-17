@@ -36,3 +36,10 @@ it should be able to create XML files for use within libvirt. This will allow qu
 such as `virt-manager` or `gnome-boxes`. 
 2. **GPU Passthrough**: A high priority of this project is to support passthrough of PCI devices. GPU passthrough
 should be entirely handled for the user. 
+
+## Known bugs
+
+These will be fixed. Eventually. 
+
+(UNIMPLEMENTED FEATURE) Spice display type is not yet supported.
+(BUG) migrate-config puts disk size in bytes in TOML config, but my parser expects the format QEMU uses.
