@@ -162,6 +162,9 @@ impl TryFrom<CliArgs> for Args {
         let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket")).to_path_buf();
         let serial_socketpath = vm_dir.join(format!("{vm_name}-serial.socket")).to_path_buf();
 
+        #[cfg(not(target_os = "macos"))]
+        let spice_port = qemu_args::find_port(args.spice_port.unwrap_or(conf.spice_port), 9);
+
         if conf.disk_images.is_empty() {
             bail!("Your configuration file must contain at least 1 disk image.");
         }
@@ -195,8 +198,9 @@ impl TryFrom<CliArgs> for Args {
             serial: config::Monitor::try_from((conf.serial, args.serial, args.serial_telnet_host, args.serial_telnet_port, 6660, serial_socketpath))?,
             usb_controller: args.usb_controller.or(conf.usb_controller).unwrap_or(guest_os.into()),
             sound_card: args.sound_card.unwrap_or(conf.soundcard),
+            fullscreen: args.fullscreen,
             #[cfg(not(target_os = "macos"))]
-            spice_port: args.spice_port.unwrap_or(conf.spice_port),
+            spice_port,
             ssh_port: args.ssh_port.unwrap_or(conf.ssh_port),
             usb_devices: conf.usb_devices,
             viewer: args.viewer,
@@ -269,6 +273,8 @@ struct CliArgs {
     mouse: Option<config::Mouse>,
     #[arg(long)]
     sound_card: Option<config::SoundCard>,
+    #[arg(long, conflicts_with = "screenpct")]
+    fullscreen: bool,
     #[arg(long)]
     usb_controller: Option<config::USBController>,
     #[arg(long, num_args = 1.., allow_hyphen_values = true)]

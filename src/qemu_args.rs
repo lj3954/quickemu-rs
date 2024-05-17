@@ -65,8 +65,14 @@ impl Args {
         if let Some(arg) = self.guest_os.cpu_argument(&self.arch) {
             qemu_args.extend(["-cpu".into(), arg.into()]);
         }
+
+        #[cfg(not(target_os = "macos"))]
+        if matches!(self.display, Display::None | Display::Spice | Display::SpiceApp) {
+            self.display.spice_args(self.spice_port, self.access, (self.accelerated, self.fullscreen), &self.guest_os, publicdir.as_ref(), &self.vm_name)?.add_args(&mut qemu_args, &mut print_args);
+        }
+
         self.network.into_args(&self.vm_name, self.ssh_port, self.port_forwards, publicdir.as_ref(), &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
-        self.display.display_args(&self.guest_os, &self.arch, self.resolution, self.screenpct, self.accelerated)?.add_args(&mut qemu_args, &mut print_args);
+        self.display.display_args(&self.guest_os, &self.arch, self.resolution, self.screenpct, self.accelerated, self.fullscreen)?.add_args(&mut qemu_args, &mut print_args);
         self.sound_card.to_args().add_args(&mut qemu_args, &mut print_args);
         
         if self.tpm {
@@ -91,8 +97,8 @@ impl Args {
         if self.braille {
             qemu_args.extend(["-chardev".into(), "braille,id=brltty".into(), "-device".into(), "usb-braille,id=usbbrl,chardev=brltty".into()]);
         }
-        if let Some(publicdir) = publicdir {
-            publicdir_args(&publicdir, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
+        if let Some(ref publicdir) = publicdir {
+            publicdir_args(publicdir, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
         }
         self.mouse.to_args().add_args(&mut qemu_args, &mut print_args);
         self.monitor.to_args("monitor")?.add_args(&mut qemu_args, &mut print_args);
@@ -126,6 +132,9 @@ impl Args {
 
         if let Some(cmd) = self.monitor_cmd {
             self.monitor.send_command(&cmd)?;
+        }
+        if self.display == Display::Spice {
+            self.viewer.unwrap_or_default().start(&self.vm_name, publicdir.as_ref(), self.fullscreen, self.spice_port.unwrap())?;
         }
 
         Ok(())

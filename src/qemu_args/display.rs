@@ -1,10 +1,12 @@
 use anyhow::{anyhow, bail, Result};
 use std::ffi::OsString;
-use crate::config::{Arch, BooleanDisplay, Display, Monitor, SoundCard, GuestOS, Resolution};
+use crate::config::{Access, Arch, BooleanDisplay, Display, Monitor, SoundCard, GuestOS, Resolution, Viewer};
 use std::net::TcpStream;
 use std::os::unix::net::UnixStream;
 use std::io::Write;
+use std::process::Command;
 use crate::qemu_args::find_port;
+use which::which;
 
 impl SoundCard {
     pub fn to_args(&self) -> (Vec<String>, Option<Vec<String>>) {
@@ -30,7 +32,7 @@ impl Display {
         }
     }
 
-    pub fn display_args(&self, guest_os: &GuestOS, arch: &Arch, resolution: Resolution, screenpct: Option<u32>, accel: bool) -> Result<(Vec<String>, Option<Vec<String>>)> {
+    pub fn display_args(&self, guest_os: &GuestOS, arch: &Arch, resolution: Resolution, screenpct: Option<u32>, accel: bool, fullscreen: bool) -> Result<(Vec<String>, Option<Vec<String>>)> {
         let virtio_vga = || if accel { "virtio-vga-gl" } else { "virtio-vga" };
         let (display_device, friendly_display_device) = match arch {
             Arch::x86_64 => match guest_os {
@@ -67,7 +69,7 @@ impl Display {
 
         let mut message = format!("Display: {}, Device: {}, GL: {}, VirGL: {}", self, friendly_display_device, accel.as_str(), (display_device == "virtio-vga-gl").as_str());
 
-        let video = if matches!(guest_os, GuestOS::LinuxOld | GuestOS::Solaris) {
+        let video = if matches!(guest_os, GuestOS::LinuxOld | GuestOS::Solaris) || fullscreen {
             display_device.to_string()
         } else {
             let (width, height) = match resolution {
@@ -78,8 +80,42 @@ impl Display {
             message.push_str(&format!(", Resolution: {width}x{height}"));
             format!("{display_device},xres={width},yres={height}")
         };
+        let mut args = vec!["-display".into(), display_render, "-device".into(), video, "-vga".into(), "none".into()];
+        if fullscreen {
+            args.push("--full-screen".into());
+        }
+        Ok((args, Some(vec![message])))
+    }
 
-        Ok((vec!["-display".into(), display_render, "-device".into(), video, "-vga".into(), "none".into()], Some(vec![message])))
+    #[cfg(not(target_os = "macos"))]
+    pub fn spice_args(&self, port: Option<u16>, access: Access, custom_params: (bool, bool), guest_os: &GuestOS, publicdir: Option<&OsString>, vm_name: &str) -> Result<(Vec<String>, Option<Vec<String>>)> {
+        let mut spice = "disable-ticketing=on".to_string();
+        match self {
+            Self::SpiceApp => {
+                let gl = if custom_params.0 { "on" } else { "off" };
+                spice.extend([",gl=", gl]);
+                Ok((vec!["-spice".into(), spice], Some(vec!["Spice: Enabled".into()])))
+            },
+            _ => {
+                let spice_addr = match access {
+                    Access::Remote => "".into(),
+                    Access::Local => "127.0.0.1".into(),
+                    Access::Address(address) => address,
+                };
+                let port = port.ok_or_else(|| anyhow!("Requested SPICE display, but no ports are available."))?.to_string();
+                spice.extend([",port=", &port, ",addr=", &spice_addr]);
+
+                let mut msg = "Spice: On host: spicy --title \"".to_string() + vm_name + "\" --port " + &port;
+                match (publicdir, guest_os) {
+                    (None, _) | (_, GuestOS::MacOS { .. }) => (),
+                    (Some(dir), _) => msg.extend([" --spice-shared-dir ", &dir.to_string_lossy()]),
+                }
+                if custom_params.1 {
+                    msg.push_str(" --full-screen");
+                }
+                Ok((vec!["-spice".into(), spice], Some(vec![msg])))
+            },
+        }
     }
 }
 
@@ -144,6 +180,31 @@ impl Monitor {
                 log::debug!("Sent command {} to socket {:?}", command, stream);
             },
         };
+        Ok(())
+    }
+}
+
+impl Viewer {
+    pub fn start(&self, vm_name: &str, publicdir: Option<&OsString>, fullscreen: bool, port: u16) -> Result<()> {
+        match self {
+            Self::None => (),
+            Self::Remote => {
+                let viewer = which("remote-viewer").map_err(|_| anyhow!("Remote viewer was selected, but remote-viewer is not installed."))?;
+                let publicdir = publicdir.map(|dir| dir.to_string_lossy()).unwrap_or_default();
+                println!(r#" - Viewer: remote-viewer --title "{}" --spice-shared-dir "{}"{} "spice://localhost:{}""#, vm_name, publicdir, if fullscreen { " --full-screen" } else { "" }, port);
+                
+                Command::new(viewer).arg("--title").arg(vm_name).arg("--spice-shared-dir").arg(publicdir.to_string()).arg(if fullscreen { "--full-screen" } else { "" }).arg(format!("spice://localhost:{}", port)).spawn()
+                    .map_err(|e| anyhow!("Could not start viewer: {}", e))?;
+            },
+            Self::Spicy => {
+                let viewer = which("spicy").map_err(|_| anyhow!("Spicy is not installed, spicy viewer cannot be used."))?;
+                let publicdir = publicdir.map(|dir| dir.to_string_lossy()).unwrap_or_default();
+                println!(r#" - Viewer: spicy --title "{}" --port {} --spice-shared-dir "{}"{}"#, vm_name, port, publicdir, if fullscreen { " --full-screen" } else { "" });
+
+                Command::new(viewer).arg("--title").arg(vm_name).arg("--port").arg(port.to_string()).arg("--spice-shared-dir").arg(publicdir.to_string()).arg(if fullscreen { "--full-screen" } else { "" }).spawn()
+                    .map_err(|e| anyhow!("Could not start viewer: {}", e))?;
+            },
+        }
         Ok(())
     }
 }

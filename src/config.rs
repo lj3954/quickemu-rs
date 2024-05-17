@@ -28,7 +28,7 @@ pub struct Args {
     pub viewer: Option<Viewer>,
     pub ssh_port: u16,
     #[cfg(not(target_os = "macos"))]
-    pub spice_port: u16,
+    pub spice_port: Option<u16>,
     pub monitor: Monitor,
     pub monitor_cmd: Option<String>,
     pub resolution: Resolution,
@@ -39,6 +39,7 @@ pub struct Args {
     pub keyboard_layout: Option<String>,
     pub mouse: Mouse,
     pub sound_card: SoundCard,
+    pub fullscreen: bool,
     pub vm_dir: PathBuf,
     pub vm_name: String,
 }
@@ -339,6 +340,9 @@ pub enum Viewer {
     None,
     Spicy,
     Remote,
+}
+impl Default for Viewer {
+    fn default() -> Self { Self::Spicy }
 }
 
 #[derive(Debug)]
