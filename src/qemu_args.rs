@@ -404,10 +404,16 @@ fn tpm_args(vm_dir: &Path, vm_name: &str, sh_file: &mut File) -> Result<([OsStri
 }
 
 
-fn cpucores_ram(cores: usize, threads: bool, system_info: &System, ram: u64, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
-    if ram < 4 * (1024 * 1024 * 1024) {
+fn cpucores_ram(mut cores: usize, threads: bool, system_info: &System, ram: u64, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
+    if ram < 4 * BYTES_PER_GB {
         if let GuestOS::MacOS {..} | GuestOS::Windows | GuestOS::WindowsServer = guest_os {
             bail!("{} guests require at least 4GB of RAM.", guest_os);
+        }
+    }
+    if let GuestOS::MacOS { .. } = guest_os {
+        if !cores.is_power_of_two() {
+            log::warn!("macOS guests usually will not boot with a core count that is not a power of 2. Rounding down.");
+            cores = cores.next_power_of_two() >> 1;
         }
     }
 
