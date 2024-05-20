@@ -12,9 +12,10 @@ The requirement of certain QEMU features will not be treated as a bug.
 
 ## Installation
 
-This project is in early stages, so binaries are not available. To install, you must build the package from this source.
-The only build dependency is rust. Many distros package the language, though the recommended way to install rust is through
-the [rustup](https://www.rust-lang.org/tools/install) script. After installing rust, you can build the project using cargo.
+Binary releases are available. Download one of the releases and extract it to a directory in your PATH, such as `~/.local/bin`. 
+
+Alternatively, you can build the project from source. After installing rust, build it with cargo.
+
 
 ```bash
 git clone https://github.com/lj3954/quickemu-rs.git
@@ -22,7 +23,10 @@ cd quickemu-rs
 cargo build --release
 ```
 
-The binary will be located in the `target/release` directory. You can move this binary to your desired location.
+Currently, on an aarch64 linux host, you will have to build the project from source. This is due to an issue with the build dependencies.
+
+x86_64 linux and all macOS hosts should be able to use the binary releases. Please report an issue if a binary release
+does not launch or if you're unable to launch a VM for any reason.
 
 ## Usage
 
@@ -42,4 +46,5 @@ should be entirely handled for the user.
 These will be fixed. Eventually. 
 
 (UNIMPLEMENTED FEATURE) Spice display type is not yet supported.
+
 (BUG) migrate-config puts disk size in bytes in TOML config, but my parser expects the format QEMU uses.
