@@ -22,3 +22,12 @@ which = "6.0.1"
 [profile.release]
 strip = true
 lto = true
+
+[features]
+default = [
+    "check_smartcard",
+    "get_qemu_ver"
+]
+
+check_smartcard = []
+get_qemu_ver = []

@@ -30,8 +30,9 @@ impl Args {
         let mut sh_file = OpenOptions::new().create(true).write(true).truncate(true).open(self.vm_dir.join(self.vm_name.clone() + ".sh")).unwrap();
         writeln!(sh_file, "#!/usr/bin/env bash").unwrap();
 
+        #[cfg(feature = "get_qemu_ver")]
         let qemu_version = Command::new(&qemu_bin).stdout(Stdio::piped()).arg("--version").spawn()?;
-        let smartcard = if matches!(self.arch, Arch::x86_64 | Arch::riscv64) {
+        let smartcard = if matches!(self.arch, Arch::x86_64 | Arch::riscv64) && cfg!(feature = "check_smartcard") && !cfg!(target_os = "macos") {
             Some(Command::new(&qemu_bin).arg("-device").arg("help").stdout(Stdio::piped()).spawn()?)
         } else {
             None
@@ -112,22 +113,25 @@ impl Args {
 
         log::debug!("QEMU ARGS: {:?}", qemu_args);
 
-        let qemu_version = qemu_version.wait_with_output()?;
-        let friendly_ver = std::str::from_utf8(&qemu_version.stdout)?
-            .split_whitespace()
-            .nth(3)
-            .ok_or_else(|| anyhow::anyhow!("Failed to get QEMU version."))?;
-
-        if friendly_ver[0..1].parse::<u8>()? < 7 {
-            bail!("QEMU version 7.0.0 or higher is required. Found version {}.", friendly_ver);
-        }
-
         sh_file.set_permissions(PermissionsExt::from_mode(0o755)).unwrap();
         write!(sh_file, "{} {}", qemu_bin.to_string_lossy(), qemu_args.iter().map(|arg| "\"".to_string() + &arg.to_string_lossy() + "\"").collect::<Vec<_>>().join(" ")).unwrap();
 
         Command::new(&qemu_bin).args(qemu_args).spawn()?;
 
-        println!("QuickemuRS {} using {} {}.", env!("CARGO_PKG_VERSION"), qemu_bin.to_string_lossy(), friendly_ver);
+        #[cfg(feature = "get_qemu_ver")] {
+            let qemu_version = qemu_version.wait_with_output()?;
+            let friendly_ver = std::str::from_utf8(&qemu_version.stdout)?
+                .split_whitespace()
+                .nth(3)
+                .ok_or_else(|| anyhow::anyhow!("Failed to get QEMU version."))?;
+            if friendly_ver[0..1].parse::<u8>()? < 7 {
+                bail!("QEMU version 7.0.0 or higher is required. Found version {}.", friendly_ver);
+            }
+            println!("QuickemuRS {} using {} {}.", env!("CARGO_PKG_VERSION"), qemu_bin.display(), friendly_ver);
+        }
+        #[cfg(not(feature = "get_qemu_ver"))]
+        println!("QuickemuRS {} using {}.", env!("CARGO_PKG_VERSION"), qemu_bin.display());
+
         print_args.iter().for_each(|arg| println!(" - {}", arg));
 
         if let Some(cmd) = self.monitor_cmd {
@@ -488,16 +492,20 @@ impl USBController {
             Self::Xhci => args.extend(["-device".into(), "qemu-xhci,id=input".into()]),
             _ => ()
         }
-        #[cfg(not(target_os = "macos"))]
+
+        let mut add_smartcard_args = || args.extend(["-chardev".into(), "spicevmc,id=ccid,name=smartcard".into(),
+            "-device".into(), "ccid-card-passthru,chardev=ccid".into()]);
         if let Some(child) = smartcard {
             let smartcard = child.wait_with_output()?;
             if std::str::from_utf8(&smartcard.stdout)?.contains("smartcard") {
-                args.extend(["-chardev".into(), "spicevmc,id=ccid,name=smartcard".into(),
-                    "-device".into(), "ccid-card-passthru,chardev=ccid".into()]);
+                add_smartcard_args();
             } else {
                 log::warn!("QEMU was not compiled with support for smartcard devices.");
             }
-        };
+        } else if !(cfg!(feature = "check_smartcard") || cfg!(target_os = "macos")) {
+            add_smartcard_args();
+        }
+
         if let Some(mut devices) = usb_devices {
             args.extend(["-device".into(), passthrough_controller.to_string() + ",id=hostpass"]);
             args.append(&mut devices);
