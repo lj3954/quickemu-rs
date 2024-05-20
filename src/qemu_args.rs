@@ -137,6 +137,7 @@ impl Args {
         if let Some(cmd) = self.monitor_cmd {
             self.monitor.send_command(&cmd)?;
         }
+        #[cfg(not(target_os = "macos"))]
         if self.display == Display::Spice {
             self.viewer.unwrap_or_default().start(&self.vm_name, publicdir.as_ref(), self.fullscreen, self.spice_port.unwrap())?;
         }

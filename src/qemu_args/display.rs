@@ -185,6 +185,7 @@ impl Monitor {
 }
 
 impl Viewer {
+    #[cfg(not(target_os = "macos"))]
     pub fn start(&self, vm_name: &str, publicdir: Option<&OsString>, fullscreen: bool, port: u16) -> Result<()> {
         match self {
             Self::None => (),

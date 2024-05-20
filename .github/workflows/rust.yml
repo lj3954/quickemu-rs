@@ -1,0 +1,29 @@
+name = Rust
+
+on:
+  push:
+    branches: ["main"]
+  pull-request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR = always
+
+jobs:
+  linux_build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build (Linux)
+      run: cargo build --verbose
+    - name Test (Linux)
+      run: cargo test --verbose
+
+  macos_build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build (macOS)
+      run: cargo build --verbose
+    - name Test (macOS)
+      run: cargo test --verbose
