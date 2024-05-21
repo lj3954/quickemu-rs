@@ -79,7 +79,7 @@ impl GuestOS {
                     Self::KolibriOS | Self::ReactOS => "qemu32".to_string(),
                     Self::MacOS { release } => {
                         if vendor == "GenuineIntel" {
-                            macos_cpu_flags("host")
+                            default_cpu()
                         } else if release >= &MacOSRelease::Ventura {
                             macos_cpu_flags("Haswell-v2,vendor=GenuineIntel,+avx,+avx2,+sse,+sse2,+ssse3,+sse4.1,+sse4.2,+rdtscp")
                         } else if release >= &MacOSRelease::Catalina {
