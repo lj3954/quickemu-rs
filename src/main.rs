@@ -186,7 +186,7 @@ impl TryFrom<CliArgs> for Args {
             network: conf.network,
             port_forwards: conf.port_forwards,
             public_dir: config::PublicDir::from((conf.public_dir, args.public_dir)),
-            ram: config_parse::size_unit(conf.ram, Some(info.total_memory()))?.unwrap(),
+            ram: config_parse::size_unit(conf.ram.as_deref(), Some(info.total_memory()))?.unwrap(),
             tpm: conf.tpm,
             keyboard: args.keyboard.unwrap_or(conf.keyboard),
             keyboard_layout: config_parse::keyboard_layout((conf.keyboard_layout, args.keyboard_layout))?,

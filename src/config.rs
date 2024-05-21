@@ -1,5 +1,6 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use serde::de::Visitor;
 use std::fmt;
 use std::path::PathBuf;
 use std::net::SocketAddr;
@@ -128,14 +129,28 @@ impl Default for BootType {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiskImage {
     pub path: PathBuf,
-    #[serde(deserialize_with = "deserialize_disk", default)]
+    #[serde(deserialize_with = "deserialize_size", default)]
     pub size: Option<u64>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub preallocation: PreAlloc,
 }
-pub fn deserialize_disk<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error> where D: serde::Deserializer<'de>, {
-    let value = Option::<String>::deserialize(deserializer)?;
-    crate::config_parse::size_unit(value, None).map_err(serde::de::Error::custom)
+
+struct SizeUnit;
+impl<'de> Visitor<'de> for SizeUnit {
+    type Value = Option<u64>;
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string (ending in a size unit, e.g. M, G, T) or a number (in bytes)")
+    }
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> where E: serde::de::Error, {
+        crate::config_parse::size_unit(Some(value), None)
+            .map_err(serde::de::Error::custom)
+    }
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> where E: serde::de::Error, {
+        Ok(Some(value.try_into().map_err(serde::de::Error::custom)?))
+    }
+}
+pub fn deserialize_size<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error> where D: serde::Deserializer<'de>, {
+    deserializer.deserialize_any(SizeUnit)
 }
 
 #[derive(ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]

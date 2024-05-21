@@ -33,7 +33,7 @@ pub fn cpu_cores(input: Option<NonZeroUsize>, logical: usize, physical: usize) -
 }
 
 pub const BYTES_PER_GB: u64 = 1024 * 1024 * 1024;
-pub fn size_unit(input: Option<String>, ram: Option<u64>) -> Result<Option<u64>> {
+pub fn size_unit(input: Option<&str>, ram: Option<u64>) -> Result<Option<u64>> {
     Ok(match input {
         Some(size) => Some({
             let unit_size = match size.chars().last().unwrap() {
