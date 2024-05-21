@@ -3,11 +3,12 @@ use crate::config::Snapshot;
 use which::which;
 use std::process::Command;
 use std::path::{Path, PathBuf};
+use std::io::Write;
 use std::fs::{read_to_string, write, set_permissions};
 use std::collections::HashMap;
 use crate::config::{ConfigFile, GuestOS, Arch, BootType, Display, DiskImage, Image, Network, PortForward, PreAlloc, Keyboard, SerdeMonitor, SoundCard, Mouse, USBController, Resolution};
-use crate::config_parse::{size_unit, parse_optional_bool};
-use crate::handle_disk_paths;
+use crate::config_parse::{size_unit, parse_optional_bool, BYTES_PER_GB};
+use crate::{Args, CliArgs, handle_disk_paths};
 use std::os::unix::fs::PermissionsExt;
 
 impl Snapshot {
@@ -172,5 +173,63 @@ pub fn port_forwards(bash_array: Option<String>) -> Result<Option<Vec<PortForwar
             }).collect()
         },
         None => Ok(None),
+    }
+}
+impl CliArgs {
+    pub fn delete_vm(self) -> Result<()> {
+        if get_confirmation("This will delete all files related to the VM {}. Are you sure you want to proceed? (y/N): ")? {
+            let (conf_file, _) = crate::parse_conf(self.config_file)
+                .map_err(|e| anyhow!("Unable to delete VM due to error in configuration file: {}", e))?;
+            let vm_dir = conf_file[..conf_file.len()-5].parse::<PathBuf>()?;
+
+            std::fs::remove_file(&conf_file)
+                .map_err(|e| anyhow!("Unable to remove config file {}: {}", conf_file, e))?;
+            std::fs::remove_dir_all(&vm_dir)
+                .inspect(|_| println!("Deleted {} and {}", conf_file, vm_dir.display()))
+                .map_err(|e| anyhow!("Failed to delete VM dir {}: {}", vm_dir.display(), e))
+        } else {
+            println!("Cancelled deletion.");
+            Ok(())
+        }
+    }
+}
+
+impl Args {
+    pub fn delete_disk(&self) -> Result<()> {
+        let disk_list = self.disk_images.iter().map(|disk| format!("Path: {}, Configured size: {} GiB, Current size: {} GiB, Preallocation: {}", 
+            disk.path.display(), disk.size.unwrap_or(self.guest_os.disk_size()) as f64 / BYTES_PER_GB as f64, disk.path.metadata().map(|data| data.len()).unwrap_or_default() as f64 / BYTES_PER_GB as f64, disk.preallocation))
+            .collect::<Vec<String>>().join("\n");
+
+        if get_confirmation(&format!("This will delete the VM's OVMF VARS along with the following disks\n{disk_list}\nAre you sure you want to proceed? (y/N): "))? {
+            let vars = self.vm_dir.join("OVMF_VARS.fd");
+            if vars.exists() {
+                std::fs::remove_file(&vars)
+                    .map_err(|e| anyhow!("Unable to delete OVMF VARS file {}: {}", vars.display(), e))?;
+                println!("Deleted OVMF VARS: {}", vars.display());
+            }
+            for disk in &self.disk_images {
+                let path = &disk.path;
+                std::fs::remove_file(path)
+                    .map_err(|e| anyhow!("Unable to delete disk {}: {}", path.display(), e))?;
+                println!("Deleted disk: {}", path.display());
+            };
+        } else {
+            println!("Cancelled deletion.");
+        }
+        Ok(())
+    }
+}
+
+fn get_confirmation(prompt: &str) -> Result<bool> {
+    print!("{prompt}");
+    std::io::stdout().flush()?;
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    input = input.trim().to_ascii_lowercase();
+
+    match input.as_str() {
+        "yes" | "y" => Ok(true),
+        "no" | "n" | "" => Ok(false),
+        invalid => bail!("Invalid input: {}", invalid),
     }
 }

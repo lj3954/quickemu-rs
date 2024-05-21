@@ -33,8 +33,8 @@ fn main() {
             let args: Args = args.try_into().unwrap_or_exit();
             args.launch_qemu().unwrap_or_exit();
         },
-        ActionType::DeleteVM => todo!(),
-        ActionType::DeleteDisk => todo!(),
+        ActionType::DeleteVM => args.delete_vm().unwrap_or_exit(),
+        ActionType::DeleteDisk => args.try_into().and_then(|args: Args| args.delete_disk()).unwrap_or_exit(),
         ActionType::Snapshot(snapshot) => match snapshot.perform_action(args.config_file) {
             Ok(output) => println!("{}", output),
             Err(e) => {
