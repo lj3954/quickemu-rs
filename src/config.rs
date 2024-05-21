@@ -63,7 +63,7 @@ pub struct ConfigFile {
     pub network: Network,
     pub port_forwards: Option<Vec<PortForward>>,
     pub public_dir: Option<String>,
-    #[serde(deserialize_with = "deserialize_size")]
+    #[serde(deserialize_with = "deserialize_size", default)]
     pub ram: Option<u64>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tpm: bool,
