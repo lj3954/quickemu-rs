@@ -19,7 +19,7 @@ pub fn image_args(vm_dir: &Path, images: Option<Vec<Image>>, disks: Vec<DiskImag
             let disk_format = disk_format(&disk.path.to_string_lossy(), &disk.preallocation)?;
             let size = disk.size.unwrap_or(guest_os.disk_size());
             let creation = Command::new(&qemu_img)
-                .args(["create", "-q", "-f", disk_format, "-o", disk.preallocation.qemu_arg()])
+                .args(["create", "-q", "-f", disk_format, "-o", disk.preallocation.qemu_arg(disk_format == "qcow2")])
                 .arg(&disk.path)
                 .arg(size.to_string())
                 .output().map_err(|e| anyhow!("Could not launch qemu-img to create disk image {}: {}", &disk.path.display(), e))?;
