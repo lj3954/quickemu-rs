@@ -93,7 +93,7 @@ pub fn migrate_config(config: Vec<String>) -> Result<String> {
         .map_err(|_| anyhow!("Invalid value for cpu_cores: {}", cores))).transpose()?;
     let display: Display = conf.remove("display").try_into()?;
     let network: Network = (conf.remove("network"), conf.remove("macaddr")).try_into()?;
-    let ram = conf.remove("ram");
+    let ram = conf.get("ram").map(|ram| size_unit(ram)).transpose()?;
     let tpm = parse_optional_bool(conf.remove("tpm"), false)?;
     let keyboard: Keyboard = conf.remove("keyboard").try_into()?;
     let keyboard_layout = conf.remove("keyboard_layout");
@@ -127,7 +127,7 @@ pub fn migrate_config(config: Vec<String>) -> Result<String> {
     })).transpose()?;
 
     let disk_images = {
-        let size = size_unit(conf.remove("disk_size").as_deref(), None)?;
+        let size = conf.get("disk_size").map(|size| size_unit(size)).transpose()?;
         let preallocation: PreAlloc = conf.remove("prealloc").try_into()?;
         let path = PathBuf::from(conf.remove("disk_img").ok_or_else(|| anyhow!("Your legacy configuration file must include a disk_img"))?);
         vec![DiskImage { path, size, preallocation }]

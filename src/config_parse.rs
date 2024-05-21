@@ -33,30 +33,29 @@ pub fn cpu_cores(input: Option<NonZeroUsize>, logical: usize, physical: usize) -
 }
 
 pub const BYTES_PER_GB: u64 = 1024 * 1024 * 1024;
-pub fn size_unit(input: Option<&str>, ram: Option<u64>) -> Result<Option<u64>> {
-    Ok(match input {
-        Some(size) => Some({
-            let unit_size = match size.chars().last().unwrap() {
-                'K' => 1024.0,
-                'M' => 1024.0 * 1024.0,
-                'G' => BYTES_PER_GB as f64,
-                'T' => 1024.0 * BYTES_PER_GB as f64,
-                _ => bail!("Invalid size: {}", size),
-            };
-            match size[..size.len()-1].parse::<f64>() {
-                Ok(size) => (size * unit_size) as u64,
-                Err(_) => bail!("Invalid size: {}", size),
-            }
-        }),
-        None => ram.map(|ram| match ram / (1000 * 1000 * 1000) {
-            128.. => 32 * BYTES_PER_GB,
-            64.. => 16 * BYTES_PER_GB,
-            16.. => 8 * BYTES_PER_GB,
-            8.. => 4 * BYTES_PER_GB,
-            _ => ram,
-        }),
-    })
+pub fn default_ram(system_ram: u64) -> u64 {
+    match system_ram / (1000 * 1000 * 1000) {
+        128.. => 32 * BYTES_PER_GB,
+        64.. => 16 * BYTES_PER_GB,
+        16.. => 8 * BYTES_PER_GB,
+        8.. => 4 * BYTES_PER_GB,
+        _ => system_ram
+    }
 }
+pub fn size_unit(size: &str) -> Result<u64> {
+    let unit_size = match size.chars().last().unwrap() {
+        'K' => 1024.0,
+        'M' => 1024.0 * 1024.0,
+        'G' => BYTES_PER_GB as f64,
+        'T' => 1024.0 * BYTES_PER_GB as f64,
+        _ => bail!("Invalid size (unit): {}", size),
+    };
+    match size[..size.len()-1].parse::<f64>() {
+        Ok(size) => Ok((size * unit_size) as u64),
+        Err(_) => bail!("Invalid size (integer): {}", size),
+    }
+}
+
 
 impl TryFrom<&Vec<String>> for Snapshot {
     type Error = anyhow::Error;

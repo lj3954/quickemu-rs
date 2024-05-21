@@ -63,7 +63,8 @@ pub struct ConfigFile {
     pub network: Network,
     pub port_forwards: Option<Vec<PortForward>>,
     pub public_dir: Option<String>,
-    pub ram: Option<String>,
+    #[serde(deserialize_with = "deserialize_size")]
+    pub ram: Option<u64>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tpm: bool,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -142,7 +143,8 @@ impl<'de> Visitor<'de> for SizeUnit {
         formatter.write_str("a string (ending in a size unit, e.g. M, G, T) or a number (in bytes)")
     }
     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> where E: serde::de::Error, {
-        crate::config_parse::size_unit(Some(value), None)
+        crate::config_parse::size_unit(value)
+            .map(Some)
             .map_err(serde::de::Error::custom)
     }
     fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> where E: serde::de::Error, {
