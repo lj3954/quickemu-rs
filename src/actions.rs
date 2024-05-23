@@ -59,22 +59,9 @@ fn snapshot_command(qemu_img: &Path, arg: &str, tag: &str, disk_img: &Path) -> R
     }
 }
 
-pub fn migrate_config(config: Vec<String>) -> Result<String> {
-    if config.len() != 2 {
-        bail!("Invalid arguments for migrate-config. Usage: `quickemu-rs --migrate-config <config.conf> <config.toml>`")
-    }
-    let (legacy_conf, toml_conf) = (PathBuf::from(&config[0]), PathBuf::from(&config[1]));
-    if legacy_conf.extension().unwrap_or_default() != "conf" || !legacy_conf.exists() {
-        bail!("Invalid legacy config file. Please provide a valid .conf file.");
-    } else if toml_conf.extension().unwrap_or_default() != "toml" {
-        bail!("The configuration file must be migrated to a .toml file.");
-    } else if toml_conf.exists() {
-        bail!("The target configuration file already exists. Please delete it or provide a new file name.");
-    }
-
-    let conf = read_to_string(&legacy_conf).map_err(|e| anyhow!("Could not read legacy configuration file {}: {}", legacy_conf.display(), e))?;
+pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
+    let conf = read_to_string(config).map_err(|e| anyhow!("Could not read legacy configuration file {}: {}", config.display(), e))?;
     log::debug!("Legacy configuration: {}", conf);
-
     let mut conf: HashMap<String, String> = conf.lines().filter_map(|line| {
         log::debug!("Parsing line: {}", line);
         if line.starts_with('#') || !line.contains('=') {
@@ -142,12 +129,28 @@ pub fn migrate_config(config: Vec<String>) -> Result<String> {
         log::warn!("Ignoring values: {:?}", conf);
     }
     
-    let config = ConfigFile {
+    Ok(ConfigFile {
         guest_os, arch, boot_type, cpu_cores, display, disk_images, accelerated, image_files, network, port_forwards, public_dir, ram, tpm, keyboard, keyboard_layout, monitor, serial, soundcard, mouse, resolution, usb_controller, spice_port, ssh_port, usb_devices
-    };
+    })
+}
+
+pub fn migrate_config(config: Vec<String>) -> Result<String> {
+    if config.len() != 2 {
+        bail!("Invalid arguments for migrate-config. Usage: `quickemu-rs --migrate-config <config.conf> <config.toml>`")
+    }
+    let (legacy_conf, toml_conf) = (PathBuf::from(&config[0]), PathBuf::from(&config[1]));
+    if legacy_conf.extension().unwrap_or_default() != "conf" || !legacy_conf.exists() {
+        bail!("Invalid legacy config file. Please provide a valid .conf file.");
+    } else if toml_conf.extension().unwrap_or_default() != "toml" {
+        bail!("The configuration file must be migrated to a .toml file.");
+    } else if toml_conf.exists() {
+        bail!("The target configuration file already exists. Please delete it or provide a new file name.");
+    }
 
     log::debug!("Migrated configuration: {:?}", config);
     let executable = "#!".to_string() + &std::env::current_exe().unwrap_or_default().to_string_lossy() + " --vm\n";
+    let config = read_legacy_conf(&legacy_conf)?;
+
     let toml = executable + &toml::to_string_pretty(&config)
         .map_err(|e| anyhow!("Could not serialize configuration to TOML: {}", e))?;
     log::debug!("TOML: {}", toml);
