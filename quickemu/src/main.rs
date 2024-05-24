@@ -121,8 +121,9 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
                 },
                 #[cfg(feature = "support_bash_conf")]
                 Some((arg, conf)) => {
+                    let conf_data = actions::read_legacy_conf(&conf)?;
                     log::warn!("Legacy configuration files may be parsed inaccurately, and do not support all of the features of {}. Consider migrating to TOML with `{} --migrate-config {} {}`", pkg, pkg, arg, arg.replace(".conf", ".toml"));
-                    return Ok((arg, actions::read_legacy_conf(&conf)?));
+                    return Ok((arg, conf_data));
                 },
                 None => bail!("You are required to input a valid configuration file."),
             }
