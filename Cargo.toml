@@ -1,23 +1,11 @@
-[package]
-name = "quickemu-rs"
-version = "0.6.2"
-edition = "2021"
+[workspace]
+members = [
+    "quickemu",
+    "quickget",
+    "quickget_ci",
+]
 
-[dependencies]
-anyhow = "1.0.81"
-clap = { version = "4.5.4", features = ["derive"] }
-clap-verbosity-flag = "2.2.0"
-dirs = "5.0.1"
-display-info = "0.5.1"
-env_logger = "0.11.3"
-log = "0.4.21"
-num_cpus = "1.16.0"
-pathdiff = "0.2.1"
-raw-cpuid = "11.0.2"
-serde = { version = "1.0.201", features = ["derive"] }
-sysinfo = "0.30.10"
-toml = "0.8.12"
-which = "6.0.1"
+resolver = "2"
 
 [profile.release]
 strip = true
@@ -25,14 +13,3 @@ lto = true
 opt-level = "z"
 codegen-units = 1
 panic = "abort"
-
-[features]
-default = [
-    "check_smartcard",
-    "get_qemu_ver",
-    "support_bash_conf",
-]
-
-check_smartcard = []
-get_qemu_ver = []
-support_bash_conf = []
