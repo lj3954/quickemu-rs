@@ -105,6 +105,7 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
             }
         },
         None => {
+            let pkg = env!("CARGO_PKG_NAME");
             match conf_file.into_iter().find_map(|arg| {
                 let arg = if arg.ends_with(".conf") { arg } else { arg + ".conf" };
                 let conf_path = PathBuf::from(&arg);
@@ -116,11 +117,13 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
             }) {
                 #[cfg(not(feature = "support_bash_conf"))]
                 Some((conf, _)) => {
-                    let pkg = env!("CARGO_PKG_NAME");
                     bail!("{} no longer supports '.conf' configuration files.\nPlease convert your configuration file to the TOML format using `{} --migrate-config {} {}`.", pkg, pkg, conf, conf.replace(".conf", ".toml"))
                 },
                 #[cfg(feature = "support_bash_conf")]
-                Some((arg, conf)) => return Ok((arg, actions::read_legacy_conf(&conf)?)),
+                Some((arg, conf)) => {
+                    log::warn!("Legacy configuration files may be parsed inaccurately, and do not support all of the features of {}. Consider migrating to TOML with `{} --migrate-config {} {}`", pkg, pkg, arg, arg.replace(".conf", ".toml"));
+                    return Ok((arg, actions::read_legacy_conf(&conf)?));
+                },
                 None => bail!("You are required to input a valid configuration file."),
             }
         },

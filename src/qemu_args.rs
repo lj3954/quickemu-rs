@@ -116,7 +116,10 @@ impl Args {
         sh_file.set_permissions(PermissionsExt::from_mode(0o755)).unwrap();
         write!(sh_file, "{} {}", qemu_bin.to_string_lossy(), qemu_args.iter().map(|arg| "\"".to_string() + &arg.to_string_lossy() + "\"").collect::<Vec<_>>().join(" ")).unwrap();
 
-        Command::new(&qemu_bin).args(qemu_args).spawn()?;
+        match self.display {
+            Display::Sdl => Command::new(&qemu_bin).args(qemu_args).env("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1").spawn()?,
+            _ => Command::new(&qemu_bin).args(qemu_args).spawn()?,
+        };
 
         #[cfg(feature = "get_qemu_ver")] {
             let qemu_version = qemu_version.wait_with_output()?;
