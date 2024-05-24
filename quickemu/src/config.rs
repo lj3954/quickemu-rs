@@ -317,15 +317,16 @@ pub enum PreAlloc {
     Full,
 }
 impl PreAlloc {
-    pub fn qemu_arg(&self, is_qcow2: bool) -> &'static str {
+    pub fn qemu_arg(&self, disk_format: &str) -> &'static str {
         match self {
-            Self::Off if is_qcow2 => "lazy_refcounts=on,preallocation=off,nocow=on",
-            Self::Off => "preallocation=off",
-            Self::Metadata if is_qcow2 => "lazy_refcounts=on,preallocation=metadata,nocow=on",
+            Self::Off if disk_format == "qcow2" => "lazy_refcounts=on,preallocation=off,nocow=on",
+            Self::Off if disk_format == "raw" => "preallocation=off",
+            Self::Off => "",
+            Self::Metadata if disk_format == "qcow2" => "lazy_refcounts=on,preallocation=metadata,nocow=on",
             Self::Metadata => "preallocation=metadata",
-            Self::Falloc if is_qcow2 => "lazy_refcounts=on,preallocation=falloc,nocow=on",
+            Self::Falloc if disk_format == "qcow2" => "lazy_refcounts=on,preallocation=falloc,nocow=on",
             Self::Falloc => "preallocation=falloc",
-            Self::Full if is_qcow2 => "lazy_refcounts=on,preallocation=full,nocow=on",
+            Self::Full if disk_format == "qcow2" => "lazy_refcounts=on,preallocation=full,nocow=on",
             Self::Full => "preallocation=full"
         }
     }
