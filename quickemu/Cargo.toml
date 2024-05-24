@@ -1,6 +1,6 @@
 [package]
 name = "quickemu-rs"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2021"
 
 [lib]
@@ -26,7 +26,8 @@ which = "6.0.1"
 [features]
 default = [
     "check_smartcard",
-    "get_qemu_ver"
+    "get_qemu_ver",
+    "support_bash_conf",
 ]
 
 check_smartcard = []
