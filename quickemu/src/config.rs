@@ -4,6 +4,7 @@ use serde::de::Visitor;
 use std::fmt;
 use std::path::PathBuf;
 use std::net::SocketAddr;
+use anyhow::{bail, Result};
 
 #[derive(Debug)]
 pub struct Args {
@@ -134,6 +135,7 @@ pub struct DiskImage {
     pub size: Option<u64>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub preallocation: PreAlloc,
+    pub format: Option<DiskFormat>,
 }
 
 struct SizeUnit;
@@ -153,6 +155,37 @@ impl<'de> Visitor<'de> for SizeUnit {
 }
 pub fn deserialize_size<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error> where D: serde::Deserializer<'de>, {
     deserializer.deserialize_any(SizeUnit)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum DiskFormat {
+    #[serde(alias = "qcow2")]
+    Qcow2,
+    #[serde(alias = "raw")]
+    Raw,
+    #[serde(alias = "qed")]
+    Qed,
+    #[serde(alias = "qcow")]
+    Qcow,
+    #[serde(alias = "vdi")]
+    Vdi,
+    #[serde(alias = "vpc")]
+    Vpc,
+    #[serde(alias = "vhdx")]
+    Vhdx
+}
+impl AsRef<str> for DiskFormat {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Qcow2 => "qcow2",
+            Self::Raw => "raw",
+            Self::Qed => "qed",
+            Self::Qcow => "qcow",
+            Self::Vdi => "vdi",
+            Self::Vpc => "vpc",
+            Self::Vhdx => "vhdx",
+        }
+    }
 }
 
 #[derive(ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]
@@ -317,18 +350,18 @@ pub enum PreAlloc {
     Full,
 }
 impl PreAlloc {
-    pub fn qemu_arg(&self, disk_format: &str) -> &'static str {
-        match self {
-            Self::Off if disk_format == "qcow2" => "lazy_refcounts=on,preallocation=off,nocow=on",
-            Self::Off if disk_format == "raw" => "preallocation=off",
-            Self::Off => "",
-            Self::Metadata if disk_format == "qcow2" => "lazy_refcounts=on,preallocation=metadata,nocow=on",
-            Self::Metadata => "preallocation=metadata",
-            Self::Falloc if disk_format == "qcow2" => "lazy_refcounts=on,preallocation=falloc,nocow=on",
-            Self::Falloc => "preallocation=falloc",
-            Self::Full if disk_format == "qcow2" => "lazy_refcounts=on,preallocation=full,nocow=on",
-            Self::Full => "preallocation=full"
-        }
+    pub fn qemu_img_arg(&self, disk_format: &DiskFormat) -> Result<Option<&str>> {
+        Ok(match (self, disk_format) {
+            (Self::Off, DiskFormat::Qcow2) => Some("lazy_refcounts=on,preallocation=off,nocow=on"),
+            (Self::Off, DiskFormat::Raw) => Some("preallocation=off"),
+            (Self::Metadata, DiskFormat::Qcow2) => Some("lazy_refcounts=on,preallocation=metadata,nocow=on"),
+            (Self::Falloc, DiskFormat::Qcow2) => Some("lazy_refcounts=on,preallocation=falloc,nocow=on"),
+            (Self::Falloc, DiskFormat::Raw) => Some("preallocation=falloc"),
+            (Self::Full, DiskFormat::Qcow2) => Some("lazy_refcounts=on,preallocation=full,nocow=on"),
+            (Self::Full, DiskFormat::Raw) => Some("preallocation=full"),
+            (Self::Metadata, DiskFormat::Raw) => bail!("`raw` disk images do not support the metadata preallocation type."),
+            _ => bail!("Preallocation is not supported for disk format {}. Only `raw` and `qcow2` images have support for the feature", disk_format.as_ref()),
+        })
     }
 }
 impl std::fmt::Display for PreAlloc {
