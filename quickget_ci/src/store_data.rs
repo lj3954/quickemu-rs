@@ -16,34 +16,26 @@ pub struct Config {
     pub edition: Option<String>,
     pub guest_os: GuestOS,
     pub arch: Arch,
-    pub iso: Option<Vec<WebSource>>,
-    pub img: Option<Vec<WebSource>>,
-    pub fixed_iso: Option<Vec<WebSource>>,
-    pub floppy: Option<Vec<WebSource>>,
+    pub iso: Option<Vec<Source>>,
+    pub img: Option<Vec<Source>>,
+    pub fixed_iso: Option<Vec<Source>>,
+    pub floppy: Option<Vec<Source>>,
     #[serde(default = "default_disk")]
     pub disk_images: Vec<Disk>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Disk {
-    pub source: DiskSource,
+    pub source: Source,
     pub size: Option<u64>,
     pub format: DiskFormat,
 }
 fn default_disk() -> Vec<Disk> {
     vec![Disk {
-        source: DiskSource::FileName("disk.qcow2".to_string()),
+        source: Source::FileName("disk.qcow2".to_string()),
         size: None,
         format: DiskFormat::Qcow2,
     }]
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum DiskSource {
-    #[serde(rename = "web")]
-    Web(WebSource),
-    #[serde(rename = "file_name")]
-    FileName(String),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -52,6 +44,17 @@ pub enum DiskFormat {
     Raw,
     #[serde(rename = "qcow2")]
     Qcow2,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum Source {
+    #[serde(rename = "web")]
+    Web(WebSource),
+    #[serde(rename = "file_name")]
+    FileName(String),
+    #[serde(rename = "custom")]
+    // Quickget will be required to manually handle "custom" sources.
+    Custom
 }
 
 #[derive(Serialize, Deserialize)]
