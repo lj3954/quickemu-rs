@@ -3,7 +3,7 @@ use std::ffi::OsString;
 use crate::config::{Access, Arch, BooleanDisplay, Display, Monitor, SoundCard, GuestOS, Resolution, Viewer};
 use std::net::TcpStream;
 use std::os::unix::net::UnixStream;
-use std::io::Write;
+use std::io::{Write, Read};
 use std::process::Command;
 use crate::qemu_args::find_port;
 use which::which;
@@ -172,11 +172,21 @@ impl Monitor {
             Self::Telnet { address } => {
                 let mut stream = TcpStream::connect(address)?;
                 stream.write_all(command.as_bytes())?;
+                stream.shutdown(std::net::Shutdown::Write)?;
+                stream.set_read_timeout(Some(std::time::Duration::from_secs(1)))?;
+                let mut response = String::new();
+                stream.read_to_string(&mut response)?;
+                log::debug!("Received response: {}", response);
                 log::debug!("Sent command {} to address {:?}", command, stream);
             },
             Self::Socket { socketpath } => {
                 let mut stream = UnixStream::connect(socketpath)?;
                 stream.write_all(command.as_bytes())?;
+                stream.shutdown(std::net::Shutdown::Write)?;
+                stream.set_read_timeout(Some(std::time::Duration::from_secs(1)))?;
+                let mut response = String::new();
+                stream.read_to_string(&mut response)?;
+                log::debug!("Received response: {}", response);
                 log::debug!("Sent command {} to socket {:?}", command, stream);
             },
         };
