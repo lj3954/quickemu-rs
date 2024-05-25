@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail, Result};
 use std::ffi::OsString;
 use which::which;
-use crate::config::{Image, GuestOS, PreAlloc, MacOSRelease, DiskImage};
+use crate::config::{DiskFormat, Image, GuestOS, PreAlloc, MacOSRelease, DiskImage};
 use crate::config_parse::BYTES_PER_GB;
 use std::path::{PathBuf, Path};
 use std::process::Command;
@@ -16,17 +16,20 @@ pub fn image_args(vm_dir: &Path, images: Option<Vec<Image>>, disks: Vec<DiskImag
 
     let disk_used = disks.iter().map(|disk| {
         if !disk.path.exists() {
-            let disk_format = disk_format(&disk.path.to_string_lossy(), &disk.preallocation)?;
+            let disk_format = disk.format.as_ref().unwrap();
             let size = disk.size.unwrap_or(guest_os.disk_size());
-            let creation = Command::new(&qemu_img)
-                .args(["create", "-q", "-f", disk_format, "-o", disk.preallocation.qemu_arg(disk_format)])
+            let mut qemu_img_command = Command::new(&qemu_img);
+            qemu_img_command.args(["create", "-q", "-f", disk_format.as_ref()])
                 .arg(&disk.path)
-                .arg(size.to_string())
-                .output().map_err(|e| anyhow!("Could not launch qemu-img to create disk image {}: {}", &disk.path.display(), e))?;
+                .arg(size.to_string());
+            if let Some(args) = disk.preallocation.qemu_img_arg(disk_format)? {
+                qemu_img_command.args(["-o", args]);
+            }
+            let creation = qemu_img_command.output().map_err(|e| anyhow!("Could not launch qemu-img to create disk image {}: {}", &disk.path.display(), e))?;
             if !creation.status.success() {
                 bail!("Failed to create disk image {}: {}", &disk.path.display(), String::from_utf8_lossy(&creation.stderr));
             }
-            print_args.push(format!("Created {} disk image {} with size {} GiB. Preallocation: {}", disk_format, disk.path.display(), size as f64 / BYTES_PER_GB as f64, disk.preallocation));
+            print_args.push(format!("Created {} disk image {} with size {} GiB. Preallocation: {}", disk_format.as_ref(), disk.path.display(), size as f64 / BYTES_PER_GB as f64, disk.preallocation));
             Ok(false)
         } else {
             let image_info = Command::new(&qemu_img)
@@ -84,7 +87,11 @@ fn disk_img_args(disks: Vec<DiskImage>, guest_os: &GuestOS, vm_dir: &Path, statu
     };
 
     for disk in disks {
-        let disk_format = disk_format(&disk.path.to_string_lossy(), &disk.preallocation)?;
+        let disk_format = disk.format.unwrap();
+        if !matches!(disk_format, DiskFormat::Qcow2 | DiskFormat::Raw) {
+            log::warn!("This project does not officially support disk format {}. Unintended behavior, including data corruption, may occur. Proceed with caution.", disk_format.as_ref());
+        }
+        let disk_format = disk_format.as_ref();
         match guest_os {
             GuestOS::MacOS { release } if release >= &MacOSRelease::Catalina => args.extend(handle_disks(disk.path, "virtio-blk-pci,drive=", "SystemDisk", disk_format, &mut key)),
             GuestOS::MacOS {..} => args.extend(handle_disks(disk.path, "ide-hd,bus=ahci.2,drive=", "SystemDisk", disk_format, &mut key)),
@@ -196,21 +203,4 @@ fn img_arg(img: PathBuf, id: &str) -> OsString {
 fn find_next_index(index: u8, used_indices: &mut HashSet<u8>) -> String {
     (index..=u8::MAX).find(|index| used_indices.insert(*index))
         .expect("Could not find next available index. You may have an unsupported amount of images (>255).").to_string()
-}
-
-const UNSUPPORTED_FORMATS: [&str; 5] = ["qed", "qcow", "vdi", "vpc", "vhdx"];
-fn disk_format(image_name: &str, prealloc: &PreAlloc) -> Result<&'static str> {
-    Ok(match image_name.split('.').last().ok_or_else(|| anyhow!("Could not find disk image file extension."))? {
-        "raw" | "img" if prealloc == &PreAlloc::Metadata => bail!("`raw` disk images do not support the metadata preallocation type."),
-        "raw" | "img" => "raw",
-        "qcow2" => "qcow2",
-        _ if prealloc != &PreAlloc::Off => bail!("Only `raw` and `qcow2` disk images support preallocation."),
-        image_type => match UNSUPPORTED_FORMATS.into_iter().find(|format| image_type == *format) {
-            Some(format) => {
-                log::warn!("This project does not officially support disk format {}. Unintended behavior, including data corruption, may occur. Proceed with caution.", format);
-                format
-            },
-            None => bail!("Disk image format '{}' is not supported.", image_type),
-        },
-    })
 }

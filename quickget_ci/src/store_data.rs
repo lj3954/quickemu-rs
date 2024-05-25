@@ -1,4 +1,4 @@
-use quickemu::config::{Arch, GuestOS};
+use quickemu::config::{Arch, DiskFormat, GuestOS};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -36,14 +36,6 @@ fn default_disk() -> Vec<Disk> {
         size: None,
         format: DiskFormat::Qcow2,
     }]
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum DiskFormat {
-    #[serde(rename = "raw")]
-    Raw,
-    #[serde(rename = "qcow2")]
-    Qcow2,
 }
 
 #[derive(Serialize, Deserialize)]

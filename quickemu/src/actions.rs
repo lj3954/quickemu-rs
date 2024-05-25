@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::io::Write;
 use std::fs::{read_to_string, write, set_permissions};
 use std::collections::HashMap;
-use crate::config::{ConfigFile, GuestOS, Arch, BootType, Display, DiskImage, Image, Network, PortForward, PreAlloc, Keyboard, SerdeMonitor, SoundCard, Mouse, USBController, Resolution};
+use crate::config::{ConfigFile, GuestOS, Arch, BootType, Display, DiskImage, DiskFormat, Image, Network, PortForward, PreAlloc, Keyboard, SerdeMonitor, SoundCard, Mouse, USBController, Resolution};
 use crate::config_parse::{size_unit, parse_optional_bool, BYTES_PER_GB};
 use crate::{Args, CliArgs, handle_disk_paths};
 use std::os::unix::fs::PermissionsExt;
@@ -116,8 +116,10 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
     let disk_images = {
         let size = conf.get("disk_size").map(|size| size_unit(size)).transpose()?;
         let preallocation: PreAlloc = conf.remove("prealloc").try_into()?;
-        let path = PathBuf::from(conf.remove("disk_img").ok_or_else(|| anyhow!("Your legacy configuration file must include a disk_img"))?);
-        vec![DiskImage { path, size, preallocation }]
+        let disk_file = conf.remove("disk_img").ok_or_else(|| anyhow!("Your legacy configuration file must include a disk_img"))?;
+        let format: Option<DiskFormat> = Some(disk_file.as_str().try_into()?);
+        let path = PathBuf::from(disk_file);
+        vec![DiskImage { path, size, preallocation, format }]
     };
     let image_files: Vec<Image> = [conf.remove("floppy").map(|path| Image::Floppy(PathBuf::from(path))),
         conf.remove("fixed_iso").map(|path| Image::FixedIso(PathBuf::from(path))),

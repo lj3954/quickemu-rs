@@ -145,6 +145,10 @@ pub fn handle_disk_paths(images: &mut Vec<config::DiskImage>, conf_file_path: &P
         if let Ok(path) = image.path.relativize() {
             image.path = path;
         }
+        if image.format.is_none() {
+            let format = image.path.to_string_lossy().as_ref().try_into()?;
+            image.format = Some(format);
+        }
     };
     Ok(())
 }

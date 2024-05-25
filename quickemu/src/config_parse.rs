@@ -351,3 +351,19 @@ impl TryFrom<(Option<String>, Option<String>)> for GuestOS {
     }
 }
 
+impl TryFrom<&str> for DiskFormat {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        Ok(match value.split('.').last().ok_or_else(|| anyhow!("Could not find disk image file extension."))? {
+            "raw" | "img" => Self::Raw,
+            "qcow2" => Self::Qcow2,
+            "qed" => Self::Qed,
+            "qcow" => Self::Qcow,
+            "vdi" => Self::Vdi,
+            "vpc" => Self::Vpc,
+            "vhdx" => Self::Vhdx,
+            other => bail!("Disk image format '{}' is not supported.", other),
+        })
+    }
+}
