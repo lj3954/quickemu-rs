@@ -73,7 +73,7 @@ impl CliArgs {
         } else if self.edit_config {
             ActionType::EditConfig
         } else if let Some(snapshot) = &self.snapshot {
-            ActionType::Snapshot(snapshot.try_into().unwrap_or_else(|e| {
+            ActionType::Snapshot(snapshot.as_slice().try_into().unwrap_or_else(|e| {
                 log::error!("{}", e);
                 std::process::exit(1);
             }))
