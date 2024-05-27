@@ -53,17 +53,17 @@ pub fn size_unit(size: &str) -> Result<u64> {
         'M' => 1024.0 * 1024.0,
         'G' => BYTES_PER_GB as f64,
         'T' => 1024.0 * BYTES_PER_GB as f64,
-        _ => bail!("Invalid size (unit): {}", size),
+        _ => bail!("Invalid size (unit): {size}"),
     };
     match size[..size.len() - 1].parse::<f64>() {
         Ok(size) => Ok((size * unit_size) as u64),
-        Err(_) => bail!("Invalid size (integer): {}", size),
+        Err(_) => bail!("Invalid size (integer): {size}"),
     }
 }
 
-impl TryFrom<&Vec<String>> for Snapshot {
+impl TryFrom<&[String]> for Snapshot {
     type Error = anyhow::Error;
-    fn try_from(input: &Vec<String>) -> Result<Self> {
+    fn try_from(input: &[String]) -> Result<Self> {
         Ok(match input[0].as_str() {
             "apply" if input.len() == 2 => Self::Apply(input[1].clone()),
             "create" if input.len() == 2 => Self::Create(input[1].clone()),
@@ -113,7 +113,7 @@ impl TryFrom<(SerdeMonitor, Option<String>, Option<String>, Option<u16>, u16, Pa
                 address: (host.unwrap_or("127.0.0.1".to_string()) + ":" + &port.to_string()).parse()?,
             }),
             "socket" => Ok(Monitor::Socket { socketpath }),
-            _ => bail!("Invalid monitor type: {}", monitor_type),
+            _ => bail!("Invalid monitor type: {monitor_type}"),
         }
     }
 }
@@ -172,7 +172,7 @@ impl TryFrom<Option<String>> for MacOSRelease {
                 "monterey" => MacOSRelease::Monterey,
                 "ventura" => MacOSRelease::Ventura,
                 "sonoma" => MacOSRelease::Sonoma,
-                _ => bail!("Unsupported macOS release: {}", release),
+                _ => bail!("Unsupported macOS release: {release}"),
             },
             _ => bail!("Your configuration file must include a macOS release."),
         })
@@ -187,10 +187,7 @@ impl TryFrom<Option<String>> for Arch {
                 "x86_64" => Self::x86_64,
                 "aarch64" => Self::aarch64,
                 "riscv64" => Self::riscv64,
-                _ => bail!(
-                    "{} is not a supported architecture. Please check your legacy config file.",
-                    arch
-                ),
+                _ => bail!("{arch} is not a supported architecture. Please check your legacy config file.",),
             },
             None => Default::default(),
         })
@@ -202,7 +199,7 @@ pub fn parse_optional_bool(value: Option<String>, default: bool) -> Result<bool>
         Some(text) => match text.as_str() {
             "true" | "on" => Ok(true),
             "false" | "off" => Ok(false),
-            _ => bail!("Invalid value: {}", text),
+            _ => bail!("Invalid value: {text}"),
         },
         None => Ok(default),
     }
@@ -217,10 +214,7 @@ impl TryFrom<(Option<String>, Option<String>)> for BootType {
                 "efi" => Self::Efi { secure_boot },
                 _ if secure_boot => bail!("Secure boot is only supported with the EFI boot type."),
                 "legacy" | "bios" => Self::Legacy,
-                _ => bail!(
-                    "Specified boot type {} is invalid. Please check your config file. Valid boot types are 'efi', 'legacy'/'bios'",
-                    boot_type
-                ),
+                _ => bail!("Specified boot type {boot_type} is invalid. Please check your config file. Valid boot types are 'efi', 'legacy'/'bios'",),
             },
             _ => Self::Efi { secure_boot },
         })
@@ -236,7 +230,7 @@ impl TryFrom<Option<String>> for PreAlloc {
                 "metadata" => PreAlloc::Metadata,
                 "falloc" => PreAlloc::Falloc,
                 "full" => PreAlloc::Full,
-                _ => bail!("Invalid preallocation type."),
+                _ => bail!("Invalid preallocation type: {variant}"),
             },
             None => Default::default(),
         })
@@ -256,7 +250,7 @@ impl TryFrom<Option<String>> for Display {
                 "spice-app" => Display::SpiceApp,
                 #[cfg(target_os = "macos")]
                 "cocoa" => Display::Cocoa,
-                _ => bail!("Invalid display type: {}", display),
+                _ => bail!("Invalid display type: {display}"),
             },
             _ => Default::default(),
         })
@@ -287,7 +281,7 @@ impl TryFrom<Option<String>> for Keyboard {
                 "usb" => Self::Usb,
                 "ps2" => Self::PS2,
                 "virtio" => Self::Virtio,
-                _ => bail!("Invalid keyboard type: {}", kbtype),
+                _ => bail!("Invalid keyboard type: {kbtype}"),
             },
             _ => Default::default(),
         })
@@ -301,7 +295,7 @@ impl TryFrom<(Option<String>, Option<String>, Option<String>)> for SerdeMonitor 
         let telnet_host = value.1;
         let telnet_port = value
             .2
-            .map(|port| port.parse::<u16>().map_err(|_| anyhow!("Invalid port number: {}", port)))
+            .map(|port| port.parse::<u16>().map_err(|_| anyhow!("Invalid port number: {port}")))
             .transpose()?;
         Ok(Self {
             r#type: monitor_type,
@@ -315,13 +309,13 @@ impl TryFrom<Option<String>> for SoundCard {
     type Error = anyhow::Error;
     fn try_from(value: Option<String>) -> Result<Self> {
         Ok(match value {
-            Some(card) => match card.as_str() {
+            Some(sound_card) => match sound_card.as_str() {
                 "none" => SoundCard::None,
                 "ac97" => SoundCard::AC97,
                 "es1370" => SoundCard::ES1370,
                 "sb16" => SoundCard::SB16,
                 "intel-hda" => SoundCard::IntelHDA,
-                _ => bail!("Invalid sound card: {}", card),
+                _ => bail!("Invalid sound card: {sound_card}"),
             },
             _ => Default::default(),
         })
