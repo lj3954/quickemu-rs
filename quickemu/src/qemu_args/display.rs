@@ -1,21 +1,33 @@
+use crate::config::{Access, Arch, BooleanDisplay, Display, GuestOS, Monitor, Resolution, SoundCard, Viewer};
+use crate::qemu_args::external_command::launch_viewer;
+use crate::qemu_args::find_port;
 use anyhow::{anyhow, bail, Result};
 use std::ffi::OsString;
-use crate::config::{Access, Arch, BooleanDisplay, Display, Monitor, SoundCard, GuestOS, Resolution, Viewer};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::os::unix::net::UnixStream;
-use std::io::{Write, Read};
-use std::process::Command;
-use crate::qemu_args::find_port;
 use which::which;
 
 impl SoundCard {
     pub fn to_args(&self) -> (Vec<String>, Option<Vec<String>>) {
         match self {
             Self::None => (vec![], Some(vec!["Sound: Disabled".into()])),
-            Self::AC97 => (vec!["-device".into(), "ac97,audiodev=audio0".into()], Some(vec!["Emulated sound card: AC97".into()])),
-            Self::ES1370 => (vec!["-device".into(), "es1370,audiodev=audio0".into()], Some(vec!["Emulated sound card: ES1370".into()])),
-            Self::SB16 => (vec!["-device".into(), "sb16,audiodev=audio0".into()], Some(vec!["Emulated sound card: Sound Blaster 16".into()])),
-            Self::IntelHDA => (vec!["-device".into(), "intel-hda".into(), "-device".into(), "hda-duplex,audiodev=audio0".into()], Some(vec!["Emulated sound card: Intel HDA".into()])),
+            Self::AC97 => (
+                vec!["-device".into(), "ac97,audiodev=audio0".into()],
+                Some(vec!["Emulated sound card: AC97".into()]),
+            ),
+            Self::ES1370 => (
+                vec!["-device".into(), "es1370,audiodev=audio0".into()],
+                Some(vec!["Emulated sound card: ES1370".into()]),
+            ),
+            Self::SB16 => (
+                vec!["-device".into(), "sb16,audiodev=audio0".into()],
+                Some(vec!["Emulated sound card: Sound Blaster 16".into()]),
+            ),
+            Self::IntelHDA => (
+                vec!["-device".into(), "intel-hda".into(), "-device".into(), "hda-duplex,audiodev=audio0".into()],
+                Some(vec!["Emulated sound card: Intel HDA".into()]),
+            ),
         }
     }
 }
@@ -67,7 +79,13 @@ impl Display {
             Self::Cocoa => "cocoa".to_string(),
         };
 
-        let mut message = format!("Display: {}, Device: {}, GL: {}, VirGL: {}", self, friendly_display_device, accel.as_str(), (display_device == "virtio-vga-gl").as_str());
+        let mut message = format!(
+            "Display: {}, Device: {}, GL: {}, VirGL: {}",
+            self,
+            friendly_display_device,
+            accel.as_str(),
+            (display_device == "virtio-vga-gl").as_str()
+        );
 
         let video = if matches!(guest_os, GuestOS::LinuxOld | GuestOS::Solaris) || fullscreen {
             display_device.to_string()
@@ -88,21 +106,25 @@ impl Display {
     }
 
     #[cfg(not(target_os = "macos"))]
-    pub fn spice_args(&self, port: Option<u16>, access: Access, custom_params: (bool, bool), guest_os: &GuestOS, publicdir: Option<&OsString>, vm_name: &str) -> Result<(Vec<String>, Option<Vec<String>>)> {
+    pub fn spice_args(
+        &self, port: Option<u16>, access: Access, custom_params: (bool, bool), guest_os: &GuestOS, publicdir: Option<&OsString>, vm_name: &str,
+    ) -> Result<(Vec<String>, Option<Vec<String>>)> {
         let mut spice = "disable-ticketing=on".to_string();
         match self {
             Self::SpiceApp => {
                 let gl = if custom_params.0 { "on" } else { "off" };
                 spice.extend([",gl=", gl]);
                 Ok((vec!["-spice".into(), spice], Some(vec!["Spice: Enabled".into()])))
-            },
+            }
             _ => {
                 let spice_addr = match access {
                     Access::Remote => "".into(),
                     Access::Local => "127.0.0.1".into(),
                     Access::Address(address) => address,
                 };
-                let port = port.ok_or_else(|| anyhow!("Requested SPICE display, but no ports are available."))?.to_string();
+                let port = port
+                    .ok_or_else(|| anyhow!("Requested SPICE display, but no ports are available."))?
+                    .to_string();
                 spice.extend([",port=", &port, ",addr=", &spice_addr]);
 
                 let mut msg = "Spice: On host: spicy --title \"".to_string() + vm_name + "\" --port " + &port;
@@ -114,7 +136,7 @@ impl Display {
                     msg.push_str(" --full-screen");
                 }
                 Ok((vec!["-spice".into(), spice], Some(vec![msg])))
-            },
+            }
         }
     }
 }
@@ -123,14 +145,23 @@ fn display_resolution(name: Option<String>, screenpct: Option<u32>) -> Result<(u
     let display_info = display_info::DisplayInfo::all()?;
     log::debug!("Displays: {:?}", display_info);
     let display = if let Some(monitor) = name {
-        display_info.iter().find(|available| available.name == monitor).ok_or_else(|| anyhow!("Could not find a display matching the name {}", monitor))?
+        display_info
+            .iter()
+            .find(|available| available.name == monitor)
+            .ok_or_else(|| anyhow!("Could not find a display matching the name {}", monitor))?
     } else {
-        display_info.iter().find(|available| available.is_primary)
-            .unwrap_or(display_info.first().ok_or_else(|| anyhow!("Could not find a monitor. Please manually specify the resolution in your config file."))?)
+        display_info.iter().find(|available| available.is_primary).unwrap_or(
+            display_info
+                .first()
+                .ok_or_else(|| anyhow!("Could not find a monitor. Please manually specify the resolution in your config file."))?,
+        )
     };
 
     let (width, height) = match display.width {
-        _ if screenpct.is_some() => ((screenpct.unwrap() * display.width) / 100, (screenpct.unwrap() * display.height) / 100),
+        _ if screenpct.is_some() => (
+            (screenpct.unwrap() * display.width) / 100,
+            (screenpct.unwrap() * display.height) / 100,
+        ),
         3840.. => (3200, 1800),
         2560.. => (2048, 1152),
         1920.. => (1664, 936),
@@ -154,14 +185,16 @@ impl Monitor {
                 let mut telnet = OsString::from("telnet:");
                 telnet.push(&address);
                 telnet.push(",server,nowait");
-                (vec![arg, telnet], Some(vec![text + "On host: telnet " + &address]))
-            },
+                let msg = text + "On host: telnet " + &address;
+                (vec![arg, telnet], Some(vec![msg]))
+            }
             Self::Socket { socketpath } => {
                 let mut socket = OsString::from("unix:");
                 socket.push(socketpath);
                 socket.push(",server,nowait");
-                (vec![arg, socket], Some(vec![text + "On host: " + &socketpath.to_string_lossy()]))
-            },
+                let msg = text + "On host: " + &socketpath.to_string_lossy();
+                (vec![arg, socket], Some(vec![msg]))
+            }
         })
     }
 
@@ -178,7 +211,7 @@ impl Monitor {
                 stream.read_to_string(&mut response)?;
                 log::debug!("Received response: {}", response);
                 log::debug!("Sent command {} to address {:?}", command, stream);
-            },
+            }
             Self::Socket { socketpath } => {
                 let mut stream = UnixStream::connect(socketpath)?;
                 stream.write_all(command.as_bytes())?;
@@ -188,7 +221,7 @@ impl Monitor {
                 stream.read_to_string(&mut response)?;
                 log::debug!("Received response: {}", response);
                 log::debug!("Sent command {} to socket {:?}", command, stream);
-            },
+            }
         };
         Ok(())
     }
@@ -202,19 +235,23 @@ impl Viewer {
             Self::Remote => {
                 let viewer = which("remote-viewer").map_err(|_| anyhow!("Remote viewer was selected, but remote-viewer is not installed."))?;
                 let publicdir = publicdir.map(|dir| dir.to_string_lossy()).unwrap_or_default();
-                println!(r#" - Viewer: remote-viewer --title "{}" --spice-shared-dir "{}"{} "spice://localhost:{}""#, vm_name, publicdir, if fullscreen { " --full-screen" } else { "" }, port);
-                
-                Command::new(viewer).arg("--title").arg(vm_name).arg("--spice-shared-dir").arg(publicdir.to_string()).arg(if fullscreen { "--full-screen" } else { "" }).arg(format!("spice://localhost:{}", port)).spawn()
-                    .map_err(|e| anyhow!("Could not start viewer: {}", e))?;
-            },
+                println!(
+                    r#" - Viewer: remote-viewer --title "{vm_name}" --spice-shared-dir "{publicdir}"{} "spice://localhost:{port}""#,
+                    if fullscreen { " \"--full-screen\"" } else { "" },
+                );
+
+                launch_viewer(&viewer, vm_name, &publicdir, port, fullscreen, self)?;
+            }
             Self::Spicy => {
                 let viewer = which("spicy").map_err(|_| anyhow!("Spicy is not installed, spicy viewer cannot be used."))?;
                 let publicdir = publicdir.map(|dir| dir.to_string_lossy()).unwrap_or_default();
-                println!(r#" - Viewer: spicy --title "{}" --port {} --spice-shared-dir "{}"{}"#, vm_name, port, publicdir, if fullscreen { " --full-screen" } else { "" });
+                println!(
+                    r#" - Viewer: spicy --title "{vm_name}" --port {port} --spice-shared-dir "{publicdir}"{}"#,
+                    if fullscreen { " \"--full-screen\"" } else { "" }
+                );
 
-                Command::new(viewer).arg("--title").arg(vm_name).arg("--port").arg(port.to_string()).arg("--spice-shared-dir").arg(publicdir.to_string()).arg(if fullscreen { "--full-screen" } else { "" }).spawn()
-                    .map_err(|e| anyhow!("Could not start viewer: {}", e))?;
-            },
+                launch_viewer(&viewer, vm_name, &publicdir, port, fullscreen, self)?;
+            }
         }
         Ok(())
     }

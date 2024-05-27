@@ -46,7 +46,7 @@ pub enum Source {
     FileName(String),
     #[serde(rename = "custom")]
     // Quickget will be required to manually handle "custom" sources.
-    Custom
+    Custom,
 }
 
 #[derive(Serialize, Deserialize)]

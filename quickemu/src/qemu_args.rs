@@ -1,18 +1,24 @@
+mod arch;
+mod display;
+mod external_command;
 mod guest_os;
 mod images;
-mod display;
-mod arch;
 
-use std::ffi::OsString;
-use std::{io::Write, fs::{read_to_string, OpenOptions, File, create_dir}};
-use std::process::{Stdio, Command};
+use crate::{config::*, config_parse::BYTES_PER_GB};
 use anyhow::{anyhow, bail, Result};
-use crate::{config_parse::BYTES_PER_GB, config::*};
-use which::which;
-use sysinfo::{System, Cpu, Networks, Pid, RefreshKind, ProcessRefreshKind};
-use std::path::{Path, PathBuf};
+use std::ffi::OsString;
+use std::net::{Ipv4Addr, SocketAddrV4, TcpListener};
 use std::os::unix::fs::PermissionsExt;
-use std::net::{TcpListener, SocketAddrV4, Ipv4Addr};
+use std::path::{Path, PathBuf};
+use std::{
+    fs::{create_dir, read_to_string, File, OpenOptions},
+    io::Write,
+};
+use sysinfo::{Cpu, Networks, Pid, ProcessRefreshKind, RefreshKind, System};
+use which::which;
+
+const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
 impl Args {
     pub fn launch_qemu(self) -> Result<()> {
@@ -21,19 +27,24 @@ impl Args {
             Arch::aarch64 => "qemu-system-aarch64",
             Arch::riscv64 => "qemu-system-riscv64",
         };
-        let qemu_bin = which(qemu_bin).map_err(|_| anyhow!("Could not find QEMU binary: {}. Please make sure QEMU is installed on your system.", qemu_bin))?;
+        let qemu_bin = which(qemu_bin).map_err(|_| anyhow!("Could not find QEMU binary: {qemu_bin}. Please make sure QEMU is installed on your system.",))?;
 
         if !self.vm_dir.exists() {
             create_dir(&self.vm_dir).map_err(|e| anyhow!("Could not create VM directory: {:?}", e))?;
         }
 
-        let mut sh_file = OpenOptions::new().create(true).write(true).truncate(true).open(self.vm_dir.join(self.vm_name.clone() + ".sh")).unwrap();
+        let mut sh_file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(self.vm_dir.join(self.vm_name.clone() + ".sh"))
+            .unwrap();
         writeln!(sh_file, "#!/usr/bin/env bash").unwrap();
 
         #[cfg(feature = "get_qemu_ver")]
-        let qemu_version = Command::new(&qemu_bin).stdout(Stdio::piped()).arg("--version").spawn()?;
+        let qemu_version = external_command::qemu_version_process(&qemu_bin)?;
         let smartcard = if matches!(self.arch, Arch::x86_64 | Arch::riscv64) && cfg!(feature = "check_smartcard") && !cfg!(target_os = "macos") {
-            Some(Command::new(&qemu_bin).arg("-device").arg("help").stdout(Stdio::piped()).spawn()?)
+            Some(external_command::smartcard_process(&qemu_bin)?)
         } else {
             None
         };
@@ -53,14 +64,14 @@ impl Args {
                 if let Some(cmd) = self.monitor_cmd {
                     return self.monitor.send_command(&cmd);
                 } else {
-                    bail!("VM is already running. Use `{} --kill {{conf_file}}` to forcibly stop it.", env!("CARGO_PKG_NAME")); 
+                    bail!("VM is already running. Use `{PKG_NAME} --kill {{conf_file}}` to forcibly stop it.",);
                 }
             }
         };
 
         let mut print_args: Vec<String> = Vec::with_capacity(16);
         qemu_args.reserve(32);
-        
+
         qemu_args.extend(self.display.audio_arg());
         cpucores_ram(self.cpu_cores.0, self.cpu_cores.1, &self.system, self.ram, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
         if let Some(arg) = self.guest_os.cpu_argument(&self.arch) {
@@ -69,13 +80,39 @@ impl Args {
 
         #[cfg(not(target_os = "macos"))]
         if matches!(self.display, Display::None | Display::Spice | Display::SpiceApp) {
-            self.display.spice_args(self.spice_port, self.access, (self.accelerated, self.fullscreen), &self.guest_os, publicdir.as_ref(), &self.vm_name)?.add_args(&mut qemu_args, &mut print_args);
+            self.display
+                .spice_args(
+                    self.spice_port,
+                    self.access,
+                    (self.accelerated, self.fullscreen),
+                    &self.guest_os,
+                    publicdir.as_ref(),
+                    &self.vm_name,
+                )?
+                .add_args(&mut qemu_args, &mut print_args);
         }
 
-        self.network.into_args(&self.vm_name, self.ssh_port, self.port_forwards, publicdir.as_ref(), &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
-        self.display.display_args(&self.guest_os, &self.arch, self.resolution, self.screenpct, self.accelerated, self.fullscreen)?.add_args(&mut qemu_args, &mut print_args);
+        self.network
+            .into_args(
+                &self.vm_name,
+                self.ssh_port,
+                self.port_forwards,
+                publicdir.as_ref(),
+                &self.guest_os,
+            )?
+            .add_args(&mut qemu_args, &mut print_args);
+        self.display
+            .display_args(
+                &self.guest_os,
+                &self.arch,
+                self.resolution,
+                self.screenpct,
+                self.accelerated,
+                self.fullscreen,
+            )?
+            .add_args(&mut qemu_args, &mut print_args);
         self.sound_card.to_args().add_args(&mut qemu_args, &mut print_args);
-        
+
         if self.tpm {
             let (args, print) = tpm_args(&self.vm_dir, &self.vm_name, &mut sh_file)?;
             qemu_args.extend(args);
@@ -87,9 +124,18 @@ impl Args {
         if let Some(mut args) = boot_args {
             qemu_args.append(&mut args);
         }
-        
-        images::image_args(&self.vm_dir, self.image_files, self.disk_images, &self.guest_os, self.status_quo)?.add_args(&mut qemu_args, &mut print_args);
-        self.usb_controller.to_args(&self.guest_os, smartcard, self.usb_devices)?.add_args(&mut qemu_args, &mut print_args);
+
+        images::image_args(
+            &self.vm_dir,
+            self.image_files,
+            self.disk_images,
+            &self.guest_os,
+            self.status_quo,
+        )?
+        .add_args(&mut qemu_args, &mut print_args);
+        self.usb_controller
+            .to_args(&self.guest_os, smartcard, self.usb_devices)?
+            .add_args(&mut qemu_args, &mut print_args);
         self.keyboard.to_args().add_args(&mut qemu_args, &mut print_args);
 
         if let Some(layout) = self.keyboard_layout {
@@ -108,20 +154,26 @@ impl Args {
         if let Some(args) = self.extra_args {
             qemu_args.extend(args.into_iter().map(|arg| arg.into()).collect::<Vec<OsString>>());
         }
-        
-
 
         log::debug!("QEMU ARGS: {:?}", qemu_args);
 
         sh_file.set_permissions(PermissionsExt::from_mode(0o755)).unwrap();
-        write!(sh_file, "{} {}", qemu_bin.to_string_lossy(), qemu_args.iter().map(|arg| "\"".to_string() + &arg.to_string_lossy() + "\"").collect::<Vec<_>>().join(" ")).unwrap();
+        write!(
+            sh_file,
+            "{} {}",
+            qemu_bin.to_string_lossy(),
+            qemu_args
+                .iter()
+                .map(|arg| "\"".to_string() + &arg.to_string_lossy() + "\"")
+                .collect::<Vec<_>>()
+                .join(" ")
+        )
+        .unwrap();
 
-        match self.display {
-            Display::Sdl => Command::new(&qemu_bin).args(qemu_args).env("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1").spawn()?,
-            _ => Command::new(&qemu_bin).args(qemu_args).spawn()?,
-        };
+        external_command::launch_qemu(&qemu_bin, &qemu_args, &self.display)?;
 
-        #[cfg(feature = "get_qemu_ver")] {
+        #[cfg(feature = "get_qemu_ver")]
+        {
             let qemu_version = qemu_version.wait_with_output()?;
             let friendly_ver = std::str::from_utf8(&qemu_version.stdout)?
                 .split_whitespace()
@@ -130,10 +182,10 @@ impl Args {
             if friendly_ver[0..1].parse::<u8>()? < 7 {
                 bail!("QEMU version 7.0.0 or higher is required. Found version {}.", friendly_ver);
             }
-            println!("QuickemuRS {} using {} {}.", env!("CARGO_PKG_VERSION"), qemu_bin.display(), friendly_ver);
+            println!("QuickemuRS {PKG_VERSION} using {} {friendly_ver}.", qemu_bin.display(),);
         }
         #[cfg(not(feature = "get_qemu_ver"))]
-        println!("QuickemuRS {} using {}.", env!("CARGO_PKG_VERSION"), qemu_bin.display());
+        println!("QuickemuRS {PKG_VERSION} using {}.", qemu_bin.display());
 
         print_args.iter().for_each(|arg| println!(" - {}", arg));
 
@@ -142,7 +194,9 @@ impl Args {
         }
         #[cfg(not(target_os = "macos"))]
         if self.display == Display::Spice {
-            self.viewer.unwrap_or_default().start(&self.vm_name, publicdir.as_ref(), self.fullscreen, self.spice_port.unwrap())?;
+            self.viewer
+                .unwrap_or_default()
+                .start(&self.vm_name, publicdir.as_ref(), self.fullscreen, self.spice_port.unwrap())?;
         }
 
         Ok(())
@@ -152,7 +206,7 @@ impl Args {
         let pid_path = self.vm_dir.join(self.vm_name + ".pid");
         let pid = read_to_string(&pid_path).map_err(|_| anyhow!("Unable to read PID file. Are you sure the VM is active?"))?;
         let pid = pid.trim().parse::<u32>().map_err(|_| anyhow!("Invalid PID: {}", pid))?;
-        
+
         std::fs::remove_file(pid_path)?;
         let processes = System::new_with_specifics(RefreshKind::new().with_processes(ProcessRefreshKind::new()));
         if let Some(process) = processes.process(Pid::from_u32(pid)) {
@@ -169,7 +223,10 @@ trait AddToLists {
     fn add_args(self, arg_list: &mut Vec<OsString>, print_list: &mut Vec<String>);
 }
 
-impl<T> AddToLists for (Vec<T>, Option<Vec<String>>) where T: Into<OsString> {
+impl<T> AddToLists for (Vec<T>, Option<Vec<String>>)
+where
+    T: Into<OsString>,
+{
     fn add_args(self, arg_list: &mut Vec<OsString>, print_list: &mut Vec<String>) {
         arg_list.extend(self.0.into_iter().map(|arg| arg.into()));
         if let Some(msgs) = self.1 {
@@ -180,10 +237,10 @@ impl<T> AddToLists for (Vec<T>, Option<Vec<String>>) where T: Into<OsString> {
 
 const SECURE_BOOT_OVMF: [(&str, &str); 7] = [
     ("OVMF/OVMF_CODE_4M.secboot.fd", "OVMF/OVMF_VARS_4M.fd"),
-    ("edk2/ovmf/OVMF_CODE.secboot.fd" ,"edk2/ovmf/OVMF_VARS.fd"),
+    ("edk2/ovmf/OVMF_CODE.secboot.fd", "edk2/ovmf/OVMF_VARS.fd"),
     ("OVMF/x64/OVMF_CODE.secboot.fd", "OVMF/x64/OVMF_VARS.fd"),
     ("edk2-ovmf/OVMF_CODE.secboot.fd", "edk2-ovmf/OVMF_VARS.fd"),
-    ("qemu/ovmf-x86_64-smm-ms-code.bin", "qemu/ovmf-x86_64-smm-ms-vars.bin"), 
+    ("qemu/ovmf-x86_64-smm-ms-code.bin", "qemu/ovmf-x86_64-smm-ms-vars.bin"),
     ("qemu/edk2-x86_64-secure-code.fd", "qemu/edk2-x86_64-code.fd"),
     ("edk2-ovmf/x64/OVMF_CODE.secboot.fd", "edk2-ovmf/x64/OVMF_VARS.fd"),
 ];
@@ -195,11 +252,9 @@ const EFI_OVMF: [(&str, &str); 8] = [
     ("edk2-ovmf/OVMF_CODE.fd", "edk2-ovmf/OVMF_VARS.fd"),
     ("qemu/ovmf-x86_64-4m-code.bin", "qemu/ovmf-x86_64-4m-vars.bin"),
     ("qemu/edk2-x86_64-code.fd", "qemu/edk2-x86_64-code.fd"),
-    ("edk2-ovmf/x64/OVMF_CODE.fd", "edk2-ovmf/x64/OVMF_VARS.fd"), 
+    ("edk2-ovmf/x64/OVMF_CODE.fd", "edk2-ovmf/x64/OVMF_VARS.fd"),
 ];
-const AARCH64_OVMF: [(&str, &str); 1] = [
-    ("AAVMF/AAVMF_CODE.fd", "AAVMF/AAVMF_VARS.fd"),
-];
+const AARCH64_OVMF: [(&str, &str); 1] = [("AAVMF/AAVMF_CODE.fd", "AAVMF/AAVMF_VARS.fd")];
 
 fn qemu_share_dir() -> PathBuf {
     #[cfg(target_os = "macos")]
@@ -219,33 +274,50 @@ impl BootType {
         match (self, arch) {
             (Self::Efi { secure_boot: _ }, Arch::riscv64) => {
                 let bios_dirs = [&vm_dir.join("boot"), vm_dir];
-                let bios = bios_dirs.into_iter().filter_map(|directory| {
-                    directory.read_dir().ok()?.filter_map(|file| {
-                        let path = file.ok()?.path();
-                        if path.extension()? == "bin" {
-                            Some(path)
-                        } else {
-                            None
-                        }
-                    }).collect::<Vec<PathBuf>>().into()
-                }).flatten().collect::<Vec<PathBuf>>();
+                let bios = bios_dirs
+                    .into_iter()
+                    .filter_map(|directory| {
+                        directory
+                            .read_dir()
+                            .ok()?
+                            .filter_map(|file| {
+                                let path = file.ok()?.path();
+                                if path.extension()? == "bin" {
+                                    Some(path)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect::<Vec<PathBuf>>()
+                            .into()
+                    })
+                    .flatten()
+                    .collect::<Vec<PathBuf>>();
                 match bios.len() {
-                    0 => Ok(("Boot: EFI (RISC-V). \x1b[31mWARNING\x1b[0m: Could not find bootloader in your VM directory. VM may fail to boot. Read more: {PLACEHOLDER}".to_string(), None)),
+                    0 => Ok((
+                        "Boot: EFI (RISC-V). \x1b[31mWARNING\x1b[0m: Could not find bootloader in your VM directory. VM may fail to boot. Read more: {PLACEHOLDER}".to_string(),
+                        None,
+                    )),
                     1 => {
                         let bios = &bios[0];
-                        Ok(("Boot: EFI (RISC-V), Bootloader: ".to_string() + &bios.to_string_lossy(), Some(vec!["-kernel".into(), bios.into()])))
-                    },
+                        Ok((
+                            "Boot: EFI (RISC-V), Bootloader: ".to_string() + &bios.to_string_lossy(),
+                            Some(vec!["-kernel".into(), bios.into()]),
+                        ))
+                    }
                     _ => bail!("Could not determine the correct RISC-V bootloader. Please ensure that there are not multiple `.bin` files in your VM directory."),
                 }
-            },
-            (Self::Legacy, Arch::x86_64) => if let GuestOS::MacOS {..} = guest_os {
-                bail!("macOS guests require EFI boot.");
-            } else {
-                Ok(("Boot: Legacy/BIOS".to_string(), None))
-            },
+            }
+            (Self::Legacy, Arch::x86_64) => {
+                if let GuestOS::MacOS { .. } = guest_os {
+                    bail!("macOS guests require EFI boot.");
+                } else {
+                    Ok(("Boot: Legacy/BIOS".to_string(), None))
+                }
+            }
             (Self::Efi { secure_boot }, _) => {
                 let (ovmf_code, ovmf_vars) = match guest_os {
-                    GuestOS::MacOS {..} => {
+                    GuestOS::MacOS { .. } => {
                         if *secure_boot {
                             bail!("macOS guests do not support Secure Boot.");
                         }
@@ -253,31 +325,32 @@ impl BootType {
                         if !efi_code.exists() {
                             bail!("macOS firmware \"OVMF_CODE.fd\" could not be found.");
                         }
-                        let efi_vars = ["OVMF_VARS-1024x768.fd", "OVMF_VARS-1920x1080.fd"].iter().find_map(|vars| {
-                            let efi_vars = vm_dir.join(vars);
-                            if efi_vars.exists() {
-                                Some(efi_vars)
-                            } else {
-                                None
-                            }
-                        }).ok_or_else(|| anyhow!("macOS EFI VARS could not be found."))?;
+                        let efi_vars = ["OVMF_VARS-1024x768.fd", "OVMF_VARS-1920x1080.fd"]
+                            .iter()
+                            .find_map(|vars| {
+                                let efi_vars = vm_dir.join(vars);
+                                if efi_vars.exists() {
+                                    Some(efi_vars)
+                                } else {
+                                    None
+                                }
+                            })
+                            .ok_or_else(|| anyhow!("macOS EFI VARS could not be found."))?;
                         (efi_code, efi_vars)
-                    },
+                    }
                     _ => {
                         let vm_vars = vm_dir.join("OVMF_VARS.fd");
-                        let (efi_code, extra_vars) = if arch == &Arch::aarch64 {
-                            find_firmware(&AARCH64_OVMF).ok_or_else(|| anyhow!("Firmware for aarch64 could not be found."))?
-                        } else if *secure_boot {
-                            find_firmware(&SECURE_BOOT_OVMF).ok_or_else(|| anyhow!("Secure Boot capable firmware could not be found."))?
-                        } else {
-                            find_firmware(&EFI_OVMF).ok_or_else(|| anyhow!("EFI firmware could not be found. Please install OVMF firmware."))?
+                        let (efi_code, extra_vars) = match (arch, secure_boot) {
+                            (Arch::aarch64, _) => find_firmware(&AARCH64_OVMF).ok_or_else(|| anyhow!("Firmware for aarch64 could not be found."))?,
+                            (_, true) => find_firmware(&SECURE_BOOT_OVMF).ok_or_else(|| anyhow!("Secure Boot capable firmware could not be found."))?,
+                            _ => find_firmware(&EFI_OVMF).ok_or_else(|| anyhow!("EFI firmware could not be found. Please install OVMF firmware."))?,
                         };
                         let efi_code = efi_code.canonicalize()?;
                         if !vm_vars.exists() || vm_vars.metadata()?.permissions().readonly() {
                             std::fs::copy(extra_vars, &vm_vars)?;
                         }
                         (efi_code, vm_vars)
-                    },
+                    }
                 };
                 if arch == &Arch::aarch64 {
                     let mut aavmf_code_final = OsString::from("node-name=rom,driver=file,filename=");
@@ -285,7 +358,10 @@ impl BootType {
                     aavmf_code_final.push(",read-only=true");
                     let mut aavmf_vars_final = OsString::from("node-name=efivars,driver=file,filename=");
                     aavmf_vars_final.push(&ovmf_vars);
-                    Ok(("Boot: EFI (aarch64), OVMF: ".to_string() + ovmf_code.to_str().unwrap(), Some(vec!["-blockdev".into(), aavmf_code_final, "-blockdev".into(), aavmf_vars_final])))
+                    Ok((
+                        "Boot: EFI (aarch64), OVMF: ".to_string() + ovmf_code.to_str().unwrap(),
+                        Some(vec!["-blockdev".into(), aavmf_code_final, "-blockdev".into(), aavmf_vars_final]),
+                    ))
                 } else {
                     let mut ovmf_code_final = OsString::from("if=pflash,format=raw,unit=0,file=");
                     ovmf_code_final.push(&ovmf_code);
@@ -293,10 +369,19 @@ impl BootType {
                     let mut ovmf_vars_final = OsString::from("if=pflash,format=raw,unit=1,file=");
                     ovmf_vars_final.push(&ovmf_vars);
                     let driver = OsString::from("driver=cfi.pflash01,property=secure,value=on");
-                    Ok(("Boot: EFI (x86_64), OVMF: ".to_string() + ovmf_code.to_str().unwrap() + ", Secure Boot: " + (*secure_boot).as_str(), 
-                            Some(vec!["-global".into(), driver, "-drive".into(), ovmf_code_final, "-drive".into(), ovmf_vars_final])))
+                    Ok((
+                        "Boot: EFI (x86_64), OVMF: ".to_string() + ovmf_code.to_str().unwrap() + ", Secure Boot: " + (*secure_boot).as_str(),
+                        Some(vec![
+                            "-global".into(),
+                            driver,
+                            "-drive".into(),
+                            ovmf_code_final,
+                            "-drive".into(),
+                            ovmf_vars_final,
+                        ]),
+                    ))
                 }
-            },
+            }
             _ => bail!("The specified combination of architecture and boot type is not currently supported."),
         }
     }
@@ -322,7 +407,7 @@ impl Network {
                 let ssh_arg = format!(",hostfwd=tcp::{port}-:22");
                 let ssh_msg = format!(", SSH (On host): ssh {{user}}@localhost -p {port}");
                 (ssh_arg, ssh_msg)
-            },
+            }
             None => Default::default(),
         };
         match self {
@@ -330,18 +415,29 @@ impl Network {
             Self::Restrict | Self::Nat => {
                 let mut msgs = Vec::new();
                 let port_forwards = port_forwards.map(|forwards| {
-                    let data: (Vec<String>, Vec<String>) = forwards.iter()
-                        .map(|pf| (format!(",hostfwd=tcp::{}-:{},hostfwd=udp::{}-:{}", pf.host, pf.guest, pf.host, pf.guest), format!("{} => {}", pf.host, pf.guest)))
+                    let data: (Vec<String>, Vec<String>) = forwards
+                        .iter()
+                        .map(|pf| {
+                            (
+                                format!(",hostfwd=tcp::{}-:{},hostfwd=udp::{}-:{}", pf.host, pf.guest, pf.host, pf.guest),
+                                format!("{} => {}", pf.host, pf.guest),
+                            )
+                        })
                         .unzip();
                     msgs.push(format!("Port forwards: {}", data.1.join(", ")));
                     data.0.join("")
                 });
 
                 let net = {
-                    let samba = which("smbd").ok().and_then(|_| publicdir.map(|dir| {
-                        msgs.push("smbd on guest: `smb://10.0.2.4/qemu`".into());
-                        format!(",smb={}", dir.to_string_lossy())
-                    })).unwrap_or_default();
+                    let samba = which("smbd")
+                        .ok()
+                        .and_then(|_| {
+                            publicdir.map(|dir| {
+                                msgs.push("smbd on guest: `smb://10.0.2.4/qemu`".into());
+                                format!(",smb={}", dir.to_string_lossy())
+                            })
+                        })
+                        .unwrap_or_default();
                     format!("user,hostname={vmname}{ssh_arg}{}{samba}", port_forwards.unwrap_or_default())
                 };
 
@@ -349,17 +445,26 @@ impl Network {
                 let device_arg = format!("{},netdev=nic", device);
                 let netdev = format!("{}{},id=nic", net, if self == Self::Restrict { ",restrict=y" } else { "" });
 
-                msgs.insert(0, format!("Network: {} ({}){ssh_msg}", if self == Self::Restrict { "Restricted" } else { "User" }, device));
+                msgs.insert(
+                    0,
+                    format!(
+                        "Network: {} ({device}){ssh_msg}",
+                        if self == Self::Restrict { "Restricted" } else { "User" },
+                    ),
+                );
                 Ok((vec!["-netdev".into(), netdev, "-device".into(), device_arg], Some(msgs)))
-            },
+            }
             Self::Bridged { bridge, mac_addr } => {
                 let network = Networks::new_with_refreshed_list();
                 if !network.contains_key(&bridge) {
                     bail!("Network interface {} could not be found.", bridge);
                 }
                 let mac_addr = mac_addr.and_then(|mac| format!(",mac={}", mac).into()).unwrap_or_default();
-                Ok((vec!["-nic".into(), "bridge,br=".to_string() + &bridge + &mac_addr], Some(vec!["Network: Bridged (".to_string() + &bridge + ")"])))
-            },
+                Ok((
+                    vec!["-nic".into(), "bridge,br=".to_string() + &bridge + &mac_addr],
+                    Some(vec!["Network: Bridged (".to_string() + &bridge + ")"]),
+                ))
+            }
         }
     }
 }
@@ -376,7 +481,7 @@ impl TryInto<Option<OsString>> for PublicDir {
                 } else {
                     None
                 }
-            },
+            }
             Self::Custom(dir) => {
                 let path = PathBuf::from(&dir);
                 if path.exists() {
@@ -384,7 +489,7 @@ impl TryInto<Option<OsString>> for PublicDir {
                 } else {
                     bail!("Chosen public directory {} does not exist.", dir)
                 }
-            },
+            }
         })
     }
 }
@@ -401,29 +506,40 @@ fn tpm_args(vm_dir: &Path, vm_name: &str, sh_file: &mut File) -> Result<([OsStri
     let mut tpmstate = OsString::from("dir=");
     tpmstate.push(vm_dir);
 
-    let tpm_args: [OsString; 7] = ["socket".into(),
-        "--ctrl".into(), ctrl,
-        "--terminate".into(),
-        "--tpmstate".into(), tpmstate,
-        "--tpm2".into(),
-    ];
+    let tpm_args: [OsString; 7] = ["socket".into(), "--ctrl".into(), ctrl, "--terminate".into(), "--tpmstate".into(), tpmstate, "--tpm2".into()];
 
-    let _ = writeln!(sh_file, "{} \\\n{}", swtpm.to_str().unwrap(), tpm_args.iter().map(|arg| arg.to_string_lossy()).collect::<Vec<_>>().join(" \\\n    "));
-    let pid = Command::new(swtpm).args(tpm_args).stderr(log_file).spawn().map_err(|_| anyhow!("Failed to start swtpm. Please check the log file in your VM directory for more information."))?.id();
-    let tpm_print = format!("TPM: {} (pid: {pid})", tpm_socket.to_string_lossy());
+    let _ = writeln!(
+        sh_file,
+        "{} \\\n{}",
+        swtpm.to_str().unwrap(),
+        tpm_args
+            .iter()
+            .map(|arg| arg.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(" \\\n    ")
+    );
+    let tpm_pid = external_command::tpm_pid(&swtpm, &tpm_args, log_file)?;
+    let tpm_print = format!("TPM: {} (pid: {tpm_pid})", tpm_socket.to_string_lossy());
 
     let mut socket = OsString::from("socket,id=chrtpm,path=");
     socket.push(tpm_socket);
-    
-    Ok((["-chardev".into(), socket,
-        "-tpmdev".into(), "emulator,id=tpm0,chardev=chrtpm".into(),
-        "-device".into(), "tpm-tis,tpmdev=tpm0".into()], tpm_print))
-}
 
+    Ok((
+        [
+            "-chardev".into(),
+            socket,
+            "-tpmdev".into(),
+            "emulator,id=tpm0,chardev=chrtpm".into(),
+            "-device".into(),
+            "tpm-tis,tpmdev=tpm0".into(),
+        ],
+        tpm_print,
+    ))
+}
 
 fn cpucores_ram(mut cores: usize, threads: bool, system_info: &System, ram: u64, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
     if ram < 4 * BYTES_PER_GB {
-        if let GuestOS::MacOS {..} | GuestOS::Windows | GuestOS::WindowsServer = guest_os {
+        if let GuestOS::MacOS { .. } | GuestOS::Windows | GuestOS::WindowsServer = guest_os {
             bail!("{} guests require at least 4GB of RAM.", guest_os);
         }
     }
@@ -436,9 +552,7 @@ fn cpucores_ram(mut cores: usize, threads: bool, system_info: &System, ram: u64,
 
     let free_ram = system_info.available_memory() as f64 / BYTES_PER_GB as f64;
     let total_ram = system_info.total_memory() as f64 / BYTES_PER_GB as f64;
-    let mut cpus = system_info.cpus().iter()
-        .map(|cpu: &Cpu| cpu.brand())
-        .collect::<Vec<&str>>();
+    let mut cpus = system_info.cpus().iter().map(|cpu: &Cpu| cpu.brand()).collect::<Vec<&str>>();
     // CPUs should already be in a sorted order. remove duplicates.
     cpus.dedup();
     let mut args: Vec<String> = vec!["-smp".into()];
@@ -446,7 +560,7 @@ fn cpucores_ram(mut cores: usize, threads: bool, system_info: &System, ram: u64,
     let sockets = cpus.len();
     let socket_text = match sockets {
         1 => "".to_string(),
-        _ => sockets.to_string() + "sockets, "
+        _ => sockets.to_string() + "sockets, ",
     };
 
     let core_text = if cores > 1 && threads {
@@ -459,15 +573,18 @@ fn cpucores_ram(mut cores: usize, threads: bool, system_info: &System, ram: u64,
     args.push("-m".into());
     args.push(ram.to_string() + "b");
 
-    match guest_os {
-        GuestOS::MacOS { release } if !matches!(release, MacOSRelease::HighSierra | MacOSRelease::Mojave | MacOSRelease::Catalina) => (),
-        _ => {
-            args.push("-device".into());
-            args.push("virtio-balloon".into());
-        },
-    };
+    if !matches!(guest_os, GuestOS::MacOS { release } if release < &MacOSRelease::BigSur) {
+        args.push("-device".into());
+        args.push("virtio-balloon".into());
+    }
 
-    Ok((args, Some(vec![format!("Using {}{}, {} GiB of RAM ({:.2} / {:.2} GiB available).", socket_text, core_text, ram as f64 / BYTES_PER_GB as f64, free_ram, total_ram)])))
+    Ok((
+        args,
+        Some(vec![format!(
+            "Using {socket_text}{core_text}, {} GiB of RAM ({free_ram:.2} / {total_ram:.2} GiB available).",
+            ram as f64 / BYTES_PER_GB as f64,
+        )]),
+    ))
 }
 
 impl USBController {
@@ -476,29 +593,37 @@ impl USBController {
             GuestOS::MacOS { release } if release < &MacOSRelease::BigSur => "usb-ehci",
             _ => "qemu-xhci",
         };
-        let mut args = vec!["-device".into(), "virtio-rng-pci,rng=rng0".into(),
-            "-object".into(), "rng-random,id=rng0,filename=/dev/urandom".into()];
+        let mut args = vec!["-device".into(), "virtio-rng-pci,rng=rng0".into(), "-object".into(), "rng-random,id=rng0,filename=/dev/urandom".into()];
 
         #[cfg(not(target_os = "macos"))]
-        args.extend(["-device".into(), passthrough_controller.to_string() + ",id=spicepass",
-            "-chardev".into(), "spicevmc,id=usbredirchardev1,name=usbredir".into(),
-            "-device".into(), "usb-redir,chardev=usbredirchardev1,id=usbredirdev1".into(),
-            "-chardev".into(), "spicevmc,id=usbredirchardev2,name=usbredir".into(),
-            "-device".into(), "usb-redir,chardev=usbredirchardev2,id=usbredirdev2".into(),
-            "-chardev".into(), "spicevmc,id=usbredirchardev3,name=usbredir".into(),
-            "-device".into(), "usb-redir,chardev=usbredirchardev3,id=usbredirdev3".into(),
-            "-device".into(), "pci-ohci,id=smartpass".into(),
-            "-device".into(), "usb-ccid".into(),
+        args.extend([
+            "-device".into(),
+            passthrough_controller.to_string() + ",id=spicepass",
+            "-chardev".into(),
+            "spicevmc,id=usbredirchardev1,name=usbredir".into(),
+            "-device".into(),
+            "usb-redir,chardev=usbredirchardev1,id=usbredirdev1".into(),
+            "-chardev".into(),
+            "spicevmc,id=usbredirchardev2,name=usbredir".into(),
+            "-device".into(),
+            "usb-redir,chardev=usbredirchardev2,id=usbredirdev2".into(),
+            "-chardev".into(),
+            "spicevmc,id=usbredirchardev3,name=usbredir".into(),
+            "-device".into(),
+            "usb-redir,chardev=usbredirchardev3,id=usbredirdev3".into(),
+            "-device".into(),
+            "pci-ohci,id=smartpass".into(),
+            "-device".into(),
+            "usb-ccid".into(),
         ]);
 
         match self {
             Self::Ehci => args.extend(["-device".into(), "usb-ehci,id=input".into()]),
             Self::Xhci => args.extend(["-device".into(), "qemu-xhci,id=input".into()]),
-            _ => ()
+            _ => (),
         }
 
-        let mut add_smartcard_args = || args.extend(["-chardev".into(), "spicevmc,id=ccid,name=smartcard".into(),
-            "-device".into(), "ccid-card-passthru,chardev=ccid".into()]);
+        let mut add_smartcard_args = || args.extend(["-chardev".into(), "spicevmc,id=ccid,name=smartcard".into(), "-device".into(), "ccid-card-passthru,chardev=ccid".into()]);
         if let Some(child) = smartcard {
             let smartcard = child.wait_with_output()?;
             if std::str::from_utf8(&smartcard.stdout)?.contains("smartcard") {
@@ -520,22 +645,28 @@ impl USBController {
 
 impl Keyboard {
     fn to_args(&self) -> (Vec<OsString>, Option<Vec<String>>) {
-        (match self {
-            Self::Usb => vec!["-device".into(), "usb-kbd,bus=input.0".into()],
-            Self::Virtio => vec!["-device".into(), "virtio-keyboard".into()],
-            Self::PS2 => vec![]
-        }, None)
+        (
+            match self {
+                Self::Usb => vec!["-device".into(), "usb-kbd,bus=input.0".into()],
+                Self::Virtio => vec!["-device".into(), "virtio-keyboard".into()],
+                Self::PS2 => vec![],
+            },
+            None,
+        )
     }
 }
 
 impl Mouse {
     fn to_args(&self) -> (Vec<OsString>, Option<Vec<String>>) {
-        (match self {
-            Self::Usb => vec!["-device".into(), "usb-mouse,bus=input.0".into()],
-            Self::Tablet => vec!["-device".into(), "usb-tablet,bus=input.0".into()],
-            Self::Virtio => vec!["-device".into(), "virtio-mouse".into()],
-            Self::PS2 => vec![],
-        }, None)
+        (
+            match self {
+                Self::Usb => vec!["-device".into(), "usb-mouse,bus=input.0".into()],
+                Self::Tablet => vec!["-device".into(), "usb-tablet,bus=input.0".into()],
+                Self::Virtio => vec!["-device".into(), "virtio-mouse".into()],
+                Self::PS2 => vec![],
+            },
+            None,
+        )
     }
 }
 
@@ -544,21 +675,23 @@ fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsStr
     let mut args: Vec<OsString> = Vec::new();
     let home_dir = dirs::home_dir().ok_or(anyhow!("Could not find home directory"))?;
     let username = home_dir.file_name().ok_or(anyhow!("Could not find username"))?;
-    
-    if let GuestOS::MacOS {..} = guest_os {
+
+    if let GuestOS::MacOS { .. } = guest_os {
         print_args.push("WebDAV - On guest: build spice-webdavd (https://gitlab.gnome.org/GNOME/phodav/-/merge_requests/24)\n    Then: Finder -> Connect to Server -> http://localhost:9843/".into());
     } else {
         print_args.push("WebDAV - On guest: dav://localhost:9843/".into());
     }
 
     match guest_os {
-        GuestOS::MacOS {..} => {
+        GuestOS::MacOS { .. } => {
             print_args.push("9P - On guest: `sudo mount_9p Public-".to_string() + &username.to_string_lossy() + " ~/Public`");
             if PathBuf::from(publicdir).metadata()?.permissions().readonly() {
                 print_args.push("9P - On host - Required for macOS integration: `sudo chmod -r 777 ".to_string() + &publicdir.to_string_lossy() + "`");
             }
-        },
-        GuestOS::Linux | GuestOS::LinuxOld => print_args.push("9P - On guest: `sudo mount -t 9p -o trans=virtio,version=9p2000.L,msize=104857600 Public-".to_string() + &username.to_string_lossy() + " ~/Public`"),
+        }
+        GuestOS::Linux | GuestOS::LinuxOld => {
+            print_args.push("9P - On guest: `sudo mount -t 9p -o trans=virtio,version=9p2000.L,msize=104857600 Public-".to_string() + &username.to_string_lossy() + " ~/Public`")
+        }
         _ => (),
     }
     if !matches!(guest_os, GuestOS::Windows | GuestOS::WindowsServer) {
@@ -606,7 +739,7 @@ fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> 
 }
 
 pub fn find_port(default: u16, offset: u16) -> Option<u16> {
-    (default..=default+offset).find(|port| {
+    (default..=default + offset).find(|port| {
         let port = SocketAddrV4::new(Ipv4Addr::LOCALHOST, *port);
         TcpListener::bind(port).is_ok()
     })

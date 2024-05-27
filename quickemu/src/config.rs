@@ -1,10 +1,10 @@
-use clap::ValueEnum;
-use serde::{Deserialize, Serialize};
-use serde::de::Visitor;
-use std::fmt;
-use std::path::PathBuf;
-use std::net::SocketAddr;
 use anyhow::{bail, Result};
+use clap::ValueEnum;
+use serde::de::Visitor;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::net::SocketAddr;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct Args {
@@ -88,15 +88,31 @@ pub struct ConfigFile {
     pub usb_devices: Option<Vec<String>>,
 }
 #[cfg(target_os = "macos")]
-fn default_accel() -> bool { false }
+fn default_accel() -> bool {
+    false
+}
 #[cfg(not(target_os = "macos"))]
-fn default_accel() -> bool { true }
-fn default_spice_port() -> u16 { 5930 }
-fn default_ssh_port() -> u16 { 22220 }
-fn is_default<T: Default + PartialEq>(input: &T) -> bool { input == &T::default() }
-fn is_default_ssh(input: &u16) -> bool { *input == default_ssh_port() }
-fn is_default_spice(input: &u16) -> bool { *input == default_spice_port() }
-fn is_true(input: &bool) -> bool { *input }
+fn default_accel() -> bool {
+    true
+}
+fn default_spice_port() -> u16 {
+    5930
+}
+fn default_ssh_port() -> u16 {
+    22220
+}
+fn is_default<T: Default + PartialEq>(input: &T) -> bool {
+    input == &T::default()
+}
+fn is_default_ssh(input: &u16) -> bool {
+    *input == default_ssh_port()
+}
+fn is_default_spice(input: &u16) -> bool {
+    *input == default_spice_port()
+}
+fn is_true(input: &bool) -> bool {
+    *input
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Access {
@@ -119,13 +135,15 @@ pub enum BootType {
     #[serde(alias = "EFI", alias = "efi")]
     Efi {
         #[serde(default)]
-        secure_boot: bool
+        secure_boot: bool,
     },
     #[serde(alias = "legacy", alias = "bios")]
     Legacy,
 }
 impl Default for BootType {
-    fn default() -> Self { Self::Efi { secure_boot: false } }
+    fn default() -> Self {
+        Self::Efi { secure_boot: false }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -144,16 +162,25 @@ impl<'de> Visitor<'de> for SizeUnit {
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a string (ending in a size unit, e.g. M, G, T) or a number (in bytes)")
     }
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> where E: serde::de::Error, {
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
         crate::config_parse::size_unit(value)
             .map(Some)
             .map_err(serde::de::Error::custom)
     }
-    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> where E: serde::de::Error, {
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
         Ok(Some(value.try_into().map_err(serde::de::Error::custom)?))
     }
 }
-pub fn deserialize_size<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error> where D: serde::Deserializer<'de>, {
+pub fn deserialize_size<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
     deserializer.deserialize_any(SizeUnit)
 }
 
@@ -172,7 +199,7 @@ pub enum DiskFormat {
     #[serde(alias = "vpc")]
     Vpc,
     #[serde(alias = "vhdx")]
-    Vhdx
+    Vhdx,
 }
 impl AsRef<str> for DiskFormat {
     fn as_ref(&self) -> &str {
@@ -223,9 +250,13 @@ impl fmt::Display for Display {
 }
 impl Default for Display {
     #[cfg(target_os = "macos")]
-    fn default() -> Self { Self::Cocoa }
+    fn default() -> Self {
+        Self::Cocoa
+    }
     #[cfg(not(target_os = "macos"))]
-    fn default() -> Self { Self::Sdl }
+    fn default() -> Self {
+        Self::Sdl
+    }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -265,7 +296,7 @@ impl fmt::Display for GuestOS {
             GuestOS::LinuxOld => write!(f, "Linux (Old)"),
             GuestOS::Windows => write!(f, "Windows"),
             GuestOS::WindowsServer => write!(f, "Windows Server"),
-            GuestOS::MacOS {..} => write!(f, "macOS"),
+            GuestOS::MacOS { .. } => write!(f, "macOS"),
             GuestOS::FreeBSD => write!(f, "FreeBSD"),
             GuestOS::GhostBSD => write!(f, "GhostBSD"),
             GuestOS::FreeDOS => write!(f, "FreeDOS"),
@@ -360,7 +391,10 @@ impl PreAlloc {
             (Self::Full, DiskFormat::Qcow2) => Some("lazy_refcounts=on,preallocation=full,nocow=on"),
             (Self::Full, DiskFormat::Raw) => Some("preallocation=full"),
             (Self::Metadata, DiskFormat::Raw) => bail!("`raw` disk images do not support the metadata preallocation type."),
-            _ => bail!("Preallocation is not supported for disk format {}. Only `raw` and `qcow2` images have support for the feature", disk_format.as_ref()),
+            _ => bail!(
+                "Preallocation is not supported for disk format {}. Only `raw` and `qcow2` images have support for the feature",
+                disk_format.as_ref()
+            ),
         })
     }
 }
@@ -397,7 +431,9 @@ pub enum Viewer {
     Remote,
 }
 impl Default for Viewer {
-    fn default() -> Self { Self::Spicy }
+    fn default() -> Self {
+        Self::Spicy
+    }
 }
 
 #[derive(Debug)]
@@ -414,16 +450,27 @@ pub struct SerdeMonitor {
     pub telnet_port: Option<u16>,
 }
 impl Default for SerdeMonitor {
-    fn default() -> Self { Self { r#type: "socket".to_string(), telnet_host: None, telnet_port: None } }
+    fn default() -> Self {
+        Self {
+            r#type: "socket".to_string(),
+            telnet_host: None,
+            telnet_port: None,
+        }
+    }
 }
-fn is_socket(input: &str) -> bool { input == "socket" }
+fn is_socket(input: &str) -> bool {
+    input == "socket"
+}
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Resolution {
     #[default]
     Default,
     Display(String),
-    Custom { width: u32, height: u32 },
+    Custom {
+        width: u32,
+        height: u32,
+    },
 }
 
 #[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
