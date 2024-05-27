@@ -1,25 +1,23 @@
+mod actions;
 mod config;
-mod validate;
 mod config_parse;
 mod qemu_args;
-mod actions;
+mod validate;
 
-use clap::Parser;
 use anyhow::Result;
-use std::path::{PathBuf, Path};
-use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
-use std::fs::read_to_string;
 use anyhow::{anyhow, bail};
+use clap::Parser;
+use config::{ActionType, Args, ConfigFile};
 use config_parse::Relativize;
-use config::{Args, ActionType, ConfigFile};
+use std::fs::read_to_string;
+use std::path::{Path, PathBuf};
+use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
 fn main() {
     let args = CliArgs::parse();
     log::debug!("CLI ARGS: {:?}", args);
 
-    env_logger::Builder::new()
-        .filter_level(args.verbose.log_level_filter())
-        .init();
+    env_logger::Builder::new().filter_level(args.verbose.log_level_filter()).init();
 
     match args.get_action_type() {
         ActionType::MigrateConfig => match actions::migrate_config(args.config_file) {
@@ -32,7 +30,7 @@ fn main() {
         ActionType::Launch => {
             let args: Args = args.try_into().unwrap_or_exit();
             args.launch_qemu().unwrap_or_exit();
-        },
+        }
         ActionType::DeleteVM => args.delete_vm().unwrap_or_exit(),
         ActionType::DeleteDisk => args.try_into().and_then(|args: Args| args.delete_disk()).unwrap_or_exit(),
         ActionType::Snapshot(snapshot) => match snapshot.perform_action(args.config_file) {
@@ -46,7 +44,7 @@ fn main() {
         ActionType::Kill => {
             let args: Args = args.try_into().unwrap_or_exit();
             args.kill().unwrap_or_exit();
-        },
+        }
     }
 }
 
@@ -86,24 +84,28 @@ impl CliArgs {
 }
 
 fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
-    let valid_position = conf_file.iter().position(|arg| {
-        ( arg.ends_with(".toml") && PathBuf::from(arg).exists() ) || PathBuf::from(arg.to_owned() + ".toml").exists()
-    });
+    let valid_position = conf_file
+        .iter()
+        .position(|arg| (arg.ends_with(".toml") && PathBuf::from(arg).exists()) || PathBuf::from(arg.to_owned() + ".toml").exists());
 
     let conf_file = match valid_position {
         Some(position) => {
             if conf_file.len() > 1 {
-                conf_file.iter().enumerate().filter(|(i, _)| *i != position).for_each(|(_, arg)| {
-                    log::error!("Unrecognized argument: {}", arg);
-                });
+                conf_file
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| *i != position)
+                    .for_each(|(_, arg)| {
+                        log::error!("Unrecognized argument: {}", arg);
+                    });
             }
             let file = conf_file[position].clone();
 
-            match &file[file.len()-5..] {
+            match &file[file.len() - 5..] {
                 ".toml" => file,
                 _ => file + ".toml",
             }
-        },
+        }
         None => {
             let pkg = env!("CARGO_PKG_NAME");
             match conf_file.into_iter().find_map(|arg| {
@@ -117,17 +119,23 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
             }) {
                 #[cfg(not(feature = "support_bash_conf"))]
                 Some((conf, _)) => {
-                    bail!("{} no longer supports '.conf' configuration files.\nPlease convert your configuration file to the TOML format using `{} --migrate-config {} {}`.", pkg, pkg, conf, conf.replace(".conf", ".toml"))
-                },
+                    bail!(
+                        "{pkg} no longer supports '.conf' configuration files.\nPlease convert your configuration file to the TOML format using `{pkg} --migrate-config {arg} {}`.",
+                        conf.replace(".conf", ".toml")
+                    )
+                }
                 #[cfg(feature = "support_bash_conf")]
                 Some((arg, conf)) => {
                     let conf_data = actions::read_legacy_conf(&conf)?;
-                    log::warn!("Legacy configuration files may be parsed inaccurately, and do not support all of the features of {}. Consider migrating to TOML with `{} --migrate-config {} {}`", pkg, pkg, arg, arg.replace(".conf", ".toml"));
+                    log::warn!(
+                        "Legacy configuration files may be parsed inaccurately, and do not support all of the features of {pkg}. Consider migrating to TOML with `{pkg} --migrate-config {arg} {}`",
+                        arg.replace(".conf", ".toml")
+                    );
                     return Ok((arg, conf_data));
-                },
+                }
                 None => bail!("You are required to input a valid configuration file."),
             }
-        },
+        }
     };
 
     log::info!("Using configuration file: {}", &conf_file);
@@ -149,7 +157,7 @@ pub fn handle_disk_paths(images: &mut Vec<config::DiskImage>, conf_file_path: &P
             let format = image.path.to_string_lossy().as_ref().try_into()?;
             image.format = Some(format);
         }
-    };
+    }
     Ok(())
 }
 
@@ -158,19 +166,29 @@ impl TryFrom<CliArgs> for Args {
     fn try_from(args: CliArgs) -> Result<Self> {
         let (conf_file, mut conf) = parse_conf(args.config_file)?;
 
-        let info = System::new_with_specifics(RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()).with_cpu(CpuRefreshKind::new()));
-        log::debug!("{:?}",info);
+        let info = System::new_with_specifics(
+            RefreshKind::new()
+                .with_memory(MemoryRefreshKind::new().with_ram())
+                .with_cpu(CpuRefreshKind::new()),
+        );
+        log::debug!("{:?}", info);
         let guest_os = &conf.guest_os;
 
         let conf_file_path = PathBuf::from(&conf_file);
-        let conf_file_path = conf_file_path.parent()
+        let conf_file_path = conf_file_path
+            .parent()
             .ok_or_else(|| anyhow!("The parent directory of the config file cannot be found"))?;
         log::debug!("Config file path: {:?}", conf_file_path);
 
         log::debug!("{:?} {}", conf_file_path, conf_file);
-        let vm_dir = conf_file[..conf_file.len()-5].parse::<PathBuf>()?;
-            
-        let vm_name = vm_dir.file_name().unwrap().to_os_string().into_string().map_err(|e| anyhow!("Unable to parse VM name: {:?}", e))?;
+        let vm_dir = conf_file[..conf_file.len() - 5].parse::<PathBuf>()?;
+
+        let vm_name = vm_dir
+            .file_name()
+            .unwrap()
+            .to_os_string()
+            .into_string()
+            .map_err(|e| anyhow!("Unable to parse VM name: {:?}", e))?;
         log::debug!("Found VM Dir: {:?}, VM Name: {}", vm_dir, vm_name);
 
         let monitor_socketpath = vm_dir.join(format!("{vm_name}-monitor.socket")).to_path_buf();
@@ -184,7 +202,7 @@ impl TryFrom<CliArgs> for Args {
         }
         handle_disk_paths(&mut conf.disk_images, conf_file_path)?;
         log::debug!("{:?}", conf);
-        
+
         Ok(Self {
             access: config::Access::from(args.access),
             arch: conf.arch,
@@ -204,12 +222,26 @@ impl TryFrom<CliArgs> for Args {
             tpm: conf.tpm,
             keyboard: args.keyboard.unwrap_or(conf.keyboard),
             keyboard_layout: config_parse::keyboard_layout((conf.keyboard_layout, args.keyboard_layout))?,
-            monitor: config::Monitor::try_from((conf.monitor, args.monitor, args.monitor_telnet_host, args.monitor_telnet_port, 4440, monitor_socketpath))?,
+            monitor: config::Monitor::try_from((
+                conf.monitor,
+                args.monitor,
+                args.monitor_telnet_host,
+                args.monitor_telnet_port,
+                4440,
+                monitor_socketpath,
+            ))?,
             monitor_cmd: args.monitor_cmd,
             mouse: args.mouse.or(conf.mouse).unwrap_or(guest_os.into()),
             resolution: (conf.resolution, args.width, args.height, args.screen).into(),
             screenpct: args.screenpct,
-            serial: config::Monitor::try_from((conf.serial, args.serial, args.serial_telnet_host, args.serial_telnet_port, 6660, serial_socketpath))?,
+            serial: config::Monitor::try_from((
+                conf.serial,
+                args.serial,
+                args.serial_telnet_host,
+                args.serial_telnet_port,
+                6660,
+                serial_socketpath,
+            ))?,
             usb_controller: args.usb_controller.or(conf.usb_controller).unwrap_or(guest_os.into()),
             sound_card: args.sound_card.unwrap_or(conf.soundcard),
             fullscreen: args.fullscreen,

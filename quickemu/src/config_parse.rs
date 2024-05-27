@@ -1,8 +1,8 @@
 use crate::config::*;
 use crate::validate;
-use anyhow::{Result, anyhow, bail};
-use std::convert::TryFrom;
+use anyhow::{anyhow, bail, Result};
 use core::num::NonZeroUsize;
+use std::convert::TryFrom;
 use std::path::PathBuf;
 
 impl From<Option<String>> for Access {
@@ -19,17 +19,22 @@ impl From<Option<String>> for Access {
 }
 
 pub fn cpu_cores(input: Option<NonZeroUsize>, logical: usize, physical: usize) -> Result<(usize, bool)> {
-    Ok((match input {
-        Some(cores) => cores.into(),
-        None => match logical {
-            _ if physical > logical => bail!("Found more physical cores than logical cores. Please manually set your core count in the configuration file."),
-            32.. => 16,
-            16.. => 8,
-            8.. => 4,
-            4.. => 2,
-            _ => 1,
+    Ok((
+        match input {
+            Some(cores) => cores.into(),
+            None => match logical {
+                _ if physical > logical => {
+                    bail!("Found more physical cores than logical cores. Please manually set your core count in the configuration file.")
+                }
+                32.. => 16,
+                16.. => 8,
+                8.. => 4,
+                4.. => 2,
+                _ => 1,
+            },
         },
-    }, logical > physical))
+        logical > physical,
+    ))
 }
 
 pub const BYTES_PER_GB: u64 = 1024 * 1024 * 1024;
@@ -39,7 +44,7 @@ pub fn default_ram(system_ram: u64) -> u64 {
         64.. => 16 * BYTES_PER_GB,
         16.. => 8 * BYTES_PER_GB,
         8.. => 4 * BYTES_PER_GB,
-        _ => system_ram
+        _ => system_ram,
     }
 }
 pub fn size_unit(size: &str) -> Result<u64> {
@@ -50,12 +55,11 @@ pub fn size_unit(size: &str) -> Result<u64> {
         'T' => 1024.0 * BYTES_PER_GB as f64,
         _ => bail!("Invalid size (unit): {}", size),
     };
-    match size[..size.len()-1].parse::<f64>() {
+    match size[..size.len() - 1].parse::<f64>() {
         Ok(size) => Ok((size * unit_size) as u64),
         Err(_) => bail!("Invalid size (integer): {}", size),
     }
 }
-
 
 impl TryFrom<&Vec<String>> for Snapshot {
     type Error = anyhow::Error;
@@ -105,7 +109,9 @@ impl TryFrom<(SerdeMonitor, Option<String>, Option<String>, Option<u16>, u16, Pa
         match monitor_type.as_str() {
             "none" if host.is_some() || value.3.is_some() => bail!("Monitor type 'none' cannot have any additional parameters."),
             "none" => Ok(Monitor::None),
-            "telnet" => Ok(Monitor::Telnet { address: (host.unwrap_or("127.0.0.1".to_string()) + ":" + &port.to_string()).parse()? }),
+            "telnet" => Ok(Monitor::Telnet {
+                address: (host.unwrap_or("127.0.0.1".to_string()) + ":" + &port.to_string()).parse()?,
+            }),
             "socket" => Ok(Monitor::Socket { socketpath }),
             _ => bail!("Invalid monitor type: {}", monitor_type),
         }
@@ -148,11 +154,9 @@ impl Relativize for PathBuf {
     fn relativize(&self) -> Result<PathBuf> {
         log::debug!("Relativizing path: {:?}", self);
         let current_dir = std::env::current_dir()?;
-        Ok(pathdiff::diff_paths(self, current_dir)
-            .unwrap_or(self.clone()))
+        Ok(pathdiff::diff_paths(self, current_dir).unwrap_or(self.clone()))
     }
 }
-
 
 // Below are implementations for the legacy config file format, used for the migrate_config option.
 
@@ -183,8 +187,11 @@ impl TryFrom<Option<String>> for Arch {
                 "x86_64" => Self::x86_64,
                 "aarch64" => Self::aarch64,
                 "riscv64" => Self::riscv64,
-                _ => bail!("{} is not a supported architecture. Please check your legacy config file.", arch),
-            }
+                _ => bail!(
+                    "{} is not a supported architecture. Please check your legacy config file.",
+                    arch
+                ),
+            },
             None => Default::default(),
         })
     }
@@ -210,7 +217,10 @@ impl TryFrom<(Option<String>, Option<String>)> for BootType {
                 "efi" => Self::Efi { secure_boot },
                 _ if secure_boot => bail!("Secure boot is only supported with the EFI boot type."),
                 "legacy" | "bios" => Self::Legacy,
-                _ => bail!("Specified boot type {} is invalid. Please check your config file. Valid boot types are 'efi', 'legacy'/'bios'", boot_type),
+                _ => bail!(
+                    "Specified boot type {} is invalid. Please check your config file. Valid boot types are 'efi', 'legacy'/'bios'",
+                    boot_type
+                ),
             },
             _ => Self::Efi { secure_boot },
         })
@@ -262,7 +272,7 @@ impl TryFrom<(Option<String>, Option<String>)> for Network {
                 "restrict" => Network::Restrict,
                 "nat" => Network::Nat,
                 "none" => Network::None,
-                bridge => Network::Bridged { bridge: bridge.to_string(), mac_addr }
+                bridge => Network::Bridged { bridge: bridge.to_string(), mac_addr },
             },
             _ => Network::Nat,
         })
@@ -289,9 +299,15 @@ impl TryFrom<(Option<String>, Option<String>, Option<String>)> for SerdeMonitor 
     fn try_from(value: (Option<String>, Option<String>, Option<String>)) -> Result<Self> {
         let monitor_type = value.0.unwrap_or("socket".to_string());
         let telnet_host = value.1;
-        let telnet_port = value.2.map(|port| port.parse::<u16>()
-            .map_err(|_| anyhow!("Invalid port number: {}", port))).transpose()?;
-        Ok(Self { r#type: monitor_type, telnet_host, telnet_port })
+        let telnet_port = value
+            .2
+            .map(|port| port.parse::<u16>().map_err(|_| anyhow!("Invalid port number: {}", port)))
+            .transpose()?;
+        Ok(Self {
+            r#type: monitor_type,
+            telnet_host,
+            telnet_port,
+        })
     }
 }
 
@@ -318,8 +334,11 @@ impl TryFrom<Option<String>> for Resolution {
         Ok(match value {
             Some(res) => {
                 let (w, h) = res.split_once('x').ok_or_else(|| anyhow!("Invalid resolution: {}", res))?;
-                Self::Custom { width: w.parse()?, height: h.parse()? }
-            },
+                Self::Custom {
+                    width: w.parse()?,
+                    height: h.parse()?,
+                }
+            }
             _ => Default::default(),
         })
     }
@@ -330,7 +349,9 @@ impl TryFrom<(Option<String>, Option<String>)> for GuestOS {
     fn try_from(value: (Option<String>, Option<String>)) -> Result<Self> {
         match value {
             (Some(os), macos_release) => Ok(match os.to_lowercase().as_str() {
-                "macos" => Self::MacOS { release: MacOSRelease::try_from(macos_release)? },
+                "macos" => Self::MacOS {
+                    release: MacOSRelease::try_from(macos_release)?,
+                },
                 _ if macos_release.is_some() => bail!("macOS releases are not supported for OS {}", os),
                 "linux" => Self::Linux,
                 "linux_old" => Self::LinuxOld,
@@ -355,15 +376,21 @@ impl TryFrom<&str> for DiskFormat {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self> {
-        Ok(match value.split('.').last().ok_or_else(|| anyhow!("Could not find disk image file extension."))? {
-            "raw" | "img" => Self::Raw,
-            "qcow2" => Self::Qcow2,
-            "qed" => Self::Qed,
-            "qcow" => Self::Qcow,
-            "vdi" => Self::Vdi,
-            "vpc" => Self::Vpc,
-            "vhdx" => Self::Vhdx,
-            other => bail!("Disk image format '{}' is not supported.", other),
-        })
+        Ok(
+            match value
+                .split('.')
+                .last()
+                .ok_or_else(|| anyhow!("Could not find disk image file extension."))?
+            {
+                "raw" | "img" => Self::Raw,
+                "qcow2" => Self::Qcow2,
+                "qed" => Self::Qed,
+                "qcow" => Self::Qcow,
+                "vdi" => Self::Vdi,
+                "vpc" => Self::Vpc,
+                "vhdx" => Self::Vhdx,
+                other => bail!("Disk image format '{}' is not supported.", other),
+            },
+        )
     }
 }

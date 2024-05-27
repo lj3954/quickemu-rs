@@ -15,7 +15,7 @@ impl Arch {
             Self::x86_64 => {
                 let (machine_type, smm) = match guest_os {
                     GuestOS::Windows | GuestOS::WindowsServer => ("q35,hpet=off", "on"),
-                    GuestOS::MacOS {..} => ("q35,hpet=off", "off"),
+                    GuestOS::MacOS { .. } => ("q35,hpet=off", "off"),
                     GuestOS::FreeDOS => ("pc", "on"),
                     GuestOS::Batocera | GuestOS::Haiku | GuestOS::Solaris | GuestOS::ReactOS | GuestOS::KolibriOS => ("pc", "off"),
                     _ => ("q35", "off"),
@@ -26,7 +26,7 @@ impl Arch {
                 machine.push(smm);
                 machine.push(",vmport=off");
                 machine
-            },
+            }
             Self::aarch64 => "virt,virtualization=on,pflash0=rom,pflash1=efivars".into(),
             Self::riscv64 => "virt,usb=on".into(),
         }

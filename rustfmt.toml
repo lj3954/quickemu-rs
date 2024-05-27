@@ -1,0 +1,5 @@
+max_width = 200
+chain_width = 80
+fn_call_width = 80
+edition = "2021"
+fn_params_layout = "Compressed"
