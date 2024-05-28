@@ -32,10 +32,10 @@ impl Distro for FreeBSD {
                 for edition in FREEBSD_EDITIONS {
                     let iso = format!("FreeBSD-{release}-RELEASE-amd64-{edition}.iso.xz");
                     let checksum = find_checksum(checksums.as_deref(), &iso);
-                    let iso_url = format!("{FREEBSD_X86_64_RELEASES}ISO-IMAGES/{release}/{iso}");
+                    let url = format!("{FREEBSD_X86_64_RELEASES}ISO-IMAGES/{release}/{iso}");
                     releases.push(Config {
                         guest_os: GuestOS::FreeBSD,
-                        iso: Some(vec![Source::Web(WebSource::new(iso_url, checksum, Some(ArchiveFormat::Xz)))]),
+                        iso: Some(vec![Source::Web(WebSource::new(url, checksum, Some(ArchiveFormat::Xz), None))]),
                         ..Default::default()
                     });
                 }
@@ -51,11 +51,11 @@ impl Distro for FreeBSD {
                 for edition in FREEBSD_EDITIONS {
                     let iso = format!("FreeBSD-{release}-RELEASE-arm64-aarch64-{edition}.iso.xz");
                     let checksum = find_checksum(checksums.as_deref(), &iso);
-                    let iso_url = format!("{FREEBSD_AARCH64_RELEASES}ISO-IMAGES/{release}/{iso}");
+                    let url = format!("{FREEBSD_AARCH64_RELEASES}ISO-IMAGES/{release}/{iso}");
                     releases.push(Config {
                         guest_os: GuestOS::FreeBSD,
                         arch: Arch::aarch64,
-                        iso: Some(vec![Source::Web(WebSource::new(iso_url, checksum, Some(ArchiveFormat::Xz)))]),
+                        iso: Some(vec![Source::Web(WebSource::new(url, checksum, Some(ArchiveFormat::Xz), None))]),
                         ..Default::default()
                     });
                 }
