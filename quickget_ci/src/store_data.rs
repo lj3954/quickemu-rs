@@ -20,8 +20,23 @@ pub struct Config {
     pub img: Option<Vec<Source>>,
     pub fixed_iso: Option<Vec<Source>>,
     pub floppy: Option<Vec<Source>>,
-    #[serde(default = "default_disk")]
     pub disk_images: Vec<Disk>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            release: None,
+            edition: None,
+            guest_os: GuestOS::Linux,
+            arch: Arch::x86_64,
+            iso: None,
+            img: None,
+            fixed_iso: None,
+            floppy: None,
+            disk_images: vec![Default::default()],
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -30,12 +45,14 @@ pub struct Disk {
     pub size: Option<u64>,
     pub format: DiskFormat,
 }
-fn default_disk() -> Vec<Disk> {
-    vec![Disk {
-        source: Source::FileName("disk.qcow2".to_string()),
-        size: None,
-        format: DiskFormat::Qcow2,
-    }]
+impl Default for Disk {
+    fn default() -> Self {
+        Self {
+            source: Source::FileName("disk.qcow2".to_string()),
+            size: None,
+            format: DiskFormat::Qcow2,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,9 +68,21 @@ pub enum Source {
 
 #[derive(Serialize, Deserialize)]
 pub struct WebSource {
-    pub url: String,
-    pub checksum: Option<String>,
-    pub archive_format: Option<ArchiveFormat>,
+    url: String,
+    checksum: Option<String>,
+    archive_format: Option<ArchiveFormat>,
+}
+impl WebSource {
+    fn url_only(url: String) -> Self {
+        Self {
+            url,
+            checksum: None,
+            archive_format: None,
+        }
+    }
+    fn new(url: String, checksum: Option<String>, archive_format: Option<ArchiveFormat>) -> Self {
+        Self { url, checksum, archive_format }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -74,4 +103,24 @@ pub enum ArchiveFormat {
     Bz2,
     #[serde(rename = "zip")]
     Zip,
+}
+
+pub trait Distro {
+    const NAME: &'static str;
+    const PRETTY_NAME: &'static str;
+    const HOMEPAGE: Option<&'static str>;
+    const DESCRIPTION: Option<&'static str>;
+    fn generate_configs(&self) -> Vec<Config>;
+}
+
+impl<T: Distro> From<T> for OS {
+    fn from(distro: T) -> Self {
+        OS {
+            name: T::NAME.into(),
+            pretty_name: T::PRETTY_NAME.into(),
+            homepage: T::HOMEPAGE.map(|s| s.to_string()),
+            description: T::DESCRIPTION.map(|s| s.to_string()),
+            releases: distro.generate_configs(),
+        }
+    }
 }
