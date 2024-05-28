@@ -18,7 +18,9 @@ pub struct Config {
     pub release: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edition: Option<String>,
+    #[serde(skip_serializing_if = "is_default")]
     pub guest_os: GuestOS,
+    #[serde(skip_serializing_if = "is_default")]
     pub arch: Arch,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iso: Option<Vec<Source>>,
@@ -28,7 +30,8 @@ pub struct Config {
     pub fixed_iso: Option<Vec<Source>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub floppy: Option<Vec<Source>>,
-    pub disk_images: Vec<Disk>,
+    #[serde(skip_serializing_if = "is_default_disk")]
+    pub disk_images: Option<Vec<Disk>>,
 }
 
 impl Default for Config {
@@ -42,16 +45,23 @@ impl Default for Config {
             img: None,
             fixed_iso: None,
             floppy: None,
-            disk_images: vec![Default::default()],
+            disk_images: Some(vec![Default::default()]),
         }
     }
 }
+fn is_default_disk(disk: &Option<Vec<Disk>>) -> bool {
+    &Some(vec![Default::default()]) == disk
+}
+fn is_default<T: Default + PartialEq>(input: &T) -> bool {
+    input == &T::default()
+}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Disk {
     pub source: Source,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<u64>,
+    #[serde(skip_serializing_if = "is_default")]
     pub format: DiskFormat,
 }
 impl Default for Disk {
@@ -64,7 +74,7 @@ impl Default for Disk {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub enum Source {
     #[serde(rename = "web")]
     Web(WebSource),
@@ -75,7 +85,7 @@ pub enum Source {
     Custom,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct WebSource {
     url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -96,7 +106,7 @@ impl WebSource {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub enum ArchiveFormat {
     #[serde(rename = "tar")]
     Tar,
