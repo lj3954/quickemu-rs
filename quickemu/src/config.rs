@@ -184,9 +184,10 @@ where
     deserializer.deserialize_any(SizeUnit)
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, PartialEq)]
 pub enum DiskFormat {
     #[serde(alias = "qcow2")]
+    #[default]
     Qcow2,
     #[serde(alias = "raw")]
     Raw,
@@ -259,9 +260,10 @@ impl Default for Display {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub enum GuestOS {
     #[serde(alias = "linux")]
+    #[default]
     Linux,
     #[serde(alias = "linux_old")]
     LinuxOld,
