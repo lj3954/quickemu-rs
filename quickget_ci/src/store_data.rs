@@ -139,17 +139,21 @@ pub trait Distro {
     const PRETTY_NAME: &'static str;
     const HOMEPAGE: Option<&'static str>;
     const DESCRIPTION: Option<&'static str>;
-    fn generate_configs(&self) -> Vec<Config>;
+    async fn generate_configs(&self) -> Vec<Config>;
 }
 
-impl<T: Distro> From<T> for OS {
-    fn from(distro: T) -> Self {
+pub trait ToOS {
+    async fn to_os(&self) -> OS;
+}
+
+impl<T: Distro> ToOS for T {
+    async fn to_os(&self) -> OS {
         OS {
-            name: T::NAME.into(),
-            pretty_name: T::PRETTY_NAME.into(),
-            homepage: T::HOMEPAGE.map(|s| s.to_string()),
-            description: T::DESCRIPTION.map(|s| s.to_string()),
-            releases: distro.generate_configs(),
+            name: Self::NAME.into(),
+            pretty_name: Self::PRETTY_NAME.into(),
+            homepage: Self::HOMEPAGE.map(|s| s.to_string()),
+            description: Self::DESCRIPTION.map(|s| s.to_string()),
+            releases: self.generate_configs().await,
         }
     }
 }
