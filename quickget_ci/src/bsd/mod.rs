@@ -17,6 +17,13 @@ impl Distro for FreeBSD {
         // TODO: Add riscv64
         let mut releases: Vec<Config> = Vec::new();
         let freebsd_regex = Regex::new(r#"href="([0-9\.]+)-RELEASE"#).unwrap();
+        let find_checksum = |checksums: Option<&str>, iso: &str| {
+            checksums.and_then(|c| {
+                c.lines()
+                    .find(|l| l.contains(iso))
+                    .and_then(|l| l.split_once(" = ").map(|(_, c)| c.to_string()))
+            })
+        };
         if let Some(page) = capture_page(FREEBSD_X86_64_RELEASES) {
             for capture in freebsd_regex.captures_iter(&page) {
                 let release = &capture[1];
@@ -24,11 +31,7 @@ impl Distro for FreeBSD {
                 let checksums = capture_page(&checksum_url);
                 for edition in FREEBSD_EDITIONS {
                     let iso = format!("FreeBSD-{release}-RELEASE-amd64-{edition}.iso.xz");
-                    let checksum = checksums.as_ref().and_then(|c| {
-                        c.lines()
-                            .find(|l| l.contains(&iso))
-                            .and_then(|l| l.split_once(" = ").map(|(_, c)| c.to_string()))
-                    });
+                    let checksum = find_checksum(checksums.as_deref(), &iso);
                     let iso_url = format!("{FREEBSD_X86_64_RELEASES}ISO-IMAGES/{release}/{iso}");
                     releases.push(Config {
                         guest_os: GuestOS::FreeBSD,
@@ -45,11 +48,7 @@ impl Distro for FreeBSD {
                 let checksums = capture_page(&checksum_url);
                 for edition in FREEBSD_EDITIONS {
                     let iso = format!("FreeBSD-{release}-RELEASE-arm64-aarch64-{edition}.iso.xz");
-                    let checksum = checksums.as_ref().and_then(|c| {
-                        c.lines()
-                            .find(|l| l.contains(&iso))
-                            .and_then(|l| l.split_once(" = ").map(|(_, c)| c.to_string()))
-                    });
+                    let checksum = find_checksum(checksums.as_deref(), &iso);
                     let iso_url = format!("{FREEBSD_AARCH64_RELEASES}ISO-IMAGES/{release}/{iso}");
                     releases.push(Config {
                         guest_os: GuestOS::FreeBSD,
