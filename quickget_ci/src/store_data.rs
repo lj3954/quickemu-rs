@@ -5,20 +5,28 @@ use serde::{Deserialize, Serialize};
 pub struct OS {
     pub name: String,
     pub pretty_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub homepage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub releases: Vec<Config>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub edition: Option<String>,
     pub guest_os: GuestOS,
     pub arch: Arch,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub iso: Option<Vec<Source>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub img: Option<Vec<Source>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fixed_iso: Option<Vec<Source>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub floppy: Option<Vec<Source>>,
     pub disk_images: Vec<Disk>,
 }
@@ -42,6 +50,7 @@ impl Default for Config {
 #[derive(Serialize, Deserialize)]
 pub struct Disk {
     pub source: Source,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<u64>,
     pub format: DiskFormat,
 }
@@ -69,18 +78,20 @@ pub enum Source {
 #[derive(Serialize, Deserialize)]
 pub struct WebSource {
     url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     checksum: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     archive_format: Option<ArchiveFormat>,
 }
 impl WebSource {
-    fn url_only(url: String) -> Self {
+    pub fn url_only(url: String) -> Self {
         Self {
             url,
             checksum: None,
             archive_format: None,
         }
     }
-    fn new(url: String, checksum: Option<String>, archive_format: Option<ArchiveFormat>) -> Self {
+    pub fn new(url: String, checksum: Option<String>, archive_format: Option<ArchiveFormat>) -> Self {
         Self { url, checksum, archive_format }
     }
 }
