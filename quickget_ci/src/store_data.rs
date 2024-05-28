@@ -92,6 +92,8 @@ pub struct WebSource {
     checksum: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     archive_format: Option<ArchiveFormat>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file_name: Option<String>,
 }
 impl WebSource {
     pub fn url_only(url: String) -> Self {
@@ -99,10 +101,16 @@ impl WebSource {
             url,
             checksum: None,
             archive_format: None,
+            file_name: None,
         }
     }
-    pub fn new(url: String, checksum: Option<String>, archive_format: Option<ArchiveFormat>) -> Self {
-        Self { url, checksum, archive_format }
+    pub fn new(url: String, checksum: Option<String>, archive_format: Option<ArchiveFormat>, file_name: Option<String>) -> Self {
+        Self {
+            url,
+            checksum,
+            archive_format,
+            file_name,
+        }
     }
 }
 
