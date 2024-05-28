@@ -40,7 +40,9 @@ impl Distro for FreeBSD {
                     });
                 }
             }
-        };
+        } else {
+            log::warn!("Failed to fetch FreeBSD x86_64 releases");
+        }
         if let Some(page) = capture_page(FREEBSD_AARCH64_RELEASES) {
             for capture in freebsd_regex.captures_iter(&page) {
                 let release = &capture[1];
@@ -58,7 +60,9 @@ impl Distro for FreeBSD {
                     });
                 }
             }
-        };
+        } else {
+            log::warn!("Failed to fetch FreeBSD aarch64 releases");
+        }
         releases
     }
 }

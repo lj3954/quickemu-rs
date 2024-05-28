@@ -1012,6 +1012,8 @@ dependencies = [
 name = "quickget_ci"
 version = "0.1.0"
 dependencies = [
+ "env_logger",
+ "log",
  "quickemu-rs",
  "regex",
  "reqwest",
