@@ -9,7 +9,17 @@ pub async fn capture_page(url: &str) -> Option<String> {
 pub async fn all_valid(urls: Vec<String>) -> bool {
     let futures = urls.into_iter().map(|url| {
         spawn(async move {
-            let response = CLIENT.get(url).send().await.ok()?;
+            let response = CLIENT
+                .get(&url)
+                .send()
+                .await
+                .inspect_err(|e| {
+                    log::warn!("Failed to make request to URL {}: {}", url, e);
+                })
+                .ok()?;
+            if !response.status().is_success() {
+                log::warn!("Failed to resolve URL: {}", url);
+            }
             Some(response.status().is_success())
         })
     });
