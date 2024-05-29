@@ -14,7 +14,7 @@ impl Distro for FreeBSD {
     const PRETTY_NAME: &'static str = "FreeBSD";
     const HOMEPAGE: Option<&'static str> = Some("https://www.freebsd.org/");
     const DESCRIPTION: Option<&'static str> = Some("Operating system used to power modern servers, desktops, and embedded platforms.");
-    async fn generate_configs(&self) -> Vec<Config> {
+    async fn generate_configs() -> Vec<Config> {
         let mut futures = Vec::new();
         // TODO: Add riscv64
         let freebsd_regex = Regex::new(r#"href="([0-9\.]+)-RELEASE"#).unwrap();
