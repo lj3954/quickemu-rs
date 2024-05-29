@@ -129,6 +129,15 @@ pub enum Arch {
     aarch64,
     riscv64,
 }
+impl fmt::Display for Arch {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::x86_64 => write!(f, "x86_64"),
+            Self::aarch64 => write!(f, "aarch64"),
+            Self::riscv64 => write!(f, "riscv64"),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum BootType {

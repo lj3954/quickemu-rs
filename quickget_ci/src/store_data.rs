@@ -1,14 +1,16 @@
+use crate::utils::all_valid;
 use quickemu::config::{Arch, DiskFormat, GuestOS};
 use serde::{Deserialize, Serialize};
+use tokio::spawn;
 
 #[derive(Serialize, Deserialize)]
 pub struct OS {
-    pub name: String,
-    pub pretty_name: String,
+    pub name: &'static str,
+    pub pretty_name: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub homepage: Option<String>,
+    pub homepage: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
+    pub description: Option<&'static str>,
     pub releases: Vec<Config>,
 }
 
@@ -139,21 +141,76 @@ pub trait Distro {
     const PRETTY_NAME: &'static str;
     const HOMEPAGE: Option<&'static str>;
     const DESCRIPTION: Option<&'static str>;
-    async fn generate_configs(&self) -> Vec<Config>;
+    async fn generate_configs() -> Vec<Config>;
 }
 
 pub trait ToOS {
     async fn to_os(&self) -> OS;
 }
 
-impl<T: Distro> ToOS for T {
+impl<T: Distro + Send> ToOS for T {
     async fn to_os(&self) -> OS {
+        // Any entry containing a URL which isn't reachable needs to be removed
+        let releases = Self::generate_configs().await;
+        let futures = releases.iter().map(|r| {
+            let urls = [
+                filter_web_sources(r.iso.as_deref()),
+                filter_web_sources(r.img.as_deref()),
+                filter_web_sources(r.fixed_iso.as_deref()),
+                filter_web_sources(r.floppy.as_deref()),
+                extract_disk_urls(r.disk_images.as_deref()),
+            ]
+            .concat();
+            spawn(async move { all_valid(urls).await })
+        });
+        let results = futures::future::join_all(futures).await;
+        let releases = releases
+            .into_iter()
+            .zip(results)
+            .filter_map(|(config, valid)| match valid {
+                Ok(true) => Some(config),
+                _ => {
+                    log::warn!(
+                        "Removing {} {} {} {} due to unresolvable URL",
+                        Self::PRETTY_NAME,
+                        config.release.unwrap_or_default(),
+                        config.edition.unwrap_or_default(),
+                        config.arch
+                    );
+                    None
+                }
+            })
+            .collect::<Vec<Config>>();
+
         OS {
-            name: Self::NAME.into(),
-            pretty_name: Self::PRETTY_NAME.into(),
-            homepage: Self::HOMEPAGE.map(|s| s.to_string()),
-            description: Self::DESCRIPTION.map(|s| s.to_string()),
-            releases: self.generate_configs().await,
+            name: Self::NAME,
+            pretty_name: Self::PRETTY_NAME,
+            homepage: Self::HOMEPAGE,
+            description: Self::DESCRIPTION,
+            releases,
         }
     }
+}
+
+pub fn filter_web_sources(sources: Option<&[Source]>) -> Vec<String> {
+    sources
+        .unwrap_or(&[])
+        .iter()
+        .filter_map(|s| match s {
+            Source::Web(w) => Some(w.url.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+pub fn extract_disk_urls(sources: Option<&[Disk]>) -> Vec<String> {
+    sources
+        .unwrap_or(&[])
+        .iter()
+        .map(|d| &d.source)
+        .filter_map(|s| match s {
+            Source::Web(w) => Some(w.url.clone()),
+            _ => None,
+        })
+        .collect()
 }

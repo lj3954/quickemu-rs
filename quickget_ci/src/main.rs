@@ -3,14 +3,20 @@ mod linux;
 mod store_data;
 mod utils;
 
-use store_data::ToOS;
+use store_data::{ToOS, OS};
+use tokio::spawn;
 
 #[tokio::main]
 async fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Debug).init();
-    let freebsd = bsd::FreeBSD {};
-    let os: store_data::OS = freebsd.to_os().await;
-    println!("{}", serde_json::to_string(&os).unwrap());
+    let futures = vec![spawn(linux::Ubuntu {}.to_os()), spawn(bsd::FreeBSD {}.to_os())];
+
+    let distros = futures::future::join_all(futures)
+        .await
+        .into_iter()
+        .flatten()
+        .collect::<Vec<OS>>();
+    println!("{}", serde_json::to_string(&distros).unwrap());
     println!("\n\n\nPRETTY:\n\n");
-    println!("{}", serde_json::to_string_pretty(&os).unwrap());
+    println!("{}", serde_json::to_string_pretty(&distros).unwrap());
 }
