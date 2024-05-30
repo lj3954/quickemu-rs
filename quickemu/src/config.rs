@@ -271,32 +271,32 @@ impl Default for Display {
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub enum GuestOS {
-    #[serde(alias = "linux")]
+    #[serde(rename = "linux", alias = "Linux")]
     #[default]
     Linux,
-    #[serde(alias = "linux_old")]
+    #[serde(rename = "linux_old", alias = "LinuxOld")]
     LinuxOld,
-    #[serde(alias = "windows")]
+    #[serde(rename = "windows", alias = "Windows")]
     Windows,
-    #[serde(alias = "windows_server")]
+    #[serde(rename = "windows_server", alias = "WindowsServer")]
     WindowsServer,
-    #[serde(alias = "macOS", alias = "macos")]
+    #[serde(alias = "macOS", rename = "macos")]
     MacOS { release: MacOSRelease },
-    #[serde(alias = "freebsd")]
+    #[serde(rename = "freebsd", alias = "FreeBSD")]
     FreeBSD,
-    #[serde(alias = "ghostbsd")]
+    #[serde(rename = "ghostbsd", alias = "GhostBSD")]
     GhostBSD,
-    #[serde(alias = "freedos")]
+    #[serde(rename = "freedos", alias = "FreeDOS")]
     FreeDOS,
-    #[serde(alias = "haiku")]
+    #[serde(rename = "haiku", alias = "Haiku")]
     Haiku,
-    #[serde(alias = "solaris")]
+    #[serde(rename = "solaris", alias = "Solaris")]
     Solaris,
-    #[serde(alias = "kolibrios")]
+    #[serde(rename = "kolibrios", alias = "KolibriOS")]
     KolibriOS,
-    #[serde(alias = "reactos")]
+    #[serde(rename = "reactos", alias = "ReactOS")]
     ReactOS,
-    #[serde(alias = "batocera")]
+    #[serde(rename = "batocera", alias = "Batocera")]
     Batocera,
 }
 
