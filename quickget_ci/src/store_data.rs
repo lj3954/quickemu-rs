@@ -5,34 +5,34 @@ use tokio::spawn;
 
 #[derive(Serialize, Deserialize)]
 pub struct OS {
-    pub name: &'static str,
-    pub pretty_name: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub homepage: Option<&'static str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<&'static str>,
+    pub name: String,
+    pub pretty_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub homepage: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     pub releases: Vec<Config>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub edition: Option<String>,
-    #[serde(skip_serializing_if = "is_default")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub guest_os: GuestOS,
-    #[serde(skip_serializing_if = "is_default")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub arch: Arch,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub iso: Option<Vec<Source>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub img: Option<Vec<Source>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixed_iso: Option<Vec<Source>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub floppy: Option<Vec<Source>>,
-    #[serde(skip_serializing_if = "is_default_disk")]
+    #[serde(default = "default_disk", skip_serializing_if = "is_default_disk")]
     pub disk_images: Option<Vec<Disk>>,
 }
 
@@ -47,12 +47,15 @@ impl Default for Config {
             img: None,
             fixed_iso: None,
             floppy: None,
-            disk_images: Some(vec![Default::default()]),
+            disk_images: default_disk(),
         }
     }
 }
 fn is_default_disk(disk: &Option<Vec<Disk>>) -> bool {
-    &Some(vec![Default::default()]) == disk
+    disk == &default_disk()
+}
+fn default_disk() -> Option<Vec<Disk>> {
+    Some(vec![Default::default()])
 }
 fn is_default<T: Default + PartialEq>(input: &T) -> bool {
     input == &T::default()
@@ -61,9 +64,9 @@ fn is_default<T: Default + PartialEq>(input: &T) -> bool {
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct Disk {
     pub source: Source,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<u64>,
-    #[serde(skip_serializing_if = "is_default")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub format: DiskFormat,
 }
 impl Default for Disk {
@@ -90,11 +93,11 @@ pub enum Source {
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct WebSource {
     url: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     checksum: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     archive_format: Option<ArchiveFormat>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     file_name: Option<String>,
 }
 impl WebSource {
@@ -184,10 +187,10 @@ impl<T: Distro + Send> ToOS for T {
             .collect::<Vec<Config>>();
 
         OS {
-            name: Self::NAME,
-            pretty_name: Self::PRETTY_NAME,
-            homepage: Self::HOMEPAGE,
-            description: Self::DESCRIPTION,
+            name: Self::NAME.into(),
+            pretty_name: Self::PRETTY_NAME.into(),
+            homepage: Self::HOMEPAGE.map(Into::into),
+            description: Self::DESCRIPTION.map(Into::into),
             releases,
         }
     }

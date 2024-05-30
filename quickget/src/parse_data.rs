@@ -1,11 +1,11 @@
 use anyhow::{anyhow, bail, Result};
-use dirs::cache_dir;
 use quickget_ci::OS;
 use std::{
-    fs::read_to_string,
+    fs::File,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
+use zstd::stream::Decoder;
 
 trait IsValid {
     fn is_valid(&self) -> Result<bool>;
@@ -26,12 +26,16 @@ impl IsValid for PathBuf {
     }
 }
 
-pub fn get_json_contents() -> Result<String> {
-    let dir = cache_dir().unwrap_or(PathBuf::from("~/.cache"));
-    let file = dir.join("quickget_entries.json");
-    if file.is_valid()? {
-        read_to_string(&file).map_err(|e| anyhow!("Failed to read contents of cache file: {}", e))
-    } else {
-        todo!()
+pub fn get_json_contents() -> Result<Vec<OS>> {
+    let dir = dirs::cache_dir().ok_or_else(|| anyhow!("Failed to get cache directory."))?;
+    if !dir.exists() {
+        bail!("Cache directory does not exist.");
     }
+    let file = dir.join("quickget_data.json.zst");
+    if !file.is_valid()? {
+        todo!("Downloading logic not yet implemented.");
+    }
+    let file = File::open(file)?;
+    let reader = Decoder::new(file)?;
+    serde_json::from_reader(reader).map_err(|e| anyhow!("Unable to read JSON contents: {e}"))
 }
