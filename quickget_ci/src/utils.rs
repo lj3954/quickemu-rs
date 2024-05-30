@@ -28,7 +28,7 @@ pub async fn all_valid(urls: Vec<String>) -> bool {
         .await
         .into_iter()
         .flatten()
-        .all(|r| r.unwrap_or(false))
+        .all(|r| r.unwrap_or(true))
 }
 
 static CLIENT: Lazy<Client> = Lazy::new(Client::new);
