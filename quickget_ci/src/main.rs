@@ -3,6 +3,8 @@ mod linux;
 mod store_data;
 mod utils;
 
+use std::io::Write;
+
 use store_data::{ToOS, OS};
 use tokio::spawn;
 
@@ -30,7 +32,12 @@ async fn main() {
         .into_iter()
         .flatten()
         .collect::<Vec<OS>>();
-    println!("{}", serde_json::to_string(&distros).unwrap());
-    println!("\n\n\nPRETTY:\n\n");
-    println!("{}", serde_json::to_string_pretty(&distros).unwrap());
+
+    if let Ok(output) = serde_json::to_string_pretty(&distros) {
+        println!("{}", output);
+    }
+
+    let output = serde_json::to_string(&distros).unwrap();
+    let mut file = std::fs::File::create_new("quickget_data.json").unwrap();
+    file.write_all(output.as_bytes()).unwrap();
 }

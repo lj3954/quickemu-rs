@@ -1,0 +1,19 @@
+name: Update quickget_ci cache
+
+on:
+  push:
+    paths: [ 'quickget_ci/**' ]
+    branches: [ main ]
+  pull_request:
+    paths: [ 'quickget_ci/**' ]
+    branches: [ main ]
+
+jobs:
+  update_cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send dispatch to config repository
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          repository: 'lj3954/quickget_configs'
+          event-type: push-event
