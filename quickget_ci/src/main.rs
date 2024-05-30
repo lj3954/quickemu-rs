@@ -3,7 +3,7 @@ mod linux;
 mod store_data;
 mod utils;
 
-use std::io::Write;
+use std::{fs::File, io::Write};
 
 use store_data::{ToOS, OS};
 use tokio::spawn;
@@ -41,6 +41,6 @@ async fn main() {
     let _ = store_data::WebSource::url_only("");
 
     let output = serde_json::to_string(&distros).unwrap();
-    let mut file = std::fs::File::create_new("quickget_data.json").unwrap();
+    let mut file = File::create("quickget_data.json").unwrap();
     file.write_all(output.as_bytes()).unwrap();
 }
