@@ -258,7 +258,7 @@ const AARCH64_OVMF: [(&str, &str); 1] = [("AAVMF/AAVMF_CODE.fd", "AAVMF/AAVMF_VA
 
 fn qemu_share_dir() -> PathBuf {
     #[cfg(target_os = "macos")]
-    if let Ok(output) = Command::new("brew").arg("--prefix").arg("qemu").output() {
+    if let Ok(output) = std::process::Command::new("brew").arg("--prefix").arg("qemu").output() {
         if output.status.success() {
             if let Ok(prefix) = std::str::from_utf8(&output.stdout) {
                 log::debug!("Found QEMU prefix: {}", prefix);

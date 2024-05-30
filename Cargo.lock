@@ -1043,7 +1043,11 @@ dependencies = [
 name = "quickget-rs"
 version = "0.1.0"
 dependencies = [
- "quickemu-rs",
+ "anyhow",
+ "dirs",
+ "quickget_ci",
+ "reqwest",
+ "serde_json",
  "toml",
 ]
 
