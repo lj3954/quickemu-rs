@@ -98,9 +98,9 @@ pub struct WebSource {
     file_name: Option<String>,
 }
 impl WebSource {
-    pub fn url_only(url: String) -> Self {
+    pub fn url_only(url: impl Into<String>) -> Self {
         Self {
-            url,
+            url: url.into(),
             checksum: None,
             archive_format: None,
             file_name: None,
@@ -145,6 +145,7 @@ pub trait Distro {
 }
 
 pub trait ToOS {
+    #![allow(dead_code)]
     async fn to_os(&self) -> OS;
 }
 

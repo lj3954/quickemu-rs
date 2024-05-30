@@ -3,6 +3,7 @@ use reqwest::Client;
 use tokio::spawn;
 
 pub async fn capture_page(url: &str) -> Option<String> {
+    #![allow(dead_code)]
     CLIENT.get(url).send().await.ok()?.text().await.ok()
 }
 

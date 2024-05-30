@@ -37,6 +37,9 @@ async fn main() {
         println!("{}", output);
     }
 
+    // Placeholder: Disable dead code warning for url only
+    let _ = store_data::WebSource::url_only("");
+
     let output = serde_json::to_string(&distros).unwrap();
     let mut file = std::fs::File::create_new("quickget_data.json").unwrap();
     file.write_all(output.as_bytes()).unwrap();
