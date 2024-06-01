@@ -8,7 +8,7 @@ const FREEBSD_X86_64_RELEASES: &str = "https://download.freebsd.org/ftp/releases
 const FREEBSD_AARCH64_RELEASES: &str = "https://download.freebsd.org/ftp/releases/arm64/aarch64/";
 const FREEBSD_EDITIONS: [&str; 2] = ["disc1", "dvd1"];
 
-pub struct FreeBSD {}
+pub struct FreeBSD;
 impl Distro for FreeBSD {
     const NAME: &'static str = "freebsd";
     const PRETTY_NAME: &'static str = "FreeBSD";

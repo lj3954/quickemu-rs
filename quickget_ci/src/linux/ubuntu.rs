@@ -6,7 +6,7 @@ use tokio::{runtime::Runtime, spawn};
 
 const LAUNCHPAD_RELEASES_URL: &str = "https://api.launchpad.net/devel/ubuntu/series";
 
-pub struct Ubuntu {}
+pub struct Ubuntu;
 impl Distro for Ubuntu {
     const NAME: &'static str = "ubuntu";
     const PRETTY_NAME: &'static str = "Ubuntu";
@@ -17,7 +17,7 @@ impl Distro for Ubuntu {
     }
 }
 
-pub struct UbuntuServer {}
+pub struct UbuntuServer;
 impl Distro for UbuntuServer {
     const NAME: &'static str = "ubuntu-server";
     const PRETTY_NAME: &'static str = "Ubuntu Server";
@@ -28,7 +28,7 @@ impl Distro for UbuntuServer {
     }
 }
 
-pub struct UbuntuUnity {}
+pub struct UbuntuUnity;
 impl Distro for UbuntuUnity {
     const NAME: &'static str = "ubuntu-unity";
     const PRETTY_NAME: &'static str = "Ubuntu Unity";
@@ -39,7 +39,7 @@ impl Distro for UbuntuUnity {
     }
 }
 
-pub struct UbuntuStudio {}
+pub struct UbuntuStudio;
 impl Distro for UbuntuStudio {
     const NAME: &'static str = "ubuntu-studio";
     const PRETTY_NAME: &'static str = "Ubuntu Studio";
@@ -50,7 +50,7 @@ impl Distro for UbuntuStudio {
     }
 }
 
-pub struct UbuntuMATE {}
+pub struct UbuntuMATE;
 impl Distro for UbuntuMATE {
     const NAME: &'static str = "ubuntu-mate";
     const PRETTY_NAME: &'static str = "Ubuntu MATE";
@@ -62,7 +62,7 @@ impl Distro for UbuntuMATE {
     }
 }
 
-pub struct UbuntuBudgie {}
+pub struct UbuntuBudgie;
 impl Distro for UbuntuBudgie {
     const NAME: &'static str = "ubuntu-budgie";
     const PRETTY_NAME: &'static str = "Ubuntu Budgie";
@@ -73,7 +73,7 @@ impl Distro for UbuntuBudgie {
     }
 }
 
-pub struct Lubuntu {}
+pub struct Lubuntu;
 impl Distro for Lubuntu {
     const NAME: &'static str = "lubuntu";
     const PRETTY_NAME: &'static str = "Lubuntu";
@@ -85,7 +85,7 @@ impl Distro for Lubuntu {
     }
 }
 
-pub struct Kubuntu {}
+pub struct Kubuntu;
 impl Distro for Kubuntu {
     const NAME: &'static str = "kubuntu";
     const PRETTY_NAME: &'static str = "Kubuntu";
@@ -96,7 +96,7 @@ impl Distro for Kubuntu {
     }
 }
 
-pub struct Xubuntu {}
+pub struct Xubuntu;
 impl Distro for Xubuntu {
     const NAME: &'static str = "xubuntu";
     const PRETTY_NAME: &'static str = "Xubuntu";
@@ -107,7 +107,7 @@ impl Distro for Xubuntu {
     }
 }
 
-pub struct Edubuntu {}
+pub struct Edubuntu;
 impl Distro for Edubuntu {
     const NAME: &'static str = "edubuntu";
     const PRETTY_NAME: &'static str = "Edubuntu";
@@ -118,7 +118,7 @@ impl Distro for Edubuntu {
     }
 }
 
-pub struct UbuntuCinnamon {}
+pub struct UbuntuCinnamon;
 impl Distro for UbuntuCinnamon {
     const NAME: &'static str = "ubuntu-cinnamon";
     const PRETTY_NAME: &'static str = "Ubuntu Cinnamon";
@@ -130,7 +130,7 @@ impl Distro for UbuntuCinnamon {
     }
 }
 
-pub struct UbuntuKylin {}
+pub struct UbuntuKylin;
 impl Distro for UbuntuKylin {
     const NAME: &'static str = "ubuntu-kylin";
     const PRETTY_NAME: &'static str = "Ubuntu Kylin";
@@ -225,8 +225,8 @@ impl AsRef<str> for UbuntuVariant {
             UbuntuVariant::Kubuntu => "kubuntu",
             UbuntuVariant::UbuntuMATE => "ubuntu-mate",
             UbuntuVariant::UbuntuBudgie => "ubuntu-budgie",
-            UbuntuVariant::UbuntuStudio => "ubuntu-studio",
-            UbuntuVariant::UbuntuKylin => "ubuntu-kylin",
+            UbuntuVariant::UbuntuStudio => "ubuntustudio",
+            UbuntuVariant::UbuntuKylin => "ubuntukylin",
             UbuntuVariant::Edubuntu => "edubuntu",
             UbuntuVariant::Xubuntu => "xubuntu",
             UbuntuVariant::UbuntuCinnamon => "ubuntucinnamon",
