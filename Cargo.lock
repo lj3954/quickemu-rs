@@ -908,6 +908,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8478577c03552c21db0e2724ffb8986a5ce7af88107e6be5d2ee6e158c12800"
 
 [[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1268,9 +1277,9 @@ dependencies = [
 
 [[package]]
 name = "quick_fetcher"
-version = "0.1.0"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "305a36e0af9f371e561b55e3db3c7e5d6d388e937f4231945be107f96e992887"
+checksum = "3e66a96088e32f1ecb08fcd0d6d433cd33310a44e9a9aaa0f90542e68c9951bf"
 dependencies = [
  "futures",
  "indicatif",
@@ -1311,8 +1320,11 @@ name = "quickget-rs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
+ "clap-verbosity-flag",
  "dirs",
  "env_logger",
+ "itertools",
  "log",
  "quick_fetcher",
  "quickget_ci",
@@ -1320,6 +1332,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "toml",
+ "which",
  "zstd",
 ]
 
@@ -1465,7 +1478,6 @@ dependencies = [
  "base64",
  "bytes",
  "encoding_rs",
- "futures-channel",
  "futures-core",
  "futures-util",
  "h2",

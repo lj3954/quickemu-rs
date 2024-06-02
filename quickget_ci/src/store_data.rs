@@ -3,7 +3,7 @@ use quickemu::config::{Arch, DiskFormat, GuestOS};
 use serde::{Deserialize, Serialize};
 use tokio::spawn;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OS {
     pub name: String,
     pub pretty_name: String,
@@ -14,7 +14,7 @@ pub struct OS {
     pub releases: Vec<Config>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
@@ -61,7 +61,7 @@ fn is_default<T: Default + PartialEq>(input: &T) -> bool {
     input == &T::default()
 }
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Disk {
     pub source: Source,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -79,7 +79,7 @@ impl Default for Disk {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum Source {
     #[serde(rename = "web")]
     Web(WebSource),
@@ -90,15 +90,15 @@ pub enum Source {
     Custom,
 }
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct WebSource {
-    url: String,
+    pub url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    checksum: Option<String>,
+    pub checksum: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    archive_format: Option<ArchiveFormat>,
+    pub archive_format: Option<ArchiveFormat>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    file_name: Option<String>,
+    pub file_name: Option<String>,
 }
 impl WebSource {
     pub fn url_only(url: impl Into<String>) -> Self {
@@ -119,7 +119,7 @@ impl WebSource {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum ArchiveFormat {
     #[serde(rename = "tar")]
     Tar,

@@ -26,16 +26,24 @@ impl IsValid for PathBuf {
     }
 }
 
-pub fn get_json_contents() -> Result<Vec<OS>> {
+pub async fn get_json_contents(refresh: bool) -> Result<Vec<OS>> {
     let dir = dirs::cache_dir().ok_or_else(|| anyhow!("Failed to get cache directory."))?;
     if !dir.exists() {
         bail!("Cache directory does not exist.");
     }
     let file = dir.join("quickget_data.json.zst");
-    if !file.is_valid()? {
-        todo!("Downloading logic not yet implemented.");
+    if !file.is_valid()? || refresh {
+        let file = File::create(&file)?;
+        let download = quick_fetcher::Download::new("https://github.com/lj3954/quickget_configs/releases/download/daily/quickget_data.json.zst")?.with_output_file(file);
+        let downloader = quick_fetcher::Downloader::new(vec![download]);
+        downloader.start_downloads().await?;
     }
     let file = File::open(file)?;
     let reader = Decoder::new(file)?;
-    serde_json::from_reader(reader).map_err(|e| anyhow!("Unable to read JSON contents: {e}"))
+    serde_json::from_reader(reader).map_err(|e| {
+        anyhow!(
+            "Unable to read JSON contents: {e}. Please try running {} with the `--refresh` flag to force the data to be refreshed.",
+            env!("CARGO_PKG_NAME")
+        )
+    })
 }

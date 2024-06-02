@@ -87,6 +87,37 @@ pub struct ConfigFile {
     pub ssh_port: u16,
     pub usb_devices: Option<Vec<String>>,
 }
+
+impl Default for ConfigFile {
+    fn default() -> Self {
+        Self {
+            guest_os: Default::default(),
+            arch: Default::default(),
+            boot_type: Default::default(),
+            cpu_cores: None,
+            display: Default::default(),
+            disk_images: Default::default(),
+            accelerated: default_accel(),
+            image_files: None,
+            network: Default::default(),
+            port_forwards: None,
+            public_dir: None,
+            ram: None,
+            tpm: false,
+            keyboard: Default::default(),
+            keyboard_layout: None,
+            monitor: Default::default(),
+            serial: Default::default(),
+            soundcard: Default::default(),
+            mouse: None,
+            resolution: Default::default(),
+            usb_controller: None,
+            spice_port: default_spice_port(),
+            ssh_port: default_ssh_port(),
+            usb_devices: None,
+        }
+    }
+}
 #[cfg(target_os = "macos")]
 fn default_accel() -> bool {
     false
@@ -122,9 +153,10 @@ pub enum Access {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(clap::ValueEnum, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Arch {
     #[default]
+    #[clap(rename_all = "verbatim")]
     x86_64,
     aarch64,
     riscv64,
