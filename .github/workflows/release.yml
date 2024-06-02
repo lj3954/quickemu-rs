@@ -31,6 +31,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: quickemu-rs
+          bin: quickemu-rs,quickget-rs
+          archive: "quickemu-rs-${{ matrix.target }}.tar.gz"
           target: ${{ matrix.target }}
           token: ${{ secrets.GITHUB_TOKEN }}
