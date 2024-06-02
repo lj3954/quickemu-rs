@@ -1297,7 +1297,7 @@ dependencies = [
 
 [[package]]
 name = "quickemu-rs"
-version = "0.6.2"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1317,7 +1317,7 @@ dependencies = [
 
 [[package]]
 name = "quickget-rs"
-version = "0.1.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1338,7 +1338,7 @@ dependencies = [
 
 [[package]]
 name = "quickget_ci"
-version = "0.2.0"
+version = "0.7.0"
 dependencies = [
  "env_logger",
  "futures",
