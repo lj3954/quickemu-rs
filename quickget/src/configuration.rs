@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Result};
+use quick_fetcher::ArchiveFormat;
 use quick_fetcher::{Checksum, Download, Downloader};
+use quickget_ci::ArchiveFormat as QArchiveFormat;
 use quickget_ci::{Config, ConfigFile, Disk, DiskImage, Image, Source};
 use std::{
     fs::File,
@@ -72,36 +74,17 @@ impl CreateConfig for ConfigFile {
 }
 
 fn convert_sources(sources: Vec<Source>, vm_dir: &Path, default_filename: String) -> Result<(Vec<PathBuf>, Vec<Download>)> {
-    let mut paths = Vec::new();
     let mut downloads = Vec::new();
-    for source in sources {
-        match source {
-            Source::FileName(file) => {
-                let path = vm_dir.join(file);
-                paths.push(path);
-            }
-            Source::Web(web) => {
-                let url = reqwest::Url::parse(&web.url)?;
-                let filename = web.file_name.unwrap_or_else(|| {
-                    url.path_segments()
-                        .and_then(|segments| segments.last())
-                        .and_then(|name| if name.is_empty() { None } else { Some(name.into()) })
-                        .unwrap_or(default_filename.clone())
-                });
-                let path = vm_dir.join(&filename);
-                log::debug!("Path: {:?}", path);
-                let mut dl = Download::new_from_url(url)
-                    .with_output_dir(vm_dir.to_path_buf())
-                    .with_filename(filename);
-                if let Some(checksum) = web.checksum {
-                    dl = dl.with_checksum(Checksum::new(checksum)?);
-                }
+    let paths = sources
+        .into_iter()
+        .map(|source| {
+            let (path, dl) = convert_source(source, vm_dir, default_filename.clone())?;
+            if let Some(dl) = dl {
                 downloads.push(dl);
-                paths.push(path);
             }
-            Source::Custom => todo!(),
-        }
-    }
+            Ok(path)
+        })
+        .collect::<Result<Vec<PathBuf>>>()?;
     Ok((paths, downloads))
 }
 
@@ -113,17 +96,32 @@ fn convert_source(source: Source, vm_dir: &Path, default_filename: String) -> Re
         }
         Source::Web(web) => {
             let url = reqwest::Url::parse(&web.url)?;
-            let filename = web.file_name.unwrap_or_else(|| {
-                url.path_segments()
-                    .and_then(|segments| segments.last())
-                    .and_then(|name| if name.is_empty() { None } else { Some(name.into()) })
-                    .unwrap_or(default_filename.clone())
-            });
-            let path = vm_dir.join(&filename);
+            let filename = || {
+                web.file_name.unwrap_or_else(|| {
+                    url.path_segments()
+                        .and_then(|segments| segments.last())
+                        .and_then(|name| if name.is_empty() { None } else { Some(name.into()) })
+                        .unwrap_or(default_filename)
+                })
+            };
+            let filename = match web.archive_format {
+                Some(QArchiveFormat::Tar | QArchiveFormat::TarGz | QArchiveFormat::TarXz | QArchiveFormat::TarBz2 | QArchiveFormat::Zip) => None,
+                Some(QArchiveFormat::Gz) => Some(filename().trim_end_matches(".gz").to_string()),
+                Some(QArchiveFormat::Bz2) => Some(filename().trim_end_matches(".bz2").to_string()),
+                Some(QArchiveFormat::Xz) => Some(filename().trim_end_matches(".xz").to_string()),
+                _ => Some(filename()),
+            };
+
+            let mut dl = Download::new_from_url(url).with_output_dir(vm_dir.to_path_buf());
+            let path = filename.as_ref().map_or(vm_dir.to_path_buf(), |f| vm_dir.join(f));
             log::debug!("Path: {:?}", path);
-            let mut dl = Download::new_from_url(url)
-                .with_output_dir(vm_dir.to_path_buf())
-                .with_filename(filename);
+
+            if let Some(filename) = filename {
+                dl = dl.with_filename(filename);
+            }
+            if let Some(archive_format) = web.archive_format {
+                dl = dl.with_archive_format(convert_archive_format(archive_format));
+            }
             if let Some(checksum) = web.checksum {
                 dl = dl.with_checksum(Checksum::new(checksum)?);
             }
@@ -173,4 +171,17 @@ pub fn set_executable(config: &File) -> bool {
         .set_permissions(executable)
         .map_err(|e| log::warn!("Failed to set permissions on config file: {e}"))
         .is_ok()
+}
+
+fn convert_archive_format(input: QArchiveFormat) -> ArchiveFormat {
+    match input {
+        QArchiveFormat::Tar => ArchiveFormat::Tar,
+        QArchiveFormat::TarBz2 => ArchiveFormat::TarBz2,
+        QArchiveFormat::TarGz => ArchiveFormat::TarGz,
+        QArchiveFormat::TarXz => ArchiveFormat::TarXz,
+        QArchiveFormat::Xz => ArchiveFormat::Xz,
+        QArchiveFormat::Gz => ArchiveFormat::Gz,
+        QArchiveFormat::Bz2 => ArchiveFormat::Bz2,
+        QArchiveFormat::Zip => ArchiveFormat::Zip,
+    }
 }
