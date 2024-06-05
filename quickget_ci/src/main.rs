@@ -25,6 +25,7 @@ async fn main() {
         spawn(linux::Edubuntu.to_os()),
         spawn(linux::Xubuntu.to_os()),
         spawn(linux::UbuntuCinnamon.to_os()),
+        spawn(linux::NixOS.to_os()),
     ];
 
     let distros = futures::future::join_all(futures)
