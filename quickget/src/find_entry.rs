@@ -7,6 +7,7 @@ pub trait FindEntry {
     where
         Self: Sized;
     fn os_list(&self) -> String;
+    fn per_arch_list(&self, arch: &Arch) -> String;
 }
 
 impl FindEntry for Vec<OS> {
@@ -20,14 +21,14 @@ impl FindEntry for Vec<OS> {
             true
         };
         let print_available_arches = |os: &OS| {
-            let (arch_list, len) = os.arch_list();
-            if len == 1 {
-                "".to_owned()
-            } else {
+            let (arch_list, display_arch) = os.arch_list(arch.as_ref());
+            if display_arch {
                 format!(
                     "\n\n{} also supports the following architectures (available releases may vary): {}",
                     os.pretty_name, arch_list
                 )
+            } else {
+                "".to_owned()
             }
         };
         let (print_arch, preferred_arch) = match arch {
@@ -36,15 +37,17 @@ impl FindEntry for Vec<OS> {
         };
         if input.is_empty() {
             bail!(
-                "You must specify an Operating System.\n\nAvailable Operating systems: {}",
-                self.os_list()
+                "You must specify an Operating System.\n\nAvailable Operating systems{}: {}",
+                if let Some(arch) = arch.as_ref() { format!(" with {} support", arch) } else { "".to_owned() },
+                arch.map(|a| self.per_arch_list(&a)).unwrap_or_else(|| self.os_list())
             );
         }
         let Some(os_index) = self.iter().position(|os| os.name.eq_ignore_ascii_case(&input[0])) else {
             bail!(
-                "Specified Operating System {} is not available.\nAvailable Operating systems: {}",
+                "Specified Operating System {} is not available.\nAvailable Operating systems{}: {}",
                 input[0],
-                self.os_list()
+                if let Some(arch) = arch.as_ref() { format!(" with {} support", arch) } else { "".to_owned() },
+                arch.map(|a| self.per_arch_list(&a)).unwrap_or_else(|| self.os_list())
             );
         };
         let os = self.get(os_index).unwrap();
@@ -54,13 +57,9 @@ impl FindEntry for Vec<OS> {
                     "{} does not support the {} architecture.\nSupported architectures: {}\n\nOperating systems with {} support: {}",
                     os.pretty_name,
                     arch.to_string(),
-                    os.arch_list().0,
+                    os.arch_list(Some(arch)).0,
                     arch.to_string(),
-                    self.iter()
-                        .filter(|os| os.supports_arch(arch))
-                        .map(|os| os.name.as_str())
-                        .collect::<Vec<&str>>()
-                        .join(" ")
+                    self.per_arch_list(arch),
                 );
             }
         }
@@ -81,13 +80,13 @@ impl FindEntry for Vec<OS> {
                 bail!(
                     "You must specify a release for {}{print_arch}.\n\n{releases_list}{}",
                     os.pretty_name,
-                    print_available_arches(&os),
+                    print_available_arches(os),
                 );
             } else {
                 bail!(
                     "{release} is not a supported {}{print_arch} release.\n\n{releases_list}{}",
                     os.pretty_name,
-                    print_available_arches(&os),
+                    print_available_arches(os),
                 );
             }
         }
@@ -107,13 +106,13 @@ impl FindEntry for Vec<OS> {
                 bail!(
                     "You must specify an edition for {}{print_arch} {release}.\n\nEditions: {editions_list}{}",
                     os.pretty_name,
-                    print_available_arches(&os),
+                    print_available_arches(os),
                 );
             } else {
                 bail!(
                     "{edition} is not a supported {}{print_arch} {release} edition.\n\nEditions: {editions_list}{}",
                     os.pretty_name,
-                    print_available_arches(&os),
+                    print_available_arches(os),
                 );
             }
         }
@@ -136,6 +135,13 @@ impl FindEntry for Vec<OS> {
     fn os_list(&self) -> String {
         self.iter().map(|os| os.name.as_str()).collect::<Vec<&str>>().join(" ")
     }
+    fn per_arch_list(&self, arch: &Arch) -> String {
+        self.iter()
+            .filter(|os| os.supports_arch(arch))
+            .map(|os| os.name.as_str())
+            .collect::<Vec<&str>>()
+            .join(" ")
+    }
 }
 
 pub trait FromPhysical {
@@ -156,7 +162,7 @@ impl FromPhysical for Arch {
 pub trait ListAvailable {
     fn releases_list(&self, arch: &Arch) -> String;
     fn editions_list(&self, release: &str, arch: &Arch) -> String;
-    fn arch_list(&self) -> (String, usize);
+    fn arch_list(&self, arch: Option<&Arch>) -> (String, bool);
     fn supports_arch(&self, arch: &Arch) -> bool;
 }
 
@@ -200,15 +206,16 @@ impl ListAvailable for OS {
             .collect::<Vec<&str>>()
             .join(" ")
     }
-    fn arch_list(&self) -> (String, usize) {
+    fn arch_list(&self, arch: Option<&Arch>) -> (String, bool) {
         let arches = self
             .releases
             .iter()
+            .filter(|c| Some(&c.arch) != arch)
             .map(|c| c.arch.to_string())
             .unique()
             .collect::<Vec<String>>();
-        let len = arches.len();
-        (arches.join(" "), len)
+        let display = arches.len() > 1 || arch.is_some() && !arches.is_empty();
+        (arches.join(" "), display)
     }
     fn supports_arch(&self, arch: &Arch) -> bool {
         self.releases.iter().any(|c| c.arch == *arch)
