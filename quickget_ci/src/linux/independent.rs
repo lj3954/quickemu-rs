@@ -32,12 +32,11 @@ impl Distro for NixOS {
             .filter(|r| standard_release.is_match(r))
             .rev()
             .take(6)
-            .map(|r| standard_release.captures(&r).unwrap().get(0).unwrap().as_str().to_string())
+            .map(|r| standard_release.captures(&r).unwrap().get(1).unwrap().as_str().to_string())
             .collect();
         let mut futures = Vec::new();
         for release in releases {
-            println!("Fetching NixOS release: {}", release);
-            if let Some(page) = capture_page(&format!("{NIX_URL}&prefix={release}/"))
+            if let Some(page) = capture_page(&format!("{NIX_URL}&prefix=nixos-{release}/"))
                 .await
                 .and_then(|p| quick_xml::de::from_str::<NixReleases>(&p).ok())
             {
@@ -58,7 +57,7 @@ impl Distro for NixOS {
                             let edition = capture.get(1).map(|e| e.as_str().to_string());
                             let arch: Option<Arch> = capture.get(2).map(|a| a.as_str().to_string()).try_into().ok();
                             tokio::spawn(async move {
-                                let iso = format!("{NIX_DOWNLOAD_URL}/{release}/{}", name?);
+                                let iso = format!("{NIX_DOWNLOAD_URL}/nixos-{release}/{}", name?);
                                 let hash = capture_page(&format!("{iso}.sha256"))
                                     .await
                                     .map(|h| h.split_whitespace().next().unwrap().to_string());

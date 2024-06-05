@@ -167,7 +167,7 @@ impl ListAvailable for OS {
             .iter()
             .filter(|c| c.arch == *arch)
             .map(|c| c.release.as_deref().unwrap_or_default())
-            .dedup()
+            .unique()
             .collect::<Vec<&str>>();
         let editions = releases
             .iter()
@@ -179,13 +179,14 @@ impl ListAvailable for OS {
         } else if editions.iter().all_equal() {
             format!("Releases: {}\nEditions: {}", releases.join(" "), editions[0])
         } else {
-            format!(
-                "Releases\tEditions\n{}",
-                releases
-                    .iter()
-                    .map(|r| { format!("{}\t{}", r, self.editions_list(r, arch)) })
-                    .join("\n")
-            )
+            let max_len = releases.iter().map(|r| r.len()).max().unwrap_or_default();
+            let output = releases
+                .iter()
+                .map(|r| format!("{r:<max_len$}  {}", self.editions_list(r, arch)))
+                .collect::<Vec<String>>()
+                .join("\n");
+
+            format!("{:<max_len$}  Editions\n{output}", "Releases")
         }
     }
     fn editions_list(&self, release: &str, arch: &Arch) -> String {
@@ -204,7 +205,7 @@ impl ListAvailable for OS {
             .releases
             .iter()
             .map(|c| c.arch.to_string())
-            .dedup()
+            .unique()
             .collect::<Vec<String>>();
         let len = arches.len();
         (arches.join(" "), len)
