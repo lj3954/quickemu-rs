@@ -1,10 +1,10 @@
-use crate::store_data::{Config, Source, WebSource};
-use crate::utils::capture_page;
+use crate::{
+    store_data::{Config, Distro, Source, WebSource},
+    utils::capture_page,
+};
 use quickemu::config::Arch;
 use regex::Regex;
 use serde::Deserialize;
-
-use crate::store_data::Distro;
 
 const NIX_URL: &str = "https://nix-channels.s3.amazonaws.com/?delimiter=/";
 const NIX_DOWNLOAD_URL: &str = "https://channels.nixos.org";
@@ -16,14 +16,15 @@ impl Distro for NixOS {
     const HOMEPAGE: Option<&'static str> = Some("https://nixos.org/");
     const DESCRIPTION: Option<&'static str> = Some("Linux distribution based on Nix package manager, tool that takes a unique approach to package management and system configuration.");
     async fn generate_configs() -> Vec<Config> {
-        let standard_release = Regex::new(r#"nixos-(([0-9]+.[0-9]+|(unstable))(?:-small)?)"#).unwrap();
-        let iso_regex = Regex::new(r#"latest-nixos-([^-]+)-([^-]+)-linux.iso"#).unwrap();
         let Some(releases) = capture_page(NIX_URL)
             .await
             .and_then(|page| quick_xml::de::from_str::<NixReleases>(&page).ok())
         else {
             return Vec::new();
         };
+
+        let standard_release = Regex::new(r#"nixos-(([0-9]+.[0-9]+|(unstable))(?:-small)?)"#).unwrap();
+        let iso_regex = Regex::new(r#"latest-nixos-([^-]+)-([^-]+)-linux.iso"#).unwrap();
 
         let releases: Vec<String> = releases
             .contents

@@ -26,13 +26,16 @@ async fn main() {
         spawn(linux::Xubuntu.to_os()),
         spawn(linux::UbuntuCinnamon.to_os()),
         spawn(linux::NixOS.to_os()),
+        spawn(linux::Alma.to_os()),
     ];
 
-    let distros = futures::future::join_all(futures)
+    let mut distros = futures::future::join_all(futures)
         .await
         .into_iter()
         .flatten()
         .collect::<Vec<OS>>();
+
+    distros.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
     if let Ok(output) = serde_json::to_string_pretty(&distros) {
         println!("{}", output);
