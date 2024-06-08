@@ -44,6 +44,6 @@ struct ReqwestClient {
 
 static CLIENT: Lazy<ReqwestClient> = Lazy::new(|| {
     let client = Client::new();
-    let semaphore = Semaphore::new(80);
+    let semaphore = Semaphore::new(70);
     ReqwestClient { client, semaphore }
 });

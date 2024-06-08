@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     store_data::{Config, Distro, Source, WebSource},
     utils::capture_page,
@@ -93,4 +95,54 @@ struct NixReleases {
 #[serde(rename_all = "PascalCase")]
 struct NixRelease {
     key: String,
+}
+
+const ALPINE_MIRROR: &str = "https://dl-cdn.alpinelinux.org/alpine/";
+
+pub struct Alpine;
+impl Distro for Alpine {
+    const NAME: &'static str = "alpine";
+    const PRETTY_NAME: &'static str = "Alpine Linux";
+    const HOMEPAGE: Option<&'static str> = Some("https://alpinelinux.org/");
+    const DESCRIPTION: Option<&'static str> = Some("Security-oriented, lightweight Linux distribution based on musl libc and busybox.");
+    async fn generate_configs() -> Vec<Config> {
+        let Some(releases) = capture_page(ALPINE_MIRROR).await else {
+            return Vec::new();
+        };
+        let releases_regex = Regex::new(r#"<a href="(v[0-9]+\.[0-9]+)/""#).unwrap();
+        let iso_regex = Arc::new(Regex::new(r#"(?s)iso: (alpine-virt-[0-9]+\.[0-9]+.*?.iso).*? sha256: ([0-9a-f]+)"#).unwrap());
+
+        let futures = releases_regex.captures_iter(&releases).flat_map(|r| {
+            let release = r[1].to_string();
+            [Arch::x86_64, Arch::aarch64]
+                .iter()
+                .map(|arch| {
+                    let release = release.clone();
+                    let mirror = format!("{ALPINE_MIRROR}{release}/releases/{arch}/latest-releases.yaml");
+                    let iso_regex = iso_regex.clone();
+
+                    tokio::spawn(async move {
+                        let page = capture_page(&mirror).await?;
+                        let captures = iso_regex.captures(&page)?;
+                        let iso = captures.get(1).unwrap().as_str();
+                        let iso = format!("{ALPINE_MIRROR}{release}/releases/{arch}/{iso}");
+                        let checksum = captures[2].to_string();
+                        Some(Config {
+                            release: Some(release.to_string()),
+                            arch: arch.clone(),
+                            iso: Some(vec![Source::Web(WebSource::new(iso, Some(checksum), None, None))]),
+                            ..Default::default()
+                        })
+                    })
+                })
+                .collect::<Vec<_>>()
+        });
+
+        futures::future::join_all(futures)
+            .await
+            .into_iter()
+            .flatten()
+            .flatten()
+            .collect()
+    }
 }

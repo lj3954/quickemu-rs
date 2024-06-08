@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 const ALMA_MIRROR: &str = "https://repo.almalinux.org/almalinux/";
-const ALMA_ARCHITECTURES: [Arch; 2] = [Arch::x86_64, Arch::aarch64];
 
 pub struct Alma;
 impl Distro for Alma {
@@ -27,14 +26,15 @@ impl Distro for Alma {
 
         let futures = releases_regex.captures_iter(&releases).flat_map(|r| {
             let release = r[1].to_string();
-            ALMA_ARCHITECTURES
+            [Arch::x86_64, Arch::aarch64]
                 .iter()
                 .map(|arch| {
                     let release = release.clone();
                     let iso_regex = iso_regex.clone();
                     let checksum_regex = checksum_regex.clone();
+                    let mirror = format!("{ALMA_MIRROR}{release}/isos/{arch}/");
+
                     tokio::spawn(async move {
-                        let mirror = format!("{ALMA_MIRROR}{release}/isos/{arch}/");
                         let page = capture_page(&mirror).await?;
                         let checksum_page = capture_page(&format!("{mirror}CHECKSUM/")).await;
                         let checksums = checksum_page.map(|cs| {

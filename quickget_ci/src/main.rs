@@ -27,6 +27,7 @@ async fn main() {
         spawn(linux::UbuntuCinnamon.to_os()),
         spawn(linux::NixOS.to_os()),
         spawn(linux::Alma.to_os()),
+        spawn(linux::Alpine.to_os()),
     ];
 
     let mut distros = futures::future::join_all(futures)
@@ -35,7 +36,7 @@ async fn main() {
         .flatten()
         .collect::<Vec<OS>>();
 
-    distros.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+    sort_distros(&mut distros);
 
     if let Ok(output) = serde_json::to_string_pretty(&distros) {
         println!("{}", output);
@@ -47,4 +48,24 @@ async fn main() {
     let output = serde_json::to_string(&distros).unwrap();
     let mut file = File::create("quickget_data.json").unwrap();
     file.write_all(output.as_bytes()).unwrap();
+}
+
+fn sort_distros(distros: &mut [OS]) {
+    distros.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+    distros.iter_mut().for_each(|d| {
+        d.releases.sort_unstable_by(|a, b| {
+            if let (Some(release_a), Some(release_b)) = (&a.release, &b.release) {
+                let (mut a, mut b) = (release_a.split('.'), release_b.split('.'));
+                while let (Some(a), Some(b)) = (a.next(), b.next()) {
+                    if let (Ok(a), Ok(b)) = (a.parse::<u64>(), b.parse::<u64>()) {
+                        let comparison = b.cmp(&a);
+                        if comparison != std::cmp::Ordering::Equal {
+                            return comparison;
+                        }
+                    }
+                }
+            }
+            b.release.cmp(&a.release).then(a.edition.cmp(&b.edition))
+        })
+    });
 }
