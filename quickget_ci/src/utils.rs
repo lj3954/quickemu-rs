@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use tokio::{spawn, sync::Semaphore};
 
 pub async fn capture_page(url: &str) -> Option<String> {
@@ -23,11 +23,12 @@ pub async fn all_valid(urls: Vec<String>) -> bool {
                     log::warn!("Failed to make request to URL {}: {}", url, e);
                 })
                 .ok()?;
-            if !response.status().is_success() {
+            let successful = response.status().is_success() || response.status() == StatusCode::TOO_MANY_REQUESTS;
+            if !successful {
                 log::warn!("Failed to resolve URL: {}", url);
             }
             drop(permit);
-            Some(response.status().is_success())
+            Some(successful)
         })
     });
     futures::future::join_all(futures)
