@@ -32,7 +32,7 @@ pub async fn get_json_contents(refresh: bool) -> Result<Vec<OS>> {
         bail!("Cache directory does not exist.");
     }
     let file = dir.join("quickget_data.json.zst");
-    if !file.is_valid()? || refresh {
+    if refresh || !file.is_valid()? {
         let file = File::create(&file)?;
         let download = quick_fetcher::Download::new("https://github.com/lj3954/quickget_configs/releases/download/daily/quickget_data.json.zst")?.with_output_file(file);
         let downloader = quick_fetcher::Downloader::new(vec![download]);

@@ -1,8 +1,6 @@
 use anyhow::{anyhow, Result};
-use quick_fetcher::ArchiveFormat;
-use quick_fetcher::{Checksum, Download, Downloader};
-use quickget_ci::ArchiveFormat as QArchiveFormat;
-use quickget_ci::{Config, ConfigFile, Disk, DiskImage, Image, Source};
+use quick_fetcher::{ArchiveFormat, Checksum, Download, Downloader};
+use quickget_ci::{ArchiveFormat as QArchiveFormat, Config, ConfigFile, Disk, DiskImage, Image, Source};
 use std::{
     fs::File,
     os::unix::fs::PermissionsExt,
@@ -11,11 +9,11 @@ use std::{
 use which::which;
 
 pub trait CreateConfig {
-    async fn create_config(remote: Config, os: String) -> Result<(ConfigFile, String)>;
+    async fn create_config(remote: Config, os: String, dl_threads: Option<u8>) -> Result<(ConfigFile, String)>;
 }
 
 impl CreateConfig for ConfigFile {
-    async fn create_config(remote: Config, os: String) -> Result<(ConfigFile, String)> {
+    async fn create_config(remote: Config, os: String, dl_threads: Option<u8>) -> Result<(ConfigFile, String)> {
         let vm_path = format!(
             "{os}{}{}-{}",
             remote.release.map(|r| "-".to_string() + &r).unwrap_or_default(),
@@ -56,6 +54,10 @@ impl CreateConfig for ConfigFile {
         } else {
             Vec::new()
         };
+        if let Some(threads) = dl_threads {
+            let threads_per = threads / downloads.len() as u8;
+            downloads = downloads.into_iter().map(|dl| dl.with_threads(threads_per)).collect();
+        }
 
         let downloader = Downloader::new(downloads).with_progress(Default::default());
         log::debug!("Starting downloads");

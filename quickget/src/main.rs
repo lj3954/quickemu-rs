@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
     log::debug!("Got JSON data: {:?}", json_data);
 
     let os = json_data.find_entry(&args.other, args.arch)?;
-    let (config, vmpath) = ConfigFile::create_config(os, args.other.remove(0)).await?;
+    let (config, vmpath) = ConfigFile::create_config(os, args.other.remove(0), args.download_threads).await?;
     let config_data = toml::to_string_pretty(&config).map_err(|e| anyhow!("Failed to serialize config: {}", e))?;
     let quickemu = configuration::find_quickemu();
 
@@ -59,6 +59,8 @@ struct Args {
     list_csv: bool,
     #[clap(long, group = "actions")]
     list_json: bool,
+    #[clap(long)]
+    download_threads: Option<u8>,
     other: Vec<String>,
 }
 
