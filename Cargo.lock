@@ -1495,9 +1495,9 @@ dependencies = [
 
 [[package]]
 name = "quick_fetcher"
-version = "0.3.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c88a2fd9eea875a236cc5b1395f1b076c26475d7d0940612cb4eafa4e23f9ca0"
+checksum = "5bfac5895d070ed4206a123c7b770b76de278fd856e1d167e6960280a999bad0"
 dependencies = [
  "bzip2",
  "flate2",
