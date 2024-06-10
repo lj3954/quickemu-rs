@@ -156,9 +156,10 @@ async fn get_ubuntu_releases(variant: UbuntuVariant) -> Vec<Config> {
             _ => "desktop",
         };
         spawn(async move {
-            let text = capture_page(&format!("{}SHA256SUMS", url))
-                .await
-                .or(capture_page(&format!("{}MD5SUMS", url)).await)?;
+            let text = match capture_page(&format!("{}SHA256SUMS", url)).await {
+                Some(text) => text,
+                None => capture_page(&format!("{}MD5SUMS", url)).await?,
+            };
 
             let line = text.lines().find(|l| l.contains("amd64") && l.contains(sku))?;
             let hash = line.split_whitespace().next();

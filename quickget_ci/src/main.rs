@@ -29,6 +29,7 @@ async fn main() {
         spawn(linux::Alma.to_os()),
         spawn(linux::Alpine.to_os()),
         spawn(linux::Antix.to_os()),
+        spawn(linux::Archcraft.to_os()),
     ];
 
     let mut distros = futures::future::join_all(futures)
