@@ -1,6 +1,6 @@
 [package]
 name = "quickget_ci"
-version = "0.7.1"
+version = "0.7.3"
 edition = "2021"
 
 [dependencies]
