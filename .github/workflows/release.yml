@@ -32,6 +32,6 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: quickemu-rs,quickget-rs
-          archive: "quickemu-rs-${{ matrix.target }}.tar.gz"
+          archive: "quickemu-rs-${{ matrix.target }}"
           target: ${{ matrix.target }}
           token: ${{ secrets.GITHUB_TOKEN }}
