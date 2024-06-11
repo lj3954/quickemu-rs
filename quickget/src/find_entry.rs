@@ -70,7 +70,7 @@ impl FindEntry for Vec<OS> {
             .enumerate()
             .filter(|(_, c)| {
                 let conf_release = c.release.as_deref().unwrap_or_default();
-                matches_confirmed_arch(c) && conf_release.eq_ignore_ascii_case(release)
+                matches_confirmed_arch(c) && conf_release.eq_ignore_ascii_case(release) || conf_release.is_empty()
             })
             .collect();
 
@@ -96,7 +96,7 @@ impl FindEntry for Vec<OS> {
             .into_iter()
             .filter(|(_, c)| {
                 let conf_edition = c.edition.as_deref().unwrap_or_default();
-                matches_confirmed_arch(c) && conf_edition.eq_ignore_ascii_case(edition)
+                matches_confirmed_arch(c) && conf_edition.eq_ignore_ascii_case(edition) || conf_edition.is_empty()
             })
             .collect();
 
