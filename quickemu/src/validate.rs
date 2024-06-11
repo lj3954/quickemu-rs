@@ -21,13 +21,13 @@ mod tests {
     #[test]
     fn access() {
         use crate::config::Access;
-        let remote = Access::from(Some("remote".into()));
+        let remote = Access::from((Some("remote".into()), Access::Local));
         assert_eq!(remote, Access::Remote);
-        let local = Access::from(Some("local".into()));
+        let local = Access::from((Some("local".into()), Access::Local));
         assert_eq!(local, Access::Local);
-        let address = Access::from(Some("1.2.3.4".into()));
+        let address = Access::from((Some("1.2.3.4".into()), Access::Local));
         assert_eq!(address, Access::Address("1.2.3.4".to_string()));
-        let no_input = Access::from(None);
+        let no_input = Access::from((None, Access::Local));
         assert_eq!(no_input, Access::Local);
     }
 }
