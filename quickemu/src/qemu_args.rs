@@ -151,9 +151,7 @@ impl Args {
         self.monitor.to_args("monitor")?.add_args(&mut qemu_args, &mut print_args);
         self.serial.to_args("serial")?.add_args(&mut qemu_args, &mut print_args);
 
-        if let Some(args) = self.extra_args {
-            qemu_args.extend(args.into_iter().map(|arg| arg.into()).collect::<Vec<OsString>>());
-        }
+        qemu_args.extend(self.extra_args.into_iter().map(|arg| arg.into()).collect::<Vec<OsString>>());
 
         log::debug!("QEMU ARGS: {:?}", qemu_args);
 

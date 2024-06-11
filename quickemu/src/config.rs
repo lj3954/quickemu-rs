@@ -16,7 +16,7 @@ pub struct Args {
     pub disk_images: Vec<DiskImage>,
     pub display: Display,
     pub accelerated: bool,
-    pub extra_args: Option<Vec<String>>,
+    pub extra_args: Vec<String>,
     pub image_files: Option<Vec<Image>>,
     pub guest_os: GuestOS,
     pub status_quo: bool,
@@ -86,6 +86,20 @@ pub struct ConfigFile {
     #[serde(default = "default_ssh_port", skip_serializing_if = "is_default_ssh")]
     pub ssh_port: u16,
     pub usb_devices: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_args: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub fullscreen: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screenpct: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub viewer: Option<Viewer>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub status_quo: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub braille: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub access: Access,
 }
 
 impl Default for ConfigFile {
@@ -115,6 +129,13 @@ impl Default for ConfigFile {
             spice_port: default_spice_port(),
             ssh_port: default_ssh_port(),
             usb_devices: None,
+            extra_args: Vec::new(),
+            fullscreen: false,
+            screenpct: None,
+            viewer: None,
+            status_quo: false,
+            braille: false,
+            access: Default::default(),
         }
     }
 }
@@ -145,9 +166,10 @@ fn is_true(input: &bool) -> bool {
     *input
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub enum Access {
     Remote,
+    #[default]
     Local,
     Address(String),
 }
@@ -467,7 +489,7 @@ pub enum Snapshot {
     Info,
 }
 
-#[derive(ValueEnum, Clone, Debug)]
+#[derive(Deserialize, Serialize, ValueEnum, Clone, Debug)]
 pub enum Viewer {
     None,
     Spicy,

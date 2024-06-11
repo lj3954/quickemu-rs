@@ -204,6 +204,7 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
         spice_port,
         ssh_port,
         usb_devices,
+        ..Default::default()
     })
 }
 

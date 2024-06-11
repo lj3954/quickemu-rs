@@ -204,17 +204,17 @@ impl TryFrom<CliArgs> for Args {
         log::debug!("{:?}", conf);
 
         Ok(Self {
-            access: config::Access::from(args.access),
+            access: config::Access::from((args.access, conf.access)),
             arch: conf.arch,
-            braille: args.braille,
+            braille: args.braille || conf.braille,
             boot: conf.boot_type,
             cpu_cores: config_parse::cpu_cores(conf.cpu_cores, num_cpus::get(), num_cpus::get_physical())?,
             disk_images: conf.disk_images,
             display: args.display.unwrap_or(conf.display),
             accelerated: conf.accelerated,
-            extra_args: args.extra_args,
+            extra_args: [conf.extra_args, args.extra_args].concat(),
             image_files: conf.image_files,
-            status_quo: args.status_quo,
+            status_quo: args.status_quo || conf.status_quo,
             network: conf.network,
             port_forwards: conf.port_forwards,
             public_dir: config::PublicDir::from((conf.public_dir, args.public_dir)),
@@ -233,7 +233,7 @@ impl TryFrom<CliArgs> for Args {
             monitor_cmd: args.monitor_cmd,
             mouse: args.mouse.or(conf.mouse).unwrap_or(guest_os.into()),
             resolution: (conf.resolution, args.width, args.height, args.screen).into(),
-            screenpct: args.screenpct,
+            screenpct: args.screenpct.or(conf.screenpct),
             serial: config::Monitor::try_from((
                 conf.serial,
                 args.serial,
@@ -244,12 +244,12 @@ impl TryFrom<CliArgs> for Args {
             ))?,
             usb_controller: args.usb_controller.or(conf.usb_controller).unwrap_or(guest_os.into()),
             sound_card: args.sound_card.unwrap_or(conf.soundcard),
-            fullscreen: args.fullscreen,
+            fullscreen: args.fullscreen || conf.fullscreen,
             #[cfg(not(target_os = "macos"))]
             spice_port,
             ssh_port: args.ssh_port.unwrap_or(conf.ssh_port),
             usb_devices: conf.usb_devices,
-            viewer: args.viewer,
+            viewer: args.viewer.or(conf.viewer),
             system: info,
             vm_name,
             vm_dir,
@@ -324,7 +324,7 @@ struct CliArgs {
     #[arg(long)]
     usb_controller: Option<config::USBController>,
     #[arg(long, num_args = 1.., allow_hyphen_values = true)]
-    extra_args: Option<Vec<String>>,
+    extra_args: Vec<String>,
     #[command(flatten)]
     verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::WarnLevel>,
     #[arg(required = true)]

@@ -5,15 +5,15 @@ use core::num::NonZeroUsize;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
-impl From<Option<String>> for Access {
-    fn from(value: Option<String>) -> Self {
-        match value {
+impl From<(Option<String>, Access)> for Access {
+    fn from(value: (Option<String>, Access)) -> Self {
+        match value.0 {
             Some(input) => match input.as_str() {
                 "remote" => Self::Remote,
                 "local" => Self::Local,
                 _ => Self::Address(input),
             },
-            None => Self::Local,
+            None => value.1,
         }
     }
 }
