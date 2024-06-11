@@ -3,7 +3,9 @@ use crate::validate;
 use anyhow::{anyhow, bail, Result};
 use core::num::NonZeroUsize;
 use std::convert::TryFrom;
+use std::path::Path;
 use std::path::PathBuf;
+use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
 impl From<(Option<String>, Access)> for Access {
     fn from(value: (Option<String>, Access)) -> Self {
@@ -387,4 +389,28 @@ impl TryFrom<&str> for DiskFormat {
             },
         )
     }
+}
+
+pub fn handle_disk_paths(images: &mut Vec<DiskImage>, conf_file_path: &Path) -> Result<()> {
+    for image in images {
+        if !image.path.exists() {
+            image.path = conf_file_path.join(&image.path);
+        }
+        if let Ok(path) = image.path.relativize() {
+            image.path = path;
+        }
+        if image.format.is_none() {
+            let format = image.path.to_string_lossy().as_ref().try_into()?;
+            image.format = Some(format);
+        }
+    }
+    Ok(())
+}
+
+pub fn create_sysinfo() -> System {
+    System::new_with_specifics(
+        RefreshKind::new()
+            .with_memory(MemoryRefreshKind::new().with_ram())
+            .with_cpu(CpuRefreshKind::new()),
+    )
 }

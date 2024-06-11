@@ -1,19 +1,27 @@
-use crate::config::Snapshot;
-use crate::config::{Arch, BootType, ConfigFile, DiskFormat, DiskImage, Display, GuestOS, Image, Keyboard, Mouse, Network, PortForward, PreAlloc, Resolution, SerdeMonitor, SoundCard, USBController};
-use crate::config_parse::{parse_optional_bool, size_unit, BYTES_PER_GB};
-use crate::{handle_disk_paths, Args, CliArgs};
+#[cfg(not(feature = "control_launch"))]
+use crate::{
+    config::{Arch, Args, BootType, DiskFormat, DiskImage, Display, GuestOS, Image, Keyboard, Mouse, Network, PortForward, PreAlloc, Resolution, SerdeMonitor, SoundCard, USBController},
+    config_parse::{parse_optional_bool, size_unit, BYTES_PER_GB},
+    CliArgs,
+};
+#[cfg(not(feature = "control_launch"))]
+use std::{
+    collections::HashMap,
+    fs::{read_to_string, set_permissions, write},
+    io::Write,
+    os::unix::fs::PermissionsExt,
+    path::PathBuf,
+};
+
+use crate::config::{ConfigFile, Snapshot};
 use anyhow::{anyhow, bail, Result};
-use std::collections::HashMap;
-use std::fs::{read_to_string, set_permissions, write};
-use std::io::Write;
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use which::which;
 
 impl Snapshot {
+    #[cfg(not(feature = "control_launch"))]
     pub fn perform_action(&self, conf_data: Vec<String>) -> Result<String> {
-        let qemu_img = which("qemu-img").map_err(|_| anyhow!("qemu-img could not be found. Please verify that QEMU is installed on your system."))?;
         let (conf_file, mut conf_data) = crate::parse_conf(conf_data)?;
 
         let conf_file_path = PathBuf::from(&conf_file);
@@ -21,9 +29,13 @@ impl Snapshot {
             .parent()
             .ok_or_else(|| anyhow!("The parent directory of the config file cannot be found"))?;
 
-        handle_disk_paths(&mut conf_data.disk_images, conf_file_path)?;
-        conf_data
-            .disk_images
+        crate::config_parse::handle_disk_paths(&mut conf_data.disk_images, conf_file_path)?;
+        self.perform_on_config(conf_data)
+    }
+
+    pub fn perform_on_config(&self, conf: ConfigFile) -> Result<String> {
+        let qemu_img = which("qemu-img").map_err(|_| anyhow!("qemu-img could not be found. Please verify that QEMU is installed on your system."))?;
+        conf.disk_images
             .into_iter()
             .map(|disk| {
                 let disk_img = disk.path;
@@ -65,6 +77,7 @@ fn snapshot_command(qemu_img: &Path, arg: &str, tag: &str, disk_img: &Path) -> R
     }
 }
 
+#[cfg(not(feature = "control_launch"))]
 pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
     let conf = read_to_string(config).map_err(|e| anyhow!("Could not read legacy configuration file {}: {}", config.display(), e))?;
     log::debug!("Legacy configuration: {}", conf);
@@ -208,6 +221,7 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
     })
 }
 
+#[cfg(not(feature = "control_launch"))]
 pub fn migrate_config(config: Vec<String>) -> Result<String> {
     if config.len() != 2 {
         bail!("Invalid arguments for migrate-config. Usage: `quickemu-rs --migrate-config <config.conf> <config.toml>`")
@@ -243,6 +257,7 @@ pub fn migrate_config(config: Vec<String>) -> Result<String> {
     }
 }
 
+#[cfg(not(feature = "control_launch"))]
 pub fn port_forwards(bash_array: Option<String>) -> Result<Option<Vec<PortForward>>> {
     match bash_array {
         Some(array) => {
@@ -261,6 +276,7 @@ pub fn port_forwards(bash_array: Option<String>) -> Result<Option<Vec<PortForwar
         None => Ok(None),
     }
 }
+#[cfg(not(feature = "control_launch"))]
 impl CliArgs {
     pub fn delete_vm(self) -> Result<()> {
         if get_confirmation("This will delete all files related to the VM {}. Are you sure you want to proceed? (y/N): ")? {
@@ -278,6 +294,7 @@ impl CliArgs {
     }
 }
 
+#[cfg(not(feature = "control_launch"))]
 impl Args {
     pub fn delete_disk(&self) -> Result<()> {
         let disk_list = self
@@ -315,6 +332,7 @@ impl Args {
     }
 }
 
+#[cfg(not(feature = "control_launch"))]
 fn get_confirmation(prompt: &str) -> Result<bool> {
     print!("{prompt}");
     std::io::stdout().flush()?;

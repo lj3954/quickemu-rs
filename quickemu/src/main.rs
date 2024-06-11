@@ -8,10 +8,8 @@ use anyhow::Result;
 use anyhow::{anyhow, bail};
 use clap::Parser;
 use config::{ActionType, Args, ConfigFile};
-use config_parse::Relativize;
 use std::fs::read_to_string;
-use std::path::{Path, PathBuf};
-use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
+use std::path::PathBuf;
 
 fn main() {
     let args = CliArgs::parse();
@@ -120,7 +118,7 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
                 #[cfg(not(feature = "support_bash_conf"))]
                 Some((conf, _)) => {
                     bail!(
-                        "{pkg} no longer supports '.conf' configuration files.\nPlease convert your configuration file to the TOML format using `{pkg} --migrate-config {arg} {}`.",
+                        "{pkg} no longer supports '.conf' configuration files.\nPlease convert your configuration file to the TOML format using `{pkg} --migrate-config {conf} {}`.",
                         conf.replace(".conf", ".toml")
                     )
                 }
@@ -145,32 +143,12 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
     Ok((conf_file, conf))
 }
 
-pub fn handle_disk_paths(images: &mut Vec<config::DiskImage>, conf_file_path: &Path) -> Result<()> {
-    for image in images {
-        if !image.path.exists() {
-            image.path = conf_file_path.join(&image.path);
-        }
-        if let Ok(path) = image.path.relativize() {
-            image.path = path;
-        }
-        if image.format.is_none() {
-            let format = image.path.to_string_lossy().as_ref().try_into()?;
-            image.format = Some(format);
-        }
-    }
-    Ok(())
-}
-
 impl TryFrom<CliArgs> for Args {
     type Error = anyhow::Error;
     fn try_from(args: CliArgs) -> Result<Self> {
         let (conf_file, mut conf) = parse_conf(args.config_file)?;
 
-        let info = System::new_with_specifics(
-            RefreshKind::new()
-                .with_memory(MemoryRefreshKind::new().with_ram())
-                .with_cpu(CpuRefreshKind::new()),
-        );
+        let info = config_parse::create_sysinfo();
         log::debug!("{:?}", info);
         let guest_os = &conf.guest_os;
 
@@ -197,10 +175,7 @@ impl TryFrom<CliArgs> for Args {
         #[cfg(not(target_os = "macos"))]
         let spice_port = qemu_args::find_port(args.spice_port.unwrap_or(conf.spice_port), 9);
 
-        if conf.disk_images.is_empty() {
-            bail!("Your configuration file must contain at least 1 disk image.");
-        }
-        handle_disk_paths(&mut conf.disk_images, conf_file_path)?;
+        config_parse::handle_disk_paths(&mut conf.disk_images, conf_file_path)?;
         log::debug!("{:?}", conf);
 
         Ok(Self {

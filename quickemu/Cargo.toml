@@ -24,12 +24,10 @@ toml = "0.8.12"
 which = "6.0.1"
 
 [features]
-default = [
-    "check_smartcard",
-    "get_qemu_ver",
-    "support_bash_conf",
-]
+default = ["check_smartcard", "get_qemu_ver", "support_bash_conf"]
 
 check_smartcard = []
 get_qemu_ver = []
 support_bash_conf = []
+
+control_launch = []

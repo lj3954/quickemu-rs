@@ -1666,6 +1666,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "quickemu_api"
+version = "0.1.0"
+dependencies = [
+ "quickemu-rs",
+]
+
+[[package]]
 name = "quickget-rs"
 version = "0.7.3"
 dependencies = [
