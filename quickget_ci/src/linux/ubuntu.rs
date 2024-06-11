@@ -1,6 +1,7 @@
 use crate::store_data::{Config, Distro, Source, WebSource};
 use crate::utils::capture_page;
 use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::Deserialize;
 use tokio::{runtime::Runtime, spawn};
 
@@ -244,4 +245,35 @@ struct LaunchpadContents {
 struct Entry {
     version: String,
     status: String,
+}
+
+const ELEMENTARY_URL: &str = "https://elementary.io/";
+const ELEMENTARY_CHECKSUM_URL: &str = "https://elementary.io/docs/installation";
+
+pub struct Elementary;
+impl Distro for Elementary {
+    const NAME: &'static str = "elementary";
+    const PRETTY_NAME: &'static str = "elementary OS";
+    const HOMEPAGE: Option<&'static str> = Some("https://elementary.io/");
+    const DESCRIPTION: Option<&'static str> = Some("Thoughtful, capable, and ethical replacement for Windows and macOS.");
+    async fn generate_configs() -> Vec<Config> {
+        let download_regex = Regex::new(r#"download-link http" href="(.*?)">Download"#).unwrap();
+        let checksum_regex = Regex::new(r#""language-bash">([0-9a-f]{64})</code>"#).unwrap();
+
+        let Some(dl_link) = capture_page(ELEMENTARY_URL)
+            .await
+            .and_then(|html| download_regex.captures(&html).map(|c| "https:".to_string() + &c[1]))
+        else {
+            return Vec::new();
+        };
+
+        let checksum = capture_page(ELEMENTARY_CHECKSUM_URL)
+            .await
+            .and_then(|html| checksum_regex.captures(&html).map(|c| c[1].to_string()));
+
+        vec![Config {
+            iso: Some(vec![Source::Web(WebSource::new(dl_link, checksum, None, None))]),
+            ..Default::default()
+        }]
+    }
 }

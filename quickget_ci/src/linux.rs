@@ -8,4 +8,4 @@ pub(crate) use arch::Archcraft;
 pub(crate) use debian::Antix;
 pub(crate) use fedora_redhat::Alma;
 pub(crate) use independent::{Alpine, NixOS};
-pub(crate) use ubuntu::{Edubuntu, Kubuntu, Lubuntu, Ubuntu, UbuntuBudgie, UbuntuCinnamon, UbuntuKylin, UbuntuMATE, UbuntuServer, UbuntuStudio, UbuntuUnity, Xubuntu};
+pub(crate) use ubuntu::{Edubuntu, Elementary, Kubuntu, Lubuntu, Ubuntu, UbuntuBudgie, UbuntuCinnamon, UbuntuKylin, UbuntuMATE, UbuntuServer, UbuntuStudio, UbuntuUnity, Xubuntu};
