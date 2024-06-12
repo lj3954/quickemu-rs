@@ -253,6 +253,7 @@ const EFI_OVMF: [(&str, &str); 8] = [
     ("edk2-ovmf/x64/OVMF_CODE.fd", "edk2-ovmf/x64/OVMF_VARS.fd"),
 ];
 const AARCH64_OVMF: [(&str, &str); 1] = [("AAVMF/AAVMF_CODE.fd", "AAVMF/AAVMF_VARS.fd")];
+const RISCV_UBOOT: [&str; 1] = ["/usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin"];
 
 fn qemu_share_dir() -> PathBuf {
     #[cfg(target_os = "macos")]
@@ -271,39 +272,16 @@ impl BootType {
     fn to_args(&self, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> Result<(String, Option<Vec<OsString>>)> {
         match (self, arch) {
             (Self::Efi { secure_boot: _ }, Arch::riscv64) => {
-                let bios_dirs = [&vm_dir.join("boot"), vm_dir];
-                let bios = bios_dirs
-                    .into_iter()
-                    .filter_map(|directory| {
-                        directory
-                            .read_dir()
-                            .ok()?
-                            .filter_map(|file| {
-                                let path = file.ok()?.path();
-                                if path.extension()? == "bin" {
-                                    Some(path)
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect::<Vec<PathBuf>>()
-                            .into()
-                    })
-                    .flatten()
-                    .collect::<Vec<PathBuf>>();
-                match bios.len() {
-                    0 => Ok((
+                if let Some(bios) = find_riscv_bios(vm_dir)? {
+                    Ok((
+                        "Boot: EFI (RISC-V), Bootloader: ".to_string() + &bios.to_string_lossy(),
+                        Some(vec!["-kernel".into(), bios.into()]),
+                    ))
+                } else {
+                    Ok((
                         "Boot: EFI (RISC-V). \x1b[31mWARNING\x1b[0m: Could not find bootloader in your VM directory. VM may fail to boot. Read more: {PLACEHOLDER}".to_string(),
                         None,
-                    )),
-                    1 => {
-                        let bios = &bios[0];
-                        Ok((
-                            "Boot: EFI (RISC-V), Bootloader: ".to_string() + &bios.to_string_lossy(),
-                            Some(vec!["-kernel".into(), bios.into()]),
-                        ))
-                    }
-                    _ => bail!("Could not determine the correct RISC-V bootloader. Please ensure that there are not multiple `.bin` files in your VM directory."),
+                    ))
                 }
             }
             (Self::Legacy, Arch::x86_64) => {
@@ -396,6 +374,44 @@ fn find_firmware(firmware: &[(&str, &str)]) -> Option<(PathBuf, PathBuf)> {
             None
         }
     })
+}
+
+fn find_riscv_bios(vm_dir: &Path) -> Result<Option<PathBuf>> {
+    let system_uboot = || {
+        RISCV_UBOOT.iter().find_map(|firmware| {
+            let u_boot = PathBuf::from(firmware);
+            if u_boot.exists() {
+                Some(u_boot)
+            } else {
+                None
+            }
+        })
+    };
+    let bios_dirs = [&vm_dir.join("boot"), vm_dir];
+    let mut bios = bios_dirs
+        .into_iter()
+        .filter_map(|directory| {
+            directory
+                .read_dir()
+                .ok()?
+                .filter_map(|file| {
+                    let path = file.ok()?.path();
+                    if path.extension()? == "bin" {
+                        Some(path)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<PathBuf>>()
+                .into()
+        })
+        .flatten()
+        .collect::<Vec<PathBuf>>();
+    match bios.len() {
+        0 => Ok(system_uboot()),
+        1 => Ok(Some(bios.remove(0))),
+        _ => bail!("Could not determine the correct RISC-V bootloader. Please ensure that there are not multiple `.bin` files in your VM directory."),
+    }
 }
 
 impl Network {
