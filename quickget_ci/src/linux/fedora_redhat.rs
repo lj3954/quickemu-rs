@@ -22,7 +22,7 @@ impl Distro for Alma {
 
         let releases_regex = Regex::new(r#"<a href="([0-9]+)/""#).unwrap();
         let iso_regex = Arc::new(Regex::new(r#"<a href="(AlmaLinux-[0-9]+-latest-(?:x86_64|aarch64)-([^-]+).iso)">"#).unwrap());
-        let checksum_regex = Arc::new(Regex::new(r#"SHA256 \(([^)])+\) = ([0-9a-f]+)"#).unwrap());
+        let checksum_regex = Arc::new(Regex::new(r#"SHA256 \(([^)]+)\) = ([0-9a-f]+)"#).unwrap());
 
         let futures = releases_regex.captures_iter(&releases).flat_map(|r| {
             let release = r[1].to_string();
@@ -36,7 +36,7 @@ impl Distro for Alma {
 
                     tokio::spawn(async move {
                         let page = capture_page(&mirror).await?;
-                        let checksum_page = capture_page(&format!("{mirror}CHECKSUM/")).await;
+                        let checksum_page = capture_page(&format!("{mirror}CHECKSUM")).await;
                         let checksums = checksum_page.map(|cs| {
                             checksum_regex
                                 .captures_iter(&cs)
