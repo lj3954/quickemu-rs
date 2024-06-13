@@ -5,6 +5,7 @@ use crate::{
 use quickget_ci::Arch;
 use regex::Regex;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 const ARCHCRAFT_MIRROR: &str = "https://sourceforge.net/projects/archcraft/files/";
@@ -96,4 +97,78 @@ struct ArchRelease {
     version: String,
     sha256_sum: Option<String>,
     iso_url: String,
+}
+
+const ARCOLINUX_MIRROR: &str = "https://mirror.accum.se/mirror/arcolinux.info/iso/";
+
+pub struct ArcoLinux;
+impl Distro for ArcoLinux {
+    const NAME: &'static str = "arcolinux";
+    const PRETTY_NAME: &'static str = "ArcoLinux";
+    const HOMEPAGE: Option<&'static str> = Some("https://arcolinux.com/");
+    const DESCRIPTION: Option<&'static str> = Some("It's all about becoming an expert in Linux.");
+    async fn generate_configs() -> Vec<Config> {
+        let Some(releases) = capture_page(ARCOLINUX_MIRROR).await else {
+            return Vec::new();
+        };
+        let release_regex = Regex::new(r#">(v[0-9.]+)/</a"#).unwrap();
+        let iso_regex = Arc::new(Regex::new(r#">(arco([^-]+)-[v0-9.]+-x86_64.iso)</a>"#).unwrap());
+        let checksum_regex = Arc::new(Regex::new(r#">(arco([^-]+)-[v0-9.]+-x86_64.iso.sha256)</a>"#).unwrap());
+
+        let mut releases = release_regex.captures_iter(&releases).collect::<Vec<_>>();
+        releases.reverse();
+        let futures = releases
+            .into_iter()
+            .take(3)
+            .map(|c| {
+                let release = c[1].to_string();
+                let mirror = format!("{ARCOLINUX_MIRROR}{release}/");
+                let iso_regex = iso_regex.clone();
+                let checksum_regex = checksum_regex.clone();
+                tokio::spawn(async move {
+                    let page = capture_page(&mirror).await?;
+                    let checksums = checksum_regex
+                        .captures_iter(&page)
+                        .map(|c| (c[2].to_string(), c[1].to_string()))
+                        .collect::<HashMap<String, String>>();
+
+                    let futures = iso_regex
+                        .captures_iter(&page)
+                        .filter(|i| !i[2].contains("linux"))
+                        .map(|i| {
+                            let iso = i[1].to_string();
+                            let edition = i[2].to_string();
+                            let download_url = format!("{mirror}{iso}");
+                            let checksum_url = checksums.get(edition.as_str()).map(|c| format!("{mirror}{c}"));
+                            let release = release.clone();
+                            tokio::spawn(async move {
+                                let checksum = if let Some(checksum_url) = checksum_url {
+                                    capture_page(&checksum_url)
+                                        .await
+                                        .and_then(|c| c.split_whitespace().next().map(ToString::to_string))
+                                } else {
+                                    None
+                                };
+                                Config {
+                                    release: Some(release),
+                                    edition: Some(edition),
+                                    iso: Some(vec![Source::Web(WebSource::new(download_url, checksum, None, None))]),
+                                    ..Default::default()
+                                }
+                            })
+                        })
+                        .collect::<Vec<_>>();
+                    Some(futures::future::join_all(futures).await)
+                })
+            })
+            .collect::<Vec<_>>();
+        futures::future::join_all(futures)
+            .await
+            .into_iter()
+            .flatten()
+            .flatten()
+            .flatten()
+            .flatten()
+            .collect()
+    }
 }
