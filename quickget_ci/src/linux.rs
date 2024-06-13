@@ -4,7 +4,7 @@ mod fedora_redhat;
 mod independent;
 mod ubuntu;
 
-pub(crate) use arch::Archcraft;
+pub(crate) use arch::{ArchLinux, Archcraft};
 pub(crate) use debian::Antix;
 pub(crate) use fedora_redhat::Alma;
 pub(crate) use independent::{Alpine, NixOS};

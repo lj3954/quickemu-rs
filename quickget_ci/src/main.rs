@@ -11,7 +11,7 @@ use tokio::spawn;
 #[tokio::main]
 async fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Debug).init();
-    let futures = vec![
+    let futures = [
         spawn(bsd::FreeBSD.to_os()),
         spawn(linux::Ubuntu.to_os()),
         spawn(linux::UbuntuServer.to_os()),
@@ -31,6 +31,7 @@ async fn main() {
         spawn(linux::Antix.to_os()),
         spawn(linux::Archcraft.to_os()),
         spawn(linux::Elementary.to_os()),
+        spawn(linux::ArchLinux.to_os()),
     ];
 
     let mut distros = futures::future::join_all(futures)
