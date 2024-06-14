@@ -195,12 +195,12 @@ impl fmt::Display for Arch {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum BootType {
-    #[serde(alias = "EFI", alias = "efi")]
+    #[serde(rename = "efi", alias = "EFI", alias = "Efi")]
     Efi {
         #[serde(default)]
         secure_boot: bool,
     },
-    #[serde(alias = "legacy", alias = "bios")]
+    #[serde(rename = "legacy", alias = "Legacy", alias = "bios")]
     Legacy,
 }
 impl Default for BootType {

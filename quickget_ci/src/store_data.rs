@@ -1,5 +1,5 @@
 use crate::utils::all_valid;
-use quickemu::config::{Arch, DiskFormat, GuestOS};
+use quickemu::config::{Arch, BootType, DiskFormat, GuestOS};
 use serde::{Deserialize, Serialize};
 use tokio::spawn;
 
@@ -34,6 +34,12 @@ pub struct Config {
     pub floppy: Option<Vec<Source>>,
     #[serde(default = "default_disk", skip_serializing_if = "is_default_disk")]
     pub disk_images: Option<Vec<Disk>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boot_type: Option<BootType>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tpm: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ram: Option<u64>,
 }
 
 impl Default for Config {
@@ -48,6 +54,9 @@ impl Default for Config {
             fixed_iso: None,
             floppy: None,
             disk_images: default_disk(),
+            boot_type: None,
+            tpm: None,
+            ram: None,
         }
     }
 }
