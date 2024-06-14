@@ -16,10 +16,8 @@ impl Distro for Archcraft {
     const PRETTY_NAME: &'static str = "Archcraft";
     const HOMEPAGE: Option<&'static str> = Some("https://archcraft.io/");
     const DESCRIPTION: Option<&'static str> = Some("Yet another minimal Linux distribution, based on Arch Linux.");
-    async fn generate_configs() -> Vec<Config> {
-        let Some(releases) = capture_page(ARCHCRAFT_MIRROR).await else {
-            return Vec::new();
-        };
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let releases = capture_page(ARCHCRAFT_MIRROR).await?;
         let releases_regex = Regex::new(r#""name":"v([^"]+)""#).unwrap();
         let url_regex = Arc::new(Regex::new(r#""name":"archcraft-.*?-x86_64.iso".*?"download_url":"([^"]+)".*?"name":"archcraft-.*?-x86_64.iso.sha256sum".*?"download_url":"([^"]+)""#).unwrap());
         let futures = releases_regex.captures_iter(&releases).take(3).map(|r| {
@@ -48,7 +46,8 @@ impl Distro for Archcraft {
             .into_iter()
             .flatten()
             .flatten()
-            .collect()
+            .collect::<Vec<Config>>()
+            .into()
     }
 }
 
@@ -61,10 +60,8 @@ impl Distro for ArchLinux {
     const PRETTY_NAME: &'static str = "Arch Linux";
     const HOMEPAGE: Option<&'static str> = Some("https://archlinux.org/");
     const DESCRIPTION: Option<&'static str> = Some("Lightweight and flexible Linux® distribution that tries to Keep It Simple.");
-    async fn generate_configs() -> Vec<Config> {
-        let Some(data) = capture_page(ARCHLINUX_API).await else {
-            return Vec::new();
-        };
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let data = capture_page(ARCHLINUX_API).await?;
         let api_data: ArchAPI = serde_json::from_str(&data).unwrap();
         api_data
             .releases
@@ -82,7 +79,8 @@ impl Distro for ArchLinux {
                     ..Default::default()
                 }
             })
-            .collect()
+            .collect::<Vec<Config>>()
+            .into()
     }
 }
 
@@ -107,10 +105,8 @@ impl Distro for ArcoLinux {
     const PRETTY_NAME: &'static str = "ArcoLinux";
     const HOMEPAGE: Option<&'static str> = Some("https://arcolinux.com/");
     const DESCRIPTION: Option<&'static str> = Some("It's all about becoming an expert in Linux.");
-    async fn generate_configs() -> Vec<Config> {
-        let Some(releases) = capture_page(ARCOLINUX_MIRROR).await else {
-            return Vec::new();
-        };
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let releases = capture_page(ARCOLINUX_MIRROR).await?;
         let release_regex = Regex::new(r#">(v[0-9.]+)/</a"#).unwrap();
         let iso_regex = Arc::new(Regex::new(r#">(arco([^-]+)-[v0-9.]+-x86_64.iso)</a>"#).unwrap());
         let checksum_regex = Arc::new(Regex::new(r#">(arco([^-]+)-[v0-9.]+-x86_64.iso.sha256)</a>"#).unwrap());
@@ -169,6 +165,45 @@ impl Distro for ArcoLinux {
             .flatten()
             .flatten()
             .flatten()
-            .collect()
+            .collect::<Vec<Config>>()
+            .into()
+    }
+}
+
+const ARTIX_MIRROR: &str = "https://mirrors.ocf.berkeley.edu/artix-iso/";
+
+pub struct ArtixLinux;
+impl Distro for ArtixLinux {
+    const NAME: &'static str = "artixlinux";
+    const PRETTY_NAME: &'static str = "Artix Linux";
+    const HOMEPAGE: Option<&'static str> = Some("https://artixlinux.org/");
+    const DESCRIPTION: Option<&'static str> = Some("The Art of Linux. Simple. Fast. Systemd-free.");
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let page = capture_page(ARTIX_MIRROR).await?;
+        let iso_regex = Regex::new(r#"href="(artix-(.*?)-([^-]+-[0-9]+)-x86_64.iso)""#).unwrap();
+
+        let checksums = capture_page(&format!("{ARTIX_MIRROR}sha256sums")).await.map(|c| {
+            c.lines()
+                .filter_map(|l| l.split_once("  ").map(|(hash, file)| (file.to_string(), hash.to_string())))
+                .collect::<HashMap<String, String>>()
+        });
+
+        iso_regex
+            .captures_iter(&page)
+            .map(|c| {
+                let iso = c[1].to_string();
+                let edition = c[2].to_string();
+                let release = c[3].to_string();
+                let download_url = format!("{ARTIX_MIRROR}{iso}");
+                let checksum = checksums.as_ref().and_then(|cs| cs.get(&iso)).map(ToString::to_string);
+                Config {
+                    release: Some(release),
+                    edition: Some(edition),
+                    iso: Some(vec![Source::Web(WebSource::new(download_url, checksum, None, None))]),
+                    ..Default::default()
+                }
+            })
+            .collect::<Vec<Config>>()
+            .into()
     }
 }

@@ -13,7 +13,7 @@ impl Distro for Ubuntu {
     const PRETTY_NAME: &'static str = "Ubuntu";
     const HOMEPAGE: Option<&'static str> = Some("https://www.ubuntu.com/");
     const DESCRIPTION: Option<&'static str> = Some("Complete desktop Linux operating system, freely available with both community and professional support.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::Ubuntu).await
     }
 }
@@ -24,7 +24,7 @@ impl Distro for UbuntuServer {
     const PRETTY_NAME: &'static str = "Ubuntu Server";
     const HOMEPAGE: Option<&'static str> = Some("https://www.ubuntu.com/server");
     const DESCRIPTION: Option<&'static str> = Some("Brings economic and technical scalability to your datacentre, public or private. Whether you want to deploy an OpenStack cloud, a Kubernetes cluster or a 50,000-node render farm, Ubuntu Server delivers the best value scale-out performance available.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::UbuntuServer).await
     }
 }
@@ -35,7 +35,7 @@ impl Distro for UbuntuUnity {
     const PRETTY_NAME: &'static str = "Ubuntu Unity";
     const HOMEPAGE: Option<&'static str> = Some("https://ubuntuunity.org/");
     const DESCRIPTION: Option<&'static str> = Some("Flavor of Ubuntu featuring the Unity7 desktop environment (the default desktop environment used by Ubuntu from 2010-2017).");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::UbuntuUnity).await
     }
 }
@@ -46,7 +46,7 @@ impl Distro for UbuntuStudio {
     const PRETTY_NAME: &'static str = "Ubuntu Studio";
     const HOMEPAGE: Option<&'static str> = Some("https://ubuntustudio.org/");
     const DESCRIPTION: Option<&'static str> = Some("Comes preinstalled with a selection of the most common free multimedia applications available, and is configured for best performance for various purposes: Audio, Graphics, Video, Photography and Publishing.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::UbuntuStudio).await
     }
 }
@@ -58,7 +58,7 @@ impl Distro for UbuntuMATE {
     const HOMEPAGE: Option<&'static str> = Some("https://ubuntu-mate.org/");
     const DESCRIPTION: Option<&'static str> =
         Some("Stable, easy-to-use operating system with a configurable desktop environment. It is ideal for those who want the most out of their computers and prefer a traditional desktop metaphor.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::UbuntuMATE).await
     }
 }
@@ -69,7 +69,7 @@ impl Distro for UbuntuBudgie {
     const PRETTY_NAME: &'static str = "Ubuntu Budgie";
     const HOMEPAGE: Option<&'static str> = Some("https://ubuntubudgie.org/");
     const DESCRIPTION: Option<&'static str> = Some("Community developed distribution, integrating the Budgie Desktop Environment with Ubuntu at its core.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::UbuntuBudgie).await
     }
 }
@@ -81,7 +81,7 @@ impl Distro for Lubuntu {
     const HOMEPAGE: Option<&'static str> = Some("https://lubuntu.me/");
     const DESCRIPTION: Option<&'static str> =
         Some("Complete Operating System that ships the essential apps and services for daily use: office applications, PDF reader, image editor, music and video players, etc.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::Lubuntu).await
     }
 }
@@ -92,7 +92,7 @@ impl Distro for Kubuntu {
     const PRETTY_NAME: &'static str = "Kubuntu";
     const HOMEPAGE: Option<&'static str> = Some("https://kubuntu.org/");
     const DESCRIPTION: Option<&'static str> = Some("Free, complete, and open-source alternative to Microsoft Windows and Mac OS X which contains everything you need to work, play, or share.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::Kubuntu).await
     }
 }
@@ -103,7 +103,7 @@ impl Distro for Xubuntu {
     const PRETTY_NAME: &'static str = "Xubuntu";
     const HOMEPAGE: Option<&'static str> = Some("https://xubuntu.org/");
     const DESCRIPTION: Option<&'static str> = Some("Elegant and easy to use operating system. Xubuntu comes with Xfce, which is a stable, light and configurable desktop environment.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::Xubuntu).await
     }
 }
@@ -114,7 +114,7 @@ impl Distro for Edubuntu {
     const PRETTY_NAME: &'static str = "Edubuntu";
     const HOMEPAGE: Option<&'static str> = Some("https://www.edubuntu.org/");
     const DESCRIPTION: Option<&'static str> = Some("Stable, secure and privacy concious option for schools.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::Edubuntu).await
     }
 }
@@ -126,7 +126,7 @@ impl Distro for UbuntuCinnamon {
     const HOMEPAGE: Option<&'static str> = Some("https://ubuntucinnamon.org/");
     const DESCRIPTION: Option<&'static str> =
         Some("Community-driven, featuring Linux Mint’s Cinnamon Desktop with Ubuntu at the core, packed fast and full of features, here is the most traditionally modern desktop you will ever love.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::UbuntuCinnamon).await
     }
 }
@@ -138,12 +138,12 @@ impl Distro for UbuntuKylin {
     const HOMEPAGE: Option<&'static str> = Some("https://www.ubuntukylin.com/");
     const DESCRIPTION: Option<&'static str> =
         Some("Universal desktop operating system for personal computers, laptops, and embedded devices. It is dedicated to bringing a smarter user experience to users all over the world.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         get_ubuntu_releases(UbuntuVariant::UbuntuKylin).await
     }
 }
 
-async fn get_ubuntu_releases(variant: UbuntuVariant) -> Vec<Config> {
+async fn get_ubuntu_releases(variant: UbuntuVariant) -> Option<Vec<Config>> {
     let futures = UBUNTU_RELEASES.iter().map(|release| {
         let url = match (release.as_str(), &variant) {
             ("daily-live", _) => format!("https://cdimage.ubuntu.com/{}/{release}/current/", variant.as_ref()),
@@ -180,6 +180,7 @@ async fn get_ubuntu_releases(variant: UbuntuVariant) -> Vec<Config> {
         .flatten()
         .flatten()
         .collect::<Vec<Config>>()
+        .into()
 }
 
 static UBUNTU_RELEASES: Lazy<Vec<String>> = Lazy::new(|| {
@@ -256,16 +257,12 @@ impl Distro for Elementary {
     const PRETTY_NAME: &'static str = "elementary OS";
     const HOMEPAGE: Option<&'static str> = Some("https://elementary.io/");
     const DESCRIPTION: Option<&'static str> = Some("Thoughtful, capable, and ethical replacement for Windows and macOS.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         let download_regex = Regex::new(r#"download-link http" href="(.*?)">Download"#).unwrap();
         let checksum_regex = Regex::new(r#""language-bash">([0-9a-f]{64})</code>"#).unwrap();
 
-        let Some(dl_link) = capture_page(ELEMENTARY_URL)
-            .await
-            .and_then(|html| download_regex.captures(&html).map(|c| "https:".to_string() + &c[1]))
-        else {
-            return Vec::new();
-        };
+        let page = capture_page(ELEMENTARY_URL).await?;
+        let dl_link = download_regex.captures(&page).map(|c| "https:".to_string() + &c[1])?;
 
         let checksum = capture_page(ELEMENTARY_CHECKSUM_URL)
             .await
@@ -275,5 +272,6 @@ impl Distro for Elementary {
             iso: Some(vec![Source::Web(WebSource::new(dl_link, checksum, None, None))]),
             ..Default::default()
         }]
+        .into()
     }
 }

@@ -17,13 +17,9 @@ impl Distro for NixOS {
     const PRETTY_NAME: &'static str = "NixOS";
     const HOMEPAGE: Option<&'static str> = Some("https://nixos.org/");
     const DESCRIPTION: Option<&'static str> = Some("Linux distribution based on Nix package manager, tool that takes a unique approach to package management and system configuration.");
-    async fn generate_configs() -> Vec<Config> {
-        let Some(releases) = capture_page(NIX_URL)
-            .await
-            .and_then(|page| quick_xml::de::from_str::<NixReleases>(&page).ok())
-        else {
-            return Vec::new();
-        };
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let releases = capture_page(NIX_URL).await?;
+        let releases: NixReleases = quick_xml::de::from_str(&releases).ok()?;
 
         let standard_release = Regex::new(r#"nixos-(([0-9]+.[0-9]+|(unstable))(?:-small)?)"#).unwrap();
         let iso_regex = Regex::new(r#"latest-nixos-([^-]+)-([^-]+)-linux.iso"#).unwrap();
@@ -82,7 +78,8 @@ impl Distro for NixOS {
             .into_iter()
             .flatten()
             .flatten()
-            .collect()
+            .collect::<Vec<Config>>()
+            .into()
     }
 }
 
@@ -105,10 +102,8 @@ impl Distro for Alpine {
     const PRETTY_NAME: &'static str = "Alpine Linux";
     const HOMEPAGE: Option<&'static str> = Some("https://alpinelinux.org/");
     const DESCRIPTION: Option<&'static str> = Some("Security-oriented, lightweight Linux distribution based on musl libc and busybox.");
-    async fn generate_configs() -> Vec<Config> {
-        let Some(releases) = capture_page(ALPINE_MIRROR).await else {
-            return Vec::new();
-        };
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let releases = capture_page(ALPINE_MIRROR).await?;
         let releases_regex = Regex::new(r#"<a href="(v[0-9]+\.[0-9]+)/""#).unwrap();
         let iso_regex = Arc::new(Regex::new(r#"(?s)iso: (alpine-virt-[0-9]+\.[0-9]+.*?.iso).*? sha256: ([0-9a-f]+)"#).unwrap());
 
@@ -143,6 +138,7 @@ impl Distro for Alpine {
             .into_iter()
             .flatten()
             .flatten()
-            .collect()
+            .collect::<Vec<Config>>()
+            .into()
     }
 }

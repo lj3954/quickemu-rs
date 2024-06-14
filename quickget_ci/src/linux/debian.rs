@@ -14,10 +14,8 @@ impl Distro for Antix {
     const PRETTY_NAME: &'static str = "antiX";
     const HOMEPAGE: Option<&'static str> = Some("https://antixlinux.com/");
     const DESCRIPTION: Option<&'static str> = Some("Fast, lightweight and easy to install systemd-free linux live CD distribution based on Debian Stable for Intel-AMD x86 compatible systems.");
-    async fn generate_configs() -> Vec<Config> {
-        let Some(releases) = capture_page(ANTIX_MIRROR).await else {
-            return Vec::new();
-        };
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let releases = capture_page(ANTIX_MIRROR).await?;
 
         let releases_regex = Regex::new(r#""name":"antiX-([0-9.]+)""#).unwrap();
         let iso_regex = Arc::new(Regex::new(r#""name":"(antiX-[0-9.]+(?:-runit)?(?:-[^_]+)?_x64-([^.]+).iso)".*?"download_url":"(.*?)""#).unwrap());
@@ -74,6 +72,7 @@ impl Distro for Antix {
             .flatten()
             .flatten()
             .flatten()
-            .collect()
+            .collect::<Vec<Config>>()
+            .into()
     }
 }

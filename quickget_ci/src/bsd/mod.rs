@@ -16,7 +16,7 @@ impl Distro for FreeBSD {
     const PRETTY_NAME: &'static str = "FreeBSD";
     const HOMEPAGE: Option<&'static str> = Some("https://www.freebsd.org/");
     const DESCRIPTION: Option<&'static str> = Some("Operating system used to power modern servers, desktops, and embedded platforms.");
-    async fn generate_configs() -> Vec<Config> {
+    async fn generate_configs() -> Option<Vec<Config>> {
         let freebsd_regex = Arc::new(Regex::new(r#"href="([0-9\.]+)-RELEASE"#).unwrap());
         let checksum_regex = Arc::new(Regex::new(r#"SHA256 \(([^)]+)\) = ([0-9a-f]+)"#).unwrap());
         let futures = [
@@ -109,6 +109,6 @@ impl Distro for FreeBSD {
         let individual_futures = futures.into_iter().flatten().flatten().flatten().collect::<Vec<_>>();
 
         let releases = futures::future::join_all(individual_futures).await;
-        releases.into_iter().flatten().flatten().collect()
+        releases.into_iter().flatten().flatten().collect::<Vec<Config>>().into()
     }
 }

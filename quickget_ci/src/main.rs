@@ -33,11 +33,13 @@ async fn main() {
         spawn(linux::Elementary.to_os()),
         spawn(linux::ArchLinux.to_os()),
         spawn(linux::ArcoLinux.to_os()),
+        spawn(linux::ArtixLinux.to_os()),
     ];
 
     let mut distros = futures::future::join_all(futures)
         .await
         .into_iter()
+        .flatten()
         .flatten()
         .collect::<Vec<OS>>();
 

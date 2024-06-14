@@ -15,10 +15,8 @@ impl Distro for Alma {
     const PRETTY_NAME: &'static str = "AlmaLinux";
     const HOMEPAGE: Option<&'static str> = Some("https://almalinux.org/");
     const DESCRIPTION: Option<&'static str> = Some("Community owned and governed, forever-free enterprise Linux distribution, focused on long-term stability, providing a robust production-grade platform. AlmaLinux OS is binary compatible with RHEL®.");
-    async fn generate_configs() -> Vec<Config> {
-        let Some(releases) = capture_page(ALMA_MIRROR).await else {
-            return Vec::new();
-        };
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let releases = capture_page(ALMA_MIRROR).await?;
 
         let releases_regex = Regex::new(r#"<a href="([0-9]+)/""#).unwrap();
         let iso_regex = Arc::new(Regex::new(r#"<a href="(AlmaLinux-[0-9]+-latest-(?:x86_64|aarch64)-([^-]+).iso)">"#).unwrap());
@@ -74,6 +72,7 @@ impl Distro for Alma {
             .flatten()
             .flatten()
             .flatten()
-            .collect()
+            .collect::<Vec<Config>>()
+            .into()
     }
 }

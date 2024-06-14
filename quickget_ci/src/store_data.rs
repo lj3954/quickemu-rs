@@ -144,18 +144,18 @@ pub trait Distro {
     const PRETTY_NAME: &'static str;
     const HOMEPAGE: Option<&'static str>;
     const DESCRIPTION: Option<&'static str>;
-    async fn generate_configs() -> Vec<Config>;
+    async fn generate_configs() -> Option<Vec<Config>>;
 }
 
 pub trait ToOS {
     #![allow(dead_code)]
-    async fn to_os(&self) -> OS;
+    async fn to_os(&self) -> Option<OS>;
 }
 
 impl<T: Distro + Send> ToOS for T {
-    async fn to_os(&self) -> OS {
+    async fn to_os(&self) -> Option<OS> {
         // Any entry containing a URL which isn't reachable needs to be removed
-        let releases = Self::generate_configs().await;
+        let releases = Self::generate_configs().await?;
         let futures = releases.iter().map(|r| {
             let urls = [
                 filter_web_sources(r.iso.as_deref()),
@@ -186,13 +186,13 @@ impl<T: Distro + Send> ToOS for T {
             })
             .collect::<Vec<Config>>();
 
-        OS {
+        Some(OS {
             name: Self::NAME.into(),
             pretty_name: Self::PRETTY_NAME.into(),
             homepage: Self::HOMEPAGE.map(Into::into),
             description: Self::DESCRIPTION.map(Into::into),
             releases,
-        }
+        })
     }
 }
 
