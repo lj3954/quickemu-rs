@@ -68,6 +68,9 @@ impl CreateConfig for ConfigFile {
                 arch: remote.arch,
                 image_files: Some(images),
                 disk_images,
+                boot_type: remote.boot_type.unwrap_or_default(),
+                tpm: remote.tpm.unwrap_or_default(),
+                ram: remote.ram,
                 ..Default::default()
             },
             vm_path,
