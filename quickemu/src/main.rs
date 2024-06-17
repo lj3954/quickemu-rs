@@ -229,6 +229,7 @@ impl TryFrom<CliArgs> for Args {
             vm_name,
             vm_dir,
             guest_os: conf.guest_os,
+            pci_passthrough: conf.pci_passthrough,
         })
     }
 }

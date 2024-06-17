@@ -151,6 +151,18 @@ impl Args {
         self.monitor.to_args("monitor")?.add_args(&mut qemu_args, &mut print_args);
         self.serial.to_args("serial")?.add_args(&mut qemu_args, &mut print_args);
 
+        if let Some(devices) = self.pci_passthrough {
+            qemu_args.extend(devices.into_iter().flat_map(|passthrough| {
+                let mut arg = OsString::from("vfio-pci,host=");
+                arg.push(passthrough.id);
+                if let Some(rom) = passthrough.rom {
+                    arg.push(",romfile=");
+                    arg.push(rom);
+                }
+                ["-device".into(), arg]
+            }))
+        }
+
         qemu_args.extend(self.extra_args.into_iter().map(|arg| arg.into()).collect::<Vec<OsString>>());
 
         log::debug!("QEMU ARGS: {:?}", qemu_args);

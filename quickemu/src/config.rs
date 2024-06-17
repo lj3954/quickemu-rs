@@ -44,6 +44,7 @@ pub struct Args {
     pub fullscreen: bool,
     pub vm_dir: PathBuf,
     pub vm_name: String,
+    pub pci_passthrough: Option<Vec<PciPassthrough>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -100,6 +101,8 @@ pub struct ConfigFile {
     pub braille: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     pub access: Access,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pci_passthrough: Option<Vec<PciPassthrough>>,
 }
 
 impl Default for ConfigFile {
@@ -136,6 +139,7 @@ impl Default for ConfigFile {
             status_quo: false,
             braille: false,
             access: Default::default(),
+            pci_passthrough: None,
         }
     }
 }
@@ -579,6 +583,12 @@ pub enum ActionType {
     DeleteVM,
     Snapshot(Snapshot),
     EditConfig,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PciPassthrough {
+    pub id: String,
+    pub rom: Option<PathBuf>,
 }
 
 pub trait BooleanDisplay {
