@@ -85,12 +85,8 @@ impl GuestOS {
                     Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::LinuxOld | Self::Solaris => default_cpu(),
                     Self::KolibriOS | Self::ReactOS => "qemu32".to_string(),
                     Self::MacOS { release } => {
-                        if vendor == "GenuineIntel" {
-                            default_cpu()
-                        } else if release >= &MacOSRelease::Ventura {
-                            macos_cpu_flags("Haswell-v2,vendor=GenuineIntel,+avx,+avx2,+sse,+sse2,+ssse3,+sse4.1,+sse4.2,+rdtscp")
-                        } else if release >= &MacOSRelease::Catalina {
-                            macos_cpu_flags("Haswell-v2,vendor=GenuineIntel,+avx,+sse,+sse2,+ssse3,+sse4.1,+sse4.2,+rdtscp")
+                        if release >= &MacOSRelease::Ventura {
+                            macos_cpu_flags("Skylake-Server-v3,vendor=GenuineIntel,vmware-cpuid-freq=on")
                         } else {
                             macos_legacy_cpu_flag()
                         }
@@ -149,35 +145,35 @@ fn macos_legacy_cpu_flag() -> String {
 
         if let Some(features) = cpuid.get_feature_info() {
             cpu_arg.add_features(&[
-                (features.has_tsc(), ",+tsc"),
-                (features.has_vme(), ",+vme"),
-                (features.has_fxsave_fxstor(), ",+fxsr"),
-                (features.has_mmx(), ",+mmx"),
-                (features.has_clflush(), ",+clflush"),
-                (features.has_pse36(), ",+pse36"),
-                (features.has_pat(), ",+pat"),
-                (features.has_cmov(), ",+cmov"),
-                (features.has_mca(), ",+mca"),
-                (features.has_pge(), ",+pge"),
-                (features.has_mtrr(), ",+mtrr"),
-                (features.has_sysenter_sysexit(), ",+sep"),
-                (features.has_apic(), ",+apic"),
-                (features.has_cmpxchg8b(), ",+cx8"),
-                (features.has_mce(), ",+mce"),
-                (features.has_pae(), ",+pae"),
-                (features.has_msr(), ",+msr"),
-                (features.has_pse(), ",+pse"),
-                (features.has_de(), ",+de"),
-                (features.has_fpu(), ",+fpu"),
-                (features.has_cmpxchg16b(), ",+cx16"),
+                (features.has_tsc(), "tsc"),
+                (features.has_vme(), "vme"),
+                (features.has_fxsave_fxstor(), "fxsr"),
+                (features.has_mmx(), "mmx"),
+                (features.has_clflush(), "clflush"),
+                (features.has_pse36(), "pse36"),
+                (features.has_pat(), "pat"),
+                (features.has_cmov(), "cmov"),
+                (features.has_mca(), "mca"),
+                (features.has_pge(), "pge"),
+                (features.has_mtrr(), "mtrr"),
+                (features.has_sysenter_sysexit(), "sep"),
+                (features.has_apic(), "apic"),
+                (features.has_cmpxchg8b(), "cx8"),
+                (features.has_mce(), "mce"),
+                (features.has_pae(), "pae"),
+                (features.has_msr(), "msr"),
+                (features.has_pse(), "pse"),
+                (features.has_de(), "de"),
+                (features.has_fpu(), "fpu"),
+                (features.has_cmpxchg16b(), "cx16"),
             ]);
         }
         if let Some(features) = cpuid.get_extended_processor_and_feature_identifiers() {
             cpu_arg.add_features(&[
-                (features.has_64bit_mode(), ",+lm"),
-                (features.has_execute_disable(), ",+nx"),
-                (features.has_syscall_sysret(), ",+syscall"),
-                (features.has_lahf_sahf(), ",+lahf-lm"),
+                (features.has_64bit_mode(), "lm"),
+                (features.has_execute_disable(), "nx"),
+                (features.has_syscall_sysret(), "syscall"),
+                (features.has_lahf_sahf(), "lahf-lm"),
             ]);
         }
     }
@@ -191,91 +187,105 @@ fn macos_cpu_flags(input: &str) -> String {
         let cpuid = raw_cpuid::CpuId::new();
 
         if let Some(features) = cpuid.get_feature_info() {
-            cpu_arg.add_features(&[
-                (features.has_vmx(), ",+vmx"),
-                (features.has_aesni(), ",+aes"),
-                (features.has_cmpxchg8b(), ",+cx8"),
-                (features.has_eist(), ",+eist"),
-                (features.has_f16c(), ",+f16c"),
-                (features.has_fma(), ",+fma"),
-                (features.has_mmx(), ",+mmx"),
-                (features.has_movbe(), ",+movbe"),
-                (features.has_popcnt(), ",+popcnt"),
-                (features.has_fxsave_fxstor(), ",+fxsr"),
-                (features.has_clflush(), ",+clflush"),
-                (features.has_pse36(), ",+pse36"),
-                (features.has_pat(), ",+pat"),
-                (features.has_cmov(), ",+cmov"),
-                (features.has_mca(), ",+mca"),
-                (features.has_mce(), ",+mce"),
-                (features.has_pae(), ",+pae"),
-                (features.has_msr(), ",+msr"),
-                (features.has_pge(), ",+pge"),
-                (features.has_mtrr(), ",+mtrr"),
-                (features.has_sysenter_sysexit(), ",+sep"),
-                (features.has_apic(), ",+apic"),
-                (features.has_cmpxchg16b(), ",+cx16"),
-                (features.has_fpu(), ",+fpu"),
-                (features.has_de(), ",+de"),
-                (features.has_pse(), ",+pse"),
-                (features.has_x2apic(), ",+x2apic"),
-                (features.has_xsave(), ",+xsave"),
-                (features.has_rdrand(), ",+rdrand"),
-                (!features.has_pcid(), ",-pcid"),
-                (features.has_tsc(), ",+tsc"),
+            cpu_arg.remove_features(&[
+                (features.has_aesni(), "aes"),
+                (features.has_apic(), "apic"),
+                (features.has_clflush(), "clflush"),
+                (features.has_cmov(), "cmov"),
+                (features.has_cmpxchg8b(), "cx8"),
+                (features.has_cmpxchg16b(), "cx16"),
+                (features.has_de(), "de"),
+                (features.has_f16c(), "f16c"),
+                (features.has_fma(), "fma"),
+                (features.has_fxsave_fxstor(), "fxsr"),
+                (features.has_mca(), "mca"),
+                (features.has_mce(), "mce"),
+                (features.has_mmx(), "mmx"),
+                (features.has_movbe(), "movbe"),
+                (features.has_msr(), "msr"),
+                (features.has_mtrr(), "mtrr"),
+                (features.has_pae(), "pae"),
+                (features.has_pat(), "pat"),
+                (features.has_pcid(), "pcid"),
+                (features.has_pge(), "pge"),
+                (features.has_pse(), "pse"),
+                (features.has_pse36(), "pse36"),
+                (features.has_popcnt(), "popcnt"),
+                (features.has_rdrand(), "rdrand"),
+                (features.has_sysenter_sysexit(), "sep"),
+                (features.has_x2apic(), "x2apic"),
+                (features.has_xsave(), "xsave"),
             ]);
         }
         if let Some(features) = cpuid.get_extended_feature_info() {
-            cpu_arg.add_features(&[
-                (features.has_bmi1(), ",+bmi1"),
-                (features.has_bmi2(), ",+bmi2"),
-                (features.has_adx(), ",+adx"),
-                (features.has_mpx(), ",+mpx"),
-                (features.has_smep(), ",+smep"),
-                (features.has_vaes(), ",+vaes"),
-                (features.has_av512vbmi2(), ",+avx512vbmi2"),
-                (features.has_vpclmulqdq(), ",+vpclmulqdq"),
-                (features.has_fsgsbase(), ",+fsgsbase"),
-                (features.has_rep_movsb_stosb(), ",+erms"),
-                (features.has_tsc_adjust_msr(), ",+tsc-adjust"),
-                (features.has_invpcid(), ",+invpcid"),
+            cpu_arg.remove_features(&[
+                (features.has_adx(), "adx"),
+                (features.has_avx2(), "avx2"),
+                (features.has_avx512f(), "avx512f"),
+                (features.has_avx512bw(), "avx512bw"),
+                (features.has_avx512dq(), "avx512dq"),
+                (features.has_avx512cd(), "avx512cd"),
+                (features.has_avx512vl(), "avx512vl"),
+                (features.has_clwb(), "clwb"),
+                (features.has_bmi1(), "bmi1"),
+                (features.has_bmi2(), "bmi2"),
+                (features.has_rep_movsb_stosb(), "erms"),
+                (features.has_fsgsbase(), "fsgsbase"),
+                (features.has_invpcid(), "invpcid"),
+                (features.has_mpx(), "mpx"),
+                (features.has_smep(), "smep"),
+                (features.has_vaes(), "vaes"),
+                (features.has_vpclmulqdq(), "vpclmulqdq"),
             ]);
         }
         if let Some(features) = cpuid.get_extended_processor_and_feature_identifiers() {
-            cpu_arg.add_features(&[
-                (features.has_data_access_bkpt_extension(), ",+amd-ssbd"),
-                (features.has_lzcnt(), ",abm"),
-                (features.has_64bit_mode(), ",+lm"),
-                (features.has_execute_disable(), ",+nx"),
-                (features.has_syscall_sysret(), ",+syscall"),
-                (features.has_lahf_sahf(), ",+lahf-lm"),
+            cpu_arg.remove_features(&[
+                (features.has_lzcnt(), "abm"),
+                (features.has_lahf_sahf(), "lahf-lm"),
+                (features.has_64bit_mode(), "lm"),
+                (features.has_execute_disable(), "nx"),
+                (features.has_syscall_sysret(), "syscall"),
+                (features.has_1gib_pages() || cfg!(target_os = "macos"), "pdpe1gb"),
             ]);
-
-            #[cfg(not(target_os = "macos"))]
-            cpu_arg.add_features(&[(features.has_1gib_pages(), ",+pdpe1gb")]);
-        }
-        if let Some(features) = cpuid.get_advanced_power_mgmt_info() {
-            cpu_arg.add_features(&[(features.has_invariant_tsc(), ",+invtsc")]);
         }
         if let Some(features) = cpuid.get_extended_state_info() {
-            cpu_arg.add_features(&[(features.has_xgetbv(), ",+xgetbv1"), (features.has_xsaveopt(), ",+xsaveopt")]);
+            cpu_arg.remove_features(&[(features.has_xgetbv(), "xgetbv1"), (features.has_xsaveopt(), "xsaveopt")]);
         }
         if let Some(features) = cpuid.get_thermal_power_info() {
-            cpu_arg.add_features(&[(features.has_arat(), ",+arat")]);
+            cpu_arg.remove_features(&[(features.has_arat(), "arat")]);
         }
     }
     cpu_arg
 }
 
-trait ConditionalAdd {
+trait ConditionalCpuFeatures {
     fn add_features(&mut self, features: &[(bool, &str)]);
+    fn remove_features(&mut self, features: &[(bool, &str)]);
 }
-impl ConditionalAdd for String {
+impl ConditionalCpuFeatures for String {
     fn add_features(&mut self, features: &[(bool, &str)]) {
-        features.iter().for_each(|(has_feature, flag)| {
-            if *has_feature {
-                self.push_str(flag)
-            }
-        })
+        modify_features(self, features, FeatureAction::Add)
     }
+    fn remove_features(&mut self, features: &[(bool, &str)]) {
+        modify_features(self, features, FeatureAction::Remove)
+    }
+}
+
+enum FeatureAction {
+    Add,
+    Remove,
+}
+
+fn modify_features(arg: &mut String, features: &[(bool, &str)], action: FeatureAction) {
+    features.iter().for_each(|(has_feature, flag)| match (has_feature, &action) {
+        (true, FeatureAction::Add) => {
+            arg.push_str(",+");
+            arg.push_str(flag);
+        }
+        (false, FeatureAction::Remove) => {
+            arg.push_str(",-");
+            arg.push_str(flag);
+        }
+        _ => {}
+    })
 }
