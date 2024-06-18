@@ -107,7 +107,7 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
         .transpose()?;
     let display: Display = conf.remove("display").try_into()?;
     let network: Network = (conf.remove("network"), conf.remove("macaddr")).try_into()?;
-    let ram = conf.get("ram").map(|ram| size_unit(ram)).transpose()?;
+    let ram = conf.remove("ram").map(|ram| size_unit(&ram)).transpose()?;
     let tpm = parse_optional_bool(conf.remove("tpm"), false)?;
     let keyboard: Keyboard = conf.remove("keyboard").try_into()?;
     let keyboard_layout = conf.remove("keyboard_layout");
@@ -169,7 +169,7 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
         .transpose()?;
 
     let disk_images = {
-        let size = conf.get("disk_size").map(|size| size_unit(size)).transpose()?;
+        let size = conf.remove("disk_size").map(|size| size_unit(&size)).transpose()?;
         let preallocation: PreAlloc = conf.remove("prealloc").try_into()?;
         let disk_file = conf
             .remove("disk_img")

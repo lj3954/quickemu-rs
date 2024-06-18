@@ -80,9 +80,7 @@ impl Display {
         };
 
         let mut message = format!(
-            "Display: {}, Device: {}, GL: {}, VirGL: {}",
-            self,
-            friendly_display_device,
+            "Display: {self}, Device: {friendly_display_device}, GL: {}, VirGL: {}",
             accel.as_str(),
             (display_device == "virtio-vga-gl").as_str()
         );
@@ -157,16 +155,13 @@ fn display_resolution(name: Option<String>, screenpct: Option<u32>) -> Result<(u
         )
     };
 
-    let (width, height) = match display.width {
-        _ if screenpct.is_some() => (
-            (screenpct.unwrap() * display.width) / 100,
-            (screenpct.unwrap() * display.height) / 100,
-        ),
-        3840.. => (3200, 1800),
-        2560.. => (2048, 1152),
-        1920.. => (1664, 936),
-        1280.. => (1152, 648),
-        _ => (display.width, display.height),
+    let (width, height) = match (display.width, display.height, screenpct) {
+        (width, height, Some(screenpct)) => (screenpct * width / 100, screenpct * height / 100),
+        (3840.., 2160.., _) => (3200, 1800),
+        (2560.., 1440.., _) => (2048, 1152),
+        (1920.., 1080.., _) => (1664, 936),
+        (1280.., 800.., _) => (1152, 648),
+        (width, height, _) => (width, height),
     };
 
     Ok((width, height))
