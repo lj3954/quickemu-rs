@@ -21,6 +21,9 @@ impl Arch {
                     _ => ("q35", "off"),
                 };
 
+                #[cfg(target_os = "macos")]
+                let smm = "off";
+
                 let mut machine = OsString::from(machine_type);
                 machine.push(",smm=");
                 machine.push(smm);
