@@ -277,15 +277,13 @@ enum FeatureAction {
 }
 
 fn modify_features(arg: &mut String, features: &[(bool, &str)], action: FeatureAction) {
+    let mut modify_arg = |modification: &str, flag: &str| {
+        arg.push_str(modification);
+        arg.push_str(flag);
+    };
     features.iter().for_each(|(has_feature, flag)| match (has_feature, &action) {
-        (true, FeatureAction::Add) => {
-            arg.push_str(",+");
-            arg.push_str(flag);
-        }
-        (false, FeatureAction::Remove) => {
-            arg.push_str(",-");
-            arg.push_str(flag);
-        }
+        (true, FeatureAction::Add) => modify_arg(",+", flag),
+        (false, FeatureAction::Remove) => modify_arg(",-", flag),
         _ => {}
     })
 }
