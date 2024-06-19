@@ -1,10 +1,13 @@
-use crate::config::{DiskFormat, Display, PreAlloc, Viewer};
-
+#[cfg(not(target_os = "macos"))]
+use crate::config::Viewer;
+use crate::config::{DiskFormat, Display, PreAlloc};
 use anyhow::{anyhow, bail, Result};
-use std::ffi::OsString;
-use std::fs::File;
-use std::path::Path;
-use std::process::{Child, Command, Stdio};
+use std::{
+    ffi::OsString,
+    fs::File,
+    path::Path,
+    process::{Child, Command, Stdio},
+};
 
 pub fn launch_qemu(qemu_bin: &Path, args: &[OsString], display: &Display) -> Result<()> {
     match display {
@@ -44,6 +47,7 @@ pub fn tpm_pid(swtpm: &Path, args: &[OsString], log: File) -> Result<u32> {
         .id())
 }
 
+#[cfg(not(target_os = "macos"))]
 pub fn launch_viewer(viewer: &Path, vm_name: &str, publicdir: &str, port: u16, fullscreen: bool, viewer_type: &Viewer) -> Result<()> {
     let mut command = Command::new(viewer);
     command.arg("--title").arg(vm_name).arg("--spice-shared-dir").arg(publicdir);

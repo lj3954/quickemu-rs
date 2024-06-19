@@ -1,5 +1,7 @@
-use crate::config::{Arch, GuestOS, MacOSRelease};
-use crate::config_parse::BYTES_PER_GB;
+use crate::{
+    config::{Arch, GuestOS, MacOSRelease},
+    config_parse::BYTES_PER_GB,
+};
 use anyhow::{anyhow, bail, Result};
 use std::ffi::OsString;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
@@ -112,28 +114,25 @@ impl GuestOS {
         }
     }
 
-    pub fn guest_tweaks(&self) -> Option<Vec<OsString>> {
+    pub fn guest_tweaks(&self) -> Vec<OsString> {
+        #[cfg(target_os = "linux")]
+        let mut tweaks = vec!["-global".into(), "kvm-pit.lost_tick_policy=discard".into()];
+        #[cfg(not(target_os = "linux"))]
+        let mut tweaks = Vec::new();
+
+        let mut disable_s3 = || tweaks.extend(["-global".into(), "ICH9-LPC.disable_s3=1".into()]);
+
         match self {
             Self::MacOS { .. } => {
+                disable_s3();
                 let mut osk = OsString::from("isa-applesmc,osk=");
-                osk.push(String::from_utf8_lossy(OSK).to_string());
-                Some(vec![
-                    "-global".into(),
-                    "kvm-pit.lost_tick_policy=discard".into(),
-                    "-global".into(),
-                    "ICH9-LPC.disable_s3=1".into(),
-                    "-device".into(),
-                    osk,
-                ])
+                osk.push(String::from_utf8_lossy(OSK).as_ref());
+                tweaks.extend(["-device".into(), osk]);
             }
-            Self::Windows | Self::WindowsServer => Some(vec![
-                "-global".into(),
-                "kvm-pit.lost_tick_policy=discard".into(),
-                "-global".into(),
-                "ICH9-LPC.disable_s3=1".into(),
-            ]),
-            _ => None,
-        }
+            Self::Windows | Self::WindowsServer => disable_s3(),
+            _ => {}
+        };
+        tweaks
     }
 }
 

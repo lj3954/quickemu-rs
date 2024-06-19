@@ -1,17 +1,20 @@
-use crate::config::{DiskFormat, DiskImage, GuestOS, Image, MacOSRelease, PreAlloc};
-use crate::config_parse::BYTES_PER_GB;
-use crate::qemu_args::external_command;
+use crate::{
+    config::{DiskFormat, DiskImage, GuestOS, Image, MacOSRelease, PreAlloc},
+    config_parse::BYTES_PER_GB,
+    qemu_args::external_command,
+};
 use anyhow::{anyhow, bail, Result};
-use std::collections::HashSet;
-use std::ffi::OsString;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use which::which;
+use std::{
+    collections::HashSet,
+    ffi::OsString,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 const MIN_DISK_SIZE: u64 = 197_632 * 8;
 
 pub fn image_args(vm_dir: &Path, images: Option<Vec<Image>>, disks: Vec<DiskImage>, guest_os: &GuestOS, status_quo: bool) -> Result<(Vec<OsString>, Option<Vec<String>>)> {
-    let qemu_img = which("qemu-img").map_err(|_| anyhow!("qemu-img could not be found. Please verify that QEMU is installed on your system."))?;
+    let qemu_img = which::which("qemu-img").map_err(|_| anyhow!("qemu-img could not be found. Please verify that QEMU is installed on your system."))?;
 
     let mut print_args = Vec::new();
 

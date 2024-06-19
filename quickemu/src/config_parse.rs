@@ -1,10 +1,7 @@
-use crate::config::*;
-use crate::validate;
+use crate::{config::*, validate};
 use anyhow::{anyhow, bail, Result};
 use core::num::NonZeroUsize;
-use std::convert::TryFrom;
-use std::path::Path;
-use std::path::PathBuf;
+use std::{convert::TryFrom, path::Path, path::PathBuf};
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
 impl From<(Option<String>, Access)> for Access {

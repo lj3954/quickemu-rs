@@ -4,12 +4,10 @@ mod config_parse;
 mod qemu_args;
 mod validate;
 
-use anyhow::Result;
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 use clap::Parser;
 use config::{ActionType, Args, ConfigFile};
-use std::fs::read_to_string;
-use std::path::PathBuf;
+use std::{fs::read_to_string, path::PathBuf};
 
 fn main() {
     let args = CliArgs::parse();

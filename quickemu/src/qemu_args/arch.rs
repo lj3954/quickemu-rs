@@ -13,12 +13,16 @@ impl Arch {
     pub fn machine_type(&self, guest_os: &GuestOS) -> OsString {
         match self {
             Self::x86_64 => {
-                let (machine_type, smm) = match guest_os {
-                    GuestOS::Windows | GuestOS::WindowsServer => ("q35,hpet=off", "on"),
-                    GuestOS::MacOS { .. } => ("q35,hpet=off", "off"),
-                    GuestOS::FreeDOS => ("pc", "on"),
-                    GuestOS::Batocera | GuestOS::Haiku | GuestOS::Solaris | GuestOS::ReactOS | GuestOS::KolibriOS => ("pc", "off"),
-                    _ => ("q35", "off"),
+                let machine_type = match guest_os {
+                    GuestOS::Windows | GuestOS::WindowsServer | GuestOS::MacOS { .. } => "q35,hpet=off",
+                    GuestOS::FreeDOS | GuestOS::Batocera | GuestOS::Haiku | GuestOS::Solaris | GuestOS::ReactOS | GuestOS::KolibriOS => "pc",
+                    _ => "q35",
+                };
+
+                #[cfg(not(target_os = "macos"))]
+                let smm = match guest_os {
+                    GuestOS::Windows | GuestOS::WindowsServer | GuestOS::FreeDOS => "on",
+                    _ => "off",
                 };
 
                 #[cfg(target_os = "macos")]

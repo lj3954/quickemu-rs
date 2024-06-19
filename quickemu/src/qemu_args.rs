@@ -6,13 +6,13 @@ mod images;
 
 use crate::{config::*, config_parse::BYTES_PER_GB};
 use anyhow::{anyhow, bail, Result};
-use std::ffi::OsString;
-use std::net::{Ipv4Addr, SocketAddrV4, TcpListener};
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
 use std::{
+    ffi::OsString,
     fs::{create_dir, read_to_string, File, OpenOptions},
     io::Write,
+    net::{Ipv4Addr, SocketAddrV4, TcpListener},
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
 };
 use sysinfo::{Cpu, Networks, Pid, ProcessRefreshKind, RefreshKind, System};
 use which::which;
@@ -746,9 +746,7 @@ fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> 
         #[cfg(target_os = "macos")]
         args.extend(["-accel".into(), "hvf".into()]);
     }
-    if let Some(mut tweaks) = guest_os.guest_tweaks() {
-        args.append(&mut tweaks);
-    }
+    args.append(&mut guest_os.guest_tweaks());
     Some(args)
 }
 

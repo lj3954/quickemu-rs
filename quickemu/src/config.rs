@@ -1,10 +1,7 @@
 use anyhow::{bail, Result};
 use clap::ValueEnum;
-use serde::de::Visitor;
-use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::net::SocketAddr;
-use std::path::PathBuf;
+use serde::{de::Visitor, Deserialize, Serialize};
+use std::{fmt, net::SocketAddr, path::PathBuf};
 
 #[derive(Debug)]
 pub struct Args {

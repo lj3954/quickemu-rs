@@ -1,12 +1,16 @@
-use crate::config::{Access, Arch, BooleanDisplay, Display, GuestOS, Monitor, Resolution, SoundCard, Viewer};
-use crate::qemu_args::external_command::launch_viewer;
-use crate::qemu_args::find_port;
+#[cfg(not(target_os = "macos"))]
+use crate::{config::Access, qemu_args::external_command::launch_viewer};
+use crate::{
+    config::{Arch, BooleanDisplay, Display, GuestOS, Monitor, Resolution, SoundCard, Viewer},
+    qemu_args::find_port,
+};
 use anyhow::{anyhow, bail, Result};
-use std::ffi::OsString;
-use std::io::{Read, Write};
-use std::net::TcpStream;
-use std::os::unix::net::UnixStream;
-use which::which;
+use std::{
+    ffi::OsString,
+    io::{Read, Write},
+    net::TcpStream,
+    os::unix::net::UnixStream,
+};
 
 impl SoundCard {
     pub fn to_args(&self) -> (Vec<String>, Option<Vec<String>>) {
@@ -228,7 +232,7 @@ impl Viewer {
         match self {
             Self::None => (),
             Self::Remote => {
-                let viewer = which("remote-viewer").map_err(|_| anyhow!("Remote viewer was selected, but remote-viewer is not installed."))?;
+                let viewer = which::which("remote-viewer").map_err(|_| anyhow!("Remote viewer was selected, but remote-viewer is not installed."))?;
                 let publicdir = publicdir.map(|dir| dir.to_string_lossy()).unwrap_or_default();
                 println!(
                     r#" - Viewer: remote-viewer --title "{vm_name}" --spice-shared-dir "{publicdir}"{} "spice://localhost:{port}""#,
@@ -238,7 +242,7 @@ impl Viewer {
                 launch_viewer(&viewer, vm_name, &publicdir, port, fullscreen, self)?;
             }
             Self::Spicy => {
-                let viewer = which("spicy").map_err(|_| anyhow!("Spicy is not installed, spicy viewer cannot be used."))?;
+                let viewer = which::which("spicy").map_err(|_| anyhow!("Spicy is not installed, spicy viewer cannot be used."))?;
                 let publicdir = publicdir.map(|dir| dir.to_string_lossy()).unwrap_or_default();
                 println!(
                     r#" - Viewer: spicy --title "{vm_name}" --port {port} --spice-shared-dir "{publicdir}"{}"#,
