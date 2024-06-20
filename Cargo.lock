@@ -1657,6 +1657,7 @@ dependencies = [
  "env_logger",
  "log",
  "num_cpus",
+ "once_cell",
  "pathdiff",
  "raw-cpuid",
  "serde",

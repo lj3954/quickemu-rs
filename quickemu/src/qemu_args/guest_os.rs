@@ -16,34 +16,22 @@ impl GuestOS {
     pub fn validate_cpu(&self) -> Result<()> {
         let cpuid = raw_cpuid::CpuId::new();
         log::trace!("Testing architecture. Found CPUID: {:?}", cpuid);
-        let virtualization_type = match cpuid.get_vendor_info() {
-            Some(vendor_info) => match vendor_info.as_str() {
-                "GenuineIntel" => " (VT-x)",
-                "AuthenticAMD" => " (AMD-V)",
-                _ => "",
-            },
-            None => "",
-        };
 
         let cpu_features = cpuid
             .get_feature_info()
             .ok_or_else(|| anyhow!("Could not determine whether your CPU supports the necessary instructions."))?;
-        let extended_identifiers = cpuid
-            .get_extended_processor_and_feature_identifiers()
-            .ok_or_else(|| anyhow!("Could not determine whether your CPU supports the necessary instructions."))?;
-        if !(cpu_features.has_vmx() || extended_identifiers.has_svm()) {
-            bail!("CPU Virtualization{virtualization_type} is required for x86_64 guests. Please enable it in your BIOS.",);
-        }
 
         if let GuestOS::MacOS { release } = self {
-            if matches!(release, MacOSRelease::Ventura | MacOSRelease::Sonoma) {
-                if let Some(extended_features) = cpuid.get_extended_feature_info() {
-                    if !(cpu_features.has_sse42() || extended_features.has_avx2()) {
-                        bail!("macOS releases Ventura and newer require a CPU which supports AVX2 and SSE4.2.");
-                    }
-                } else {
-                    bail!("Could not determine whether your CPU supports AVX2.");
-                }
+            if release >= &MacOSRelease::Ventura {
+                cpuid
+                    .get_extended_feature_info()
+                    .ok_or_else(|| anyhow!("Could not determine whether your CPU supports AVX2."))
+                    .and_then(|extended_features| {
+                        if !(cpu_features.has_sse42() || extended_features.has_avx2()) {
+                            bail!("macOS releases Ventura and newer require a CPU which supports AVX2 and SSE4.2.");
+                        }
+                        Ok(())
+                    })?;
             } else if !cpu_features.has_sse41() {
                 bail!("macOS requires a CPU which supports SSE4.1.");
             }
@@ -67,7 +55,7 @@ impl GuestOS {
 
     pub fn cpu_argument(&self, arch: &Arch) -> Option<String> {
         let default_cpu = || {
-            if arch.matches_host() {
+            if arch.enable_hw_virt() {
                 if cfg!(target_os = "macos") {
                     "host,-pdpe1gb".to_string()
                 } else {
@@ -87,7 +75,7 @@ impl GuestOS {
                     Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::LinuxOld | Self::Solaris => default_cpu(),
                     Self::KolibriOS | Self::ReactOS => "qemu32".to_string(),
                     Self::MacOS { release } => {
-                        if release >= &MacOSRelease::Ventura {
+                        if release >= &MacOSRelease::Catalina {
                             macos_cpu_flags("Skylake-Server-v3,vendor=GenuineIntel,vmware-cpuid-freq=on")
                         } else {
                             macos_legacy_cpu_flag()

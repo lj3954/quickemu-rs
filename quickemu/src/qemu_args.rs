@@ -740,7 +740,7 @@ fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> 
     #[cfg(not(target_os = "macos"))]
     let mut args = vec!["-name".into(), name, "-pidfile".into(), pid.into(), "-machine".into(), machine];
 
-    if arch.matches_host() {
+    if arch.enable_hw_virt() {
         #[cfg(target_os = "linux")]
         args.extend(["-accel".into(), "kvm".into()]);
         #[cfg(target_os = "macos")]
