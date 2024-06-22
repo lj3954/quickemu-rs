@@ -9,7 +9,7 @@ pub struct Args {
     pub arch: Arch,
     pub braille: bool,
     pub boot: BootType,
-    pub cpu_cores: (usize, bool),
+    pub cpu_cores: CpuCores,
     pub disk_images: Vec<DiskImage>,
     pub display: Display,
     pub accelerated: bool,
@@ -204,6 +204,12 @@ impl Default for BootType {
     fn default() -> Self {
         Self::Efi { secure_boot: false }
     }
+}
+
+#[derive(Debug)]
+pub struct CpuCores {
+    pub cores: usize,
+    pub smt: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

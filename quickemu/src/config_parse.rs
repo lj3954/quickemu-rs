@@ -17,23 +17,28 @@ impl From<(Option<String>, Access)> for Access {
     }
 }
 
-pub fn cpu_cores(input: Option<NonZeroUsize>, logical: usize, physical: usize) -> Result<(usize, bool)> {
-    Ok((
-        match input {
-            Some(cores) => cores.into(),
-            None => match logical {
-                _ if physical > logical => {
-                    bail!("Found more physical cores than logical cores. Please manually set your core count in the configuration file.")
-                }
-                32.. => 16,
-                16.. => 8,
-                8.. => 4,
-                4.. => 2,
-                _ => 1,
+type CpuInput = (Option<NonZeroUsize>, usize, usize);
+impl TryFrom<CpuInput> for CpuCores {
+    type Error = anyhow::Error;
+    fn try_from(input: CpuInput) -> Result<Self> {
+        let (specified, logical, physical) = input;
+        Ok(CpuCores {
+            cores: match specified {
+                Some(cores) => cores.into(),
+                None => match logical {
+                    _ if physical > logical => {
+                        bail!("Found more physical cores than logical cores. Please manually set your core count in the configuration file.")
+                    }
+                    32.. => 16,
+                    16.. => 8,
+                    8.. => 4,
+                    4.. => 2,
+                    _ => 1,
+                },
             },
-        },
-        logical > physical,
-    ))
+            smt: logical > physical,
+        })
+    }
 }
 
 pub const BYTES_PER_GB: u64 = 1024 * 1024 * 1024;

@@ -73,7 +73,7 @@ impl Args {
         qemu_args.reserve(32);
 
         qemu_args.extend(self.display.audio_arg());
-        cpucores_ram(self.cpu_cores.0, self.cpu_cores.1, &self.system, self.ram, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
+        cpucores_ram(self.cpu_cores, &self.system, self.ram, &self.guest_os)?.add_args(&mut qemu_args, &mut print_args);
         if let Some(arg) = self.guest_os.cpu_argument(&self.arch) {
             qemu_args.extend(["-cpu".into(), arg.into()]);
         }
@@ -551,7 +551,8 @@ fn tpm_args(vm_dir: &Path, vm_name: &str, sh_file: &mut File) -> Result<([OsStri
     ))
 }
 
-fn cpucores_ram(mut cores: usize, threads: bool, system_info: &System, ram: u64, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
+fn cpucores_ram(cpu: CpuCores, system_info: &System, ram: u64, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
+    let mut cores = cpu.cores;
     if ram < 4 * BYTES_PER_GB {
         if let GuestOS::MacOS { .. } | GuestOS::Windows | GuestOS::WindowsServer = guest_os {
             bail!("{} guests require at least 4GB of RAM.", guest_os);
@@ -577,12 +578,13 @@ fn cpucores_ram(mut cores: usize, threads: bool, system_info: &System, ram: u64,
         _ => sockets.to_string() + "sockets, ",
     };
 
-    let core_text = if cores > 1 && threads {
-        args.push(format!("cores={},threads=2,sockets={}", cores / 2, sockets));
-        format!("{} core{} and {} threads", cores / 2, if cores > 2 { "s" } else { "" }, cores)
+    let core_text = if cores > 1 && cpu.smt {
+        let physical_cores = cores / 2;
+        args.push(format!("cores={physical_cores},threads=2,sockets={sockets}"));
+        format!("{physical_cores} core{} and {cores} threads", if cores > 2 { "s" } else { "" })
     } else {
-        args.push(format!("cores={},threads=1,sockets={}", cores, sockets));
-        format!("{} core{}", cores, if cores > 1 { "s" } else { "" })
+        args.push(format!("cores={cores},threads=1,sockets={sockets}"));
+        format!("{cores} core{}", if cores > 1 { "s" } else { "" })
     };
     args.push("-m".into());
     args.push(ram.to_string() + "b");
