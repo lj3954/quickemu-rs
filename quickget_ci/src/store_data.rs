@@ -164,7 +164,14 @@ pub trait ToOS {
 impl<T: Distro + Send> ToOS for T {
     async fn to_os(&self) -> Option<OS> {
         // Any entry containing a URL which isn't reachable needs to be removed
-        let releases = Self::generate_configs().await?;
+        let Some(releases) = Self::generate_configs().await else {
+            log::error!("Failed to generate configs for {}", Self::PRETTY_NAME);
+            return None;
+        };
+        if releases.is_empty() {
+            log::error!("No releases found for {}", Self::PRETTY_NAME);
+            return None;
+        }
         let futures = releases.iter().map(|r| {
             let urls = [
                 filter_web_sources(r.iso.as_deref()),

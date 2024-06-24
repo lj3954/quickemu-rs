@@ -1,6 +1,6 @@
 use crate::{
     store_data::{Config, Distro, Source, WebSource},
-    utils::capture_page,
+    utils::{capture_page, GatherData, GithubAPI},
 };
 use quickget_ci::Arch;
 use regex::Regex;
@@ -216,8 +216,7 @@ impl Distro for AthenaOS {
     const HOMEPAGE: Option<&'static str> = Some("https://athenaos.org/");
     const DESCRIPTION: Option<&'static str> = Some("Offer a different experience than the most used pentesting distributions by providing only tools that fit with the user needs and improving the access to hacking resources and learning materials.");
     async fn generate_configs() -> Option<Vec<Config>> {
-        let data = capture_page(ATHENA_API).await?;
-        let api_data: Vec<GithubAPIValue> = serde_json::from_str(&data).ok()?;
+        let api_data = GithubAPI::gather_data(ATHENA_API).await?;
 
         let futures = api_data.into_iter().take(2).map(|mut d| {
             tokio::spawn(async move {
@@ -258,16 +257,4 @@ impl Distro for AthenaOS {
             .collect::<Vec<Config>>()
             .into()
     }
-}
-
-#[derive(Deserialize)]
-struct GithubAPIValue {
-    tag_name: String,
-    assets: Vec<GithubAsset>,
-    prerelease: bool,
-}
-#[derive(Deserialize)]
-struct GithubAsset {
-    name: String,
-    browser_download_url: String,
 }

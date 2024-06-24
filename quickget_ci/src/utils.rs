@@ -1,10 +1,12 @@
 use once_cell::sync::Lazy;
-use reqwest::{Client, ClientBuilder, StatusCode, Url};
+use reqwest::{StatusCode, Url};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
+use serde::Deserialize;
 use std::collections::HashMap;
 use tokio::{spawn, sync::Semaphore};
 
 pub async fn capture_page(input: &str) -> Option<String> {
-    #![allow(dead_code)]
     let url: Url = input.parse().ok()?;
     let url_permit = match CLIENT.url_permits.get(url.host_str()?) {
         Some(semaphore) => Some(semaphore.acquire().await.ok()?),
@@ -45,12 +47,14 @@ pub async fn all_valid(urls: Vec<String>) -> bool {
                 .send()
                 .await
                 .inspect_err(|e| {
-                    log::warn!("Failed to make request to URL {}: {}", input, e);
+                    log::error!("Failed to make request to URL {}: {}", input, e);
                 })
                 .ok()?;
-            let successful = response.status().is_success() || response.status() == StatusCode::TOO_MANY_REQUESTS;
+            let status = response.status();
+            let successful = status.is_success() || status == StatusCode::TOO_MANY_REQUESTS;
+
             if !successful {
-                log::warn!("Failed to resolve URL: {}", input);
+                log::warn!("Failed to resolve URL {}: {}", input, status);
             }
             drop(permit);
             if let Some(url_permit) = url_permit {
@@ -67,14 +71,44 @@ pub async fn all_valid(urls: Vec<String>) -> bool {
 }
 
 struct ReqwestClient {
-    client: Client,
+    client: ClientWithMiddleware,
     semaphore: Semaphore,
     url_permits: HashMap<&'static str, Semaphore>,
 }
 
 static CLIENT: Lazy<ReqwestClient> = Lazy::new(|| {
-    let client = ClientBuilder::new().user_agent("quickemu-rs/1.0").build().unwrap();
-    let semaphore = Semaphore::new(70);
+    let retries = ExponentialBackoff::builder().build_with_max_retries(3);
+    let client = reqwest::ClientBuilder::new().user_agent("quickemu-rs/1.0").build().unwrap();
+    let client = ClientBuilder::new(client)
+        .with(RetryTransientMiddleware::new_with_policy(retries))
+        .build();
+    let semaphore = Semaphore::new(150);
     let url_permits = HashMap::from([("sourceforge.net", Semaphore::new(5))]);
     ReqwestClient { client, semaphore, url_permits }
 });
+
+pub trait GatherData {
+    type Output;
+    #[allow(dead_code)]
+    async fn gather_data(url: &str) -> Option<Self::Output>;
+}
+
+pub struct GithubAPI;
+impl GatherData for GithubAPI {
+    type Output = Vec<GithubAPIValue>;
+    async fn gather_data(url: &str) -> Option<Self::Output> {
+        let data = capture_page(url).await?;
+        serde_json::from_str(&data).ok()
+    }
+}
+#[derive(Deserialize)]
+pub struct GithubAPIValue {
+    pub tag_name: String,
+    pub assets: Vec<GithubAsset>,
+    pub prerelease: bool,
+}
+#[derive(Deserialize)]
+pub struct GithubAsset {
+    pub name: String,
+    pub browser_download_url: String,
+}
