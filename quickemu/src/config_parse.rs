@@ -1,7 +1,10 @@
 use crate::{config::*, validate};
 use anyhow::{anyhow, bail, Result};
 use core::num::NonZeroUsize;
-use std::{convert::TryFrom, path::Path, path::PathBuf};
+use std::{
+    convert::TryFrom,
+    path::{Path, PathBuf},
+};
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
 impl From<(Option<String>, Access)> for Access {
@@ -17,24 +20,26 @@ impl From<(Option<String>, Access)> for Access {
     }
 }
 
-type CpuInput = (Option<NonZeroUsize>, usize, usize);
-impl TryFrom<CpuInput> for CpuCores {
+impl TryFrom<Option<NonZeroUsize>> for CpuCores {
     type Error = anyhow::Error;
-    fn try_from(input: CpuInput) -> Result<Self> {
-        let (specified, logical, physical) = input;
+    fn try_from(specified: Option<NonZeroUsize>) -> Result<Self> {
+        let (physical, logical) = (num_cpus::get_physical(), num_cpus::get());
         Ok(CpuCores {
             cores: match specified {
                 Some(cores) => cores.into(),
-                None => match logical {
-                    _ if physical > logical => {
-                        bail!("Found more physical cores than logical cores. Please manually set your core count in the configuration file.")
+                None => {
+                    if physical > logical {
+                        bail!("Found more physical cores than logical cores. Please manually set your core count in the configuration file.");
                     }
-                    32.. => 16,
-                    16.. => 8,
-                    8.. => 4,
-                    4.. => 2,
-                    _ => 1,
-                },
+
+                    match logical {
+                        32.. => 16,
+                        16.. => 8,
+                        8.. => 4,
+                        4.. => 2,
+                        _ => 1,
+                    }
+                }
             },
             smt: logical > physical,
         })

@@ -181,7 +181,7 @@ impl TryFrom<CliArgs> for Args {
             arch: conf.arch,
             braille: args.braille || conf.braille,
             boot: conf.boot_type,
-            cpu_cores: (conf.cpu_cores, num_cpus::get(), num_cpus::get_physical()).try_into()?,
+            cpu_cores: conf.cpu_cores.try_into()?,
             disk_images: conf.disk_images,
             display: args.display.unwrap_or(conf.display),
             accelerated: conf.accelerated,
