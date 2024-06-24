@@ -36,14 +36,13 @@ async fn main() {
         spawn(linux::ArtixLinux.to_os()),
     ];
 
-    let mut distros = futures::future::join_all(futures)
+    let distros = futures::future::join_all(futures)
         .await
         .into_iter()
         .flatten()
         .flatten()
-        .collect::<Vec<OS>>();
-
-    sort_distros(&mut distros);
+        .collect::<Vec<OS>>()
+        .distro_sort();
 
     if let Ok(output) = serde_json::to_string_pretty(&distros) {
         println!("{}", output);
@@ -57,22 +56,29 @@ async fn main() {
     file.write_all(output.as_bytes()).unwrap();
 }
 
-fn sort_distros(distros: &mut [OS]) {
-    distros.sort_unstable_by(|a, b| a.name.cmp(&b.name));
-    distros.iter_mut().for_each(|d| {
-        d.releases.sort_unstable_by(|a, b| {
-            if let (Some(release_a), Some(release_b)) = (&a.release, &b.release) {
-                let (mut a, mut b) = (release_a.split('.'), release_b.split('.'));
-                while let (Some(a), Some(b)) = (a.next(), b.next()) {
-                    if let (Ok(a), Ok(b)) = (a.parse::<u64>(), b.parse::<u64>()) {
-                        let comparison = b.cmp(&a);
-                        if comparison != std::cmp::Ordering::Equal {
-                            return comparison;
+trait DistroSort {
+    fn distro_sort(self) -> Self;
+}
+
+impl DistroSort for Vec<OS> {
+    fn distro_sort(mut self) -> Self {
+        self.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+        self.iter_mut().for_each(|d| {
+            d.releases.sort_unstable_by(|a, b| {
+                if let (Some(release_a), Some(release_b)) = (&a.release, &b.release) {
+                    let (mut a, mut b) = (release_a.split('.'), release_b.split('.'));
+                    while let (Some(a), Some(b)) = (a.next(), b.next()) {
+                        if let (Ok(a), Ok(b)) = (a.parse::<u64>(), b.parse::<u64>()) {
+                            let comparison = b.cmp(&a);
+                            if comparison != std::cmp::Ordering::Equal {
+                                return comparison;
+                            }
                         }
                     }
                 }
-            }
-            b.release.cmp(&a.release).then(a.edition.cmp(&b.edition))
-        })
-    });
+                b.release.cmp(&a.release).then(a.edition.cmp(&b.edition))
+            })
+        });
+        self
+    }
 }
