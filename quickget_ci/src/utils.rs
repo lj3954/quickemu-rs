@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use once_cell::sync::Lazy;
 use reqwest::{StatusCode, Url};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -89,7 +90,6 @@ static CLIENT: Lazy<ReqwestClient> = Lazy::new(|| {
 
 pub trait GatherData {
     type Output;
-    #[allow(dead_code)]
     async fn gather_data(url: &str) -> Option<Self::Output>;
 }
 
