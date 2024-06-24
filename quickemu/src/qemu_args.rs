@@ -723,24 +723,26 @@ fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsStr
 }
 
 fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> Option<Vec<OsString>> {
-    let machine = arch.machine_type(guest_os);
     let pid = vm_dir.join(vm_name.to_owned() + ".pid");
     if pid.exists() {
         return None;
     }
 
+    let rtc = match arch {
+        Arch::x86_64 => "base=localtime,clock=host,driftfix=slew",
+        _ => "base=localtime,clock=host",
+    };
+    let machine = arch.machine_type(guest_os);
+
+    let mut args: Vec<OsString> = vec!["-pidfile".into(), pid.into(), "-machine".into(), machine, "-rtc".into(), rtc.into()];
+
     #[cfg(not(target_os = "macos"))]
-    let name = {
+    {
         let mut name = OsString::from(vm_name);
         name.push(",process=");
         name.push(vm_name);
-        name
-    };
-
-    #[cfg(target_os = "macos")]
-    let mut args: Vec<OsString> = vec!["-pidfile".into(), pid.into(), "-machine".into(), machine.into()];
-    #[cfg(not(target_os = "macos"))]
-    let mut args = vec!["-name".into(), name, "-pidfile".into(), pid.into(), "-machine".into(), machine];
+        args.extend(["-name".into(), name]);
+    }
 
     if arch.enable_hw_virt() {
         #[cfg(target_os = "linux")]
