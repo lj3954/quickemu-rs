@@ -5,8 +5,7 @@ use crate::{
 use quickget_ci::Arch;
 use regex::Regex;
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 const ARCHCRAFT_MIRROR: &str = "https://sourceforge.net/projects/archcraft/files/";
 
@@ -206,4 +205,69 @@ impl Distro for ArtixLinux {
             .collect::<Vec<Config>>()
             .into()
     }
+}
+
+const ATHENA_API: &str = "https://api.github.com/repos/Athena-OS/athena/releases";
+
+pub struct AthenaOS;
+impl Distro for AthenaOS {
+    const NAME: &'static str = "athenaos";
+    const PRETTY_NAME: &'static str = "Athena OS";
+    const HOMEPAGE: Option<&'static str> = Some("https://athenaos.org/");
+    const DESCRIPTION: Option<&'static str> = Some("Offer a different experience than the most used pentesting distributions by providing only tools that fit with the user needs and improving the access to hacking resources and learning materials.");
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let data = capture_page(ATHENA_API).await?;
+        let api_data: Vec<GithubAPIValue> = serde_json::from_str(&data).ok()?;
+
+        let futures = api_data.into_iter().take(2).map(|mut d| {
+            tokio::spawn(async move {
+                if d.assets.is_empty() {
+                    return None;
+                }
+                let mut release = d.tag_name;
+                if d.prerelease {
+                    release.push_str("-pre");
+                }
+                let iso_index = d.assets.iter().position(|a| a.name.ends_with(".iso"))?;
+
+                let checksum_name = std::mem::take(&mut d.assets[iso_index].name) + ".sha256";
+                let checksum = {
+                    let checksum_asset = d.assets.iter().find(|a| a.name == checksum_name);
+                    match checksum_asset {
+                        Some(c) => capture_page(&c.browser_download_url)
+                            .await
+                            .and_then(|c| c.split_whitespace().next().map(ToString::to_string)),
+                        None => None,
+                    }
+                };
+                let iso_url = d.assets.remove(iso_index).browser_download_url;
+
+                Some(Config {
+                    release: Some(release),
+                    iso: Some(vec![Source::Web(WebSource::new(iso_url, checksum, None, None))]),
+                    ..Default::default()
+                })
+            })
+        });
+
+        futures::future::join_all(futures)
+            .await
+            .into_iter()
+            .flatten()
+            .flatten()
+            .collect::<Vec<Config>>()
+            .into()
+    }
+}
+
+#[derive(Deserialize)]
+struct GithubAPIValue {
+    tag_name: String,
+    assets: Vec<GithubAsset>,
+    prerelease: bool,
+}
+#[derive(Deserialize)]
+struct GithubAsset {
+    name: String,
+    browser_download_url: String,
 }

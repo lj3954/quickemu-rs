@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use reqwest::{Client, StatusCode, Url};
+use reqwest::{Client, ClientBuilder, StatusCode, Url};
 use std::collections::HashMap;
 use tokio::{spawn, sync::Semaphore};
 
@@ -14,10 +14,11 @@ pub async fn capture_page(input: &str) -> Option<String> {
     let permit = CLIENT.semaphore.acquire().await.ok()?;
     let response = CLIENT.client.get(url).send().await.ok()?;
 
-    let output = if response.status().is_success() {
+    let status = response.status();
+    let output = if status.is_success() {
         response.text().await.ok().filter(|text| !text.is_empty())
     } else {
-        log::warn!("Failed to capture page: {}", input);
+        log::warn!("Failed to capture page: {}, {}", input, status);
         None
     };
 
@@ -72,7 +73,7 @@ struct ReqwestClient {
 }
 
 static CLIENT: Lazy<ReqwestClient> = Lazy::new(|| {
-    let client = Client::new();
+    let client = ClientBuilder::new().user_agent("quickemu-rs/1.0").build().unwrap();
     let semaphore = Semaphore::new(70);
     let url_permits = HashMap::from([("sourceforge.net", Semaphore::new(5))]);
     ReqwestClient { client, semaphore, url_permits }

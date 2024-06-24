@@ -34,6 +34,7 @@ async fn main() {
         spawn(linux::ArchLinux.to_os()),
         spawn(linux::ArcoLinux.to_os()),
         spawn(linux::ArtixLinux.to_os()),
+        spawn(linux::AthenaOS.to_os()),
     ];
 
     let distros = futures::future::join_all(futures)
@@ -66,6 +67,7 @@ impl DistroSort for Vec<OS> {
         self.iter_mut().for_each(|d| {
             d.releases.sort_unstable_by(|a, b| {
                 if let (Some(release_a), Some(release_b)) = (&a.release, &b.release) {
+                    let (release_a, release_b) = (release_a.trim_start_matches('v'), release_b.trim_start_matches('v'));
                     let (mut a, mut b) = (release_a.split('.'), release_b.split('.'));
                     while let (Some(a), Some(b)) = (a.next(), b.next()) {
                         if let (Ok(a), Ok(b)) = (a.parse::<u64>(), b.parse::<u64>()) {
@@ -73,6 +75,8 @@ impl DistroSort for Vec<OS> {
                             if comparison != std::cmp::Ordering::Equal {
                                 return comparison;
                             }
+                        } else {
+                            break;
                         }
                     }
                 }
