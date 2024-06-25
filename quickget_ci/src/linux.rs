@@ -4,7 +4,7 @@ mod fedora_redhat;
 mod independent;
 mod ubuntu;
 
-pub(crate) use arch::{ArchLinux, Archcraft, ArcoLinux, ArtixLinux, AthenaOS};
+pub(crate) use arch::{manjaro::BigLinux, ArchLinux, Archcraft, ArcoLinux, ArtixLinux, AthenaOS};
 pub(crate) use debian::Antix;
 pub(crate) use fedora_redhat::{Alma, Bazzite};
 pub(crate) use independent::{Alpine, Batocera, NixOS};

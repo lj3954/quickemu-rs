@@ -1,8 +1,9 @@
+pub mod manjaro;
+
 use crate::{
     store_data::{Config, Distro, Source, WebSource},
     utils::{capture_page, GatherData, GithubAPI},
 };
-use quickget_ci::Arch;
 use regex::Regex;
 use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
@@ -34,7 +35,6 @@ impl Distro for Archcraft {
                 Some(Config {
                     release: Some(release),
                     edition: None,
-                    arch: Arch::x86_64,
                     iso: Some(vec![Source::Web(WebSource::new(download_url, checksum, None, None))]),
                     ..Default::default()
                 })
@@ -73,7 +73,6 @@ impl Distro for ArchLinux {
                 Config {
                     release: Some(release),
                     edition: None,
-                    arch: Arch::x86_64,
                     iso: Some(vec![Source::Web(WebSource::new(download_url, checksum, None, None))]),
                     ..Default::default()
                 }
