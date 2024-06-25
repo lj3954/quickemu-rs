@@ -76,3 +76,59 @@ impl Distro for Alma {
             .into()
     }
 }
+
+const BAZZITE_WORKFLOW: &str = "https://raw.githubusercontent.com/ublue-os/bazzite/main/.github/workflows/build_iso.yml";
+const BAZZITE_EXCLUDE: [&str; 3] = ["nvidia", "ally", "asus"];
+const BAZZITE_MIRROR: &str = "https://download.bazzite.gg/";
+
+pub struct Bazzite;
+impl Distro for Bazzite {
+    const NAME: &'static str = "bazzite";
+    const PRETTY_NAME: &'static str = "Bazzite";
+    const HOMEPAGE: Option<&'static str> = Some("https://bazzite.gg/");
+    const DESCRIPTION: Option<&'static str> = Some("Container native gaming and a ready-to-game SteamOS like.");
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let workflow = capture_page(BAZZITE_WORKFLOW).await?;
+        let workflow_capture_regex = Regex::new(r#"- (bazzite-?(.*))"#).unwrap();
+
+        let futures = workflow_capture_regex
+            .captures_iter(&workflow)
+            .map(|c| {
+                let edition_capture = &c[2];
+
+                let edition = if edition_capture.is_empty() {
+                    "plasma".to_string()
+                } else if edition_capture.len() > 4 {
+                    edition_capture.to_string()
+                } else {
+                    format!("{edition_capture}-plasma")
+                };
+
+                let iso = format!("{BAZZITE_MIRROR}{}-stable.iso", &c[1]);
+                tokio::spawn(async move {
+                    if BAZZITE_EXCLUDE.iter().any(|e| edition.contains(e)) {
+                        return None;
+                    }
+                    let checksum_url = iso.clone() + "-CHECKSUM";
+                    let checksum = capture_page(&checksum_url)
+                        .await
+                        .and_then(|c| c.split_whitespace().next().map(ToString::to_string));
+                    Some(Config {
+                        release: Some("latest".to_string()),
+                        edition: Some(edition),
+                        iso: Some(vec![Source::Web(WebSource::new(iso, checksum, None, None))]),
+                        ..Default::default()
+                    })
+                })
+            })
+            .collect::<Vec<_>>();
+
+        futures::future::join_all(futures)
+            .await
+            .into_iter()
+            .flatten()
+            .flatten()
+            .collect::<Vec<Config>>()
+            .into()
+    }
+}
