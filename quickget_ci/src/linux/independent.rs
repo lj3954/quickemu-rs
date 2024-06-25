@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    store_data::{Config, Distro, Source, WebSource},
+    store_data::{ArchiveFormat, Config, Distro, Source, WebSource},
     utils::capture_page,
 };
 use quickemu::config::Arch;
@@ -132,6 +132,55 @@ impl Distro for Alpine {
                 })
                 .collect::<Vec<_>>()
         });
+
+        futures::future::join_all(futures)
+            .await
+            .into_iter()
+            .flatten()
+            .flatten()
+            .collect::<Vec<Config>>()
+            .into()
+    }
+}
+
+const BATOCERA_MIRROR: &str = "https://mirrors.o2switch.fr/batocera/x86_64/stable/";
+
+pub struct Batocera;
+impl Distro for Batocera {
+    const NAME: &'static str = "batocera";
+    const PRETTY_NAME: &'static str = "Batocera";
+    const HOMEPAGE: Option<&'static str> = Some("https://batocera.org/");
+    const DESCRIPTION: Option<&'static str> = Some("Retro-gaming distribution with the aim of turning any computer/nano computer into a gaming console during a game or permanently.");
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let release_data = capture_page(BATOCERA_MIRROR).await?;
+        let batocera_regex = Regex::new(r#"<a href="([0-9]{2})/""#).unwrap();
+        let iso_regex = Arc::new(Regex::new(r#"<a href="(batocera-x86_64.*?.img.gz)"#).unwrap());
+
+        let mut releases = batocera_regex
+            .captures_iter(&release_data)
+            .map(|r| r[1].parse::<u32>().unwrap())
+            .collect::<Vec<u32>>();
+        releases.sort_unstable();
+        releases.reverse();
+
+        let futures = releases
+            .into_iter()
+            .take(3)
+            .map(|release| {
+                let iso_regex = iso_regex.clone();
+                tokio::spawn(async move {
+                    let url = format!("{BATOCERA_MIRROR}{release}/");
+                    let page = capture_page(&url).await?;
+                    let captures = iso_regex.captures(&page)?;
+                    let iso = format!("{url}{}", &captures[1]);
+                    Some(Config {
+                        release: Some(release.to_string()),
+                        img: Some(vec![Source::Web(WebSource::new(iso, None, Some(ArchiveFormat::Gz), None))]),
+                        ..Default::default()
+                    })
+                })
+            })
+            .collect::<Vec<_>>();
 
         futures::future::join_all(futures)
             .await

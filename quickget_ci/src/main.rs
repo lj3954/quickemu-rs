@@ -35,6 +35,7 @@ async fn main() {
         spawn(linux::ArcoLinux.to_os()),
         spawn(linux::ArtixLinux.to_os()),
         spawn(linux::AthenaOS.to_os()),
+        spawn(linux::Batocera.to_os()),
     ];
 
     let distros = futures::future::join_all(futures)
