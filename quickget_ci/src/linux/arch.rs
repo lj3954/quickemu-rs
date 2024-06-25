@@ -257,3 +257,21 @@ impl Distro for AthenaOS {
             .into()
     }
 }
+
+pub struct BlendOS;
+impl Distro for BlendOS {
+    const NAME: &'static str = "blendos";
+    const PRETTY_NAME: &'static str = "BlendOS";
+    const HOMEPAGE: Option<&'static str> = Some("https://blendos.co/");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "A seamless blend of all Linux distributions. Allows you to have an immutable, atomic and declarative Arch Linux system, with application support from several Linux distributions & Android.",
+    );
+    async fn generate_configs() -> Option<Vec<Config>> {
+        Some(vec![Config {
+            iso: Some(vec![Source::Web(WebSource::url_only(
+                "https://kc1.mirrors.199693.xyz/blend/isos/testing/blendOS.iso",
+            ))]),
+            ..Default::default()
+        }])
+    }
+}

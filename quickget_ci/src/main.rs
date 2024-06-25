@@ -38,6 +38,7 @@ async fn main() {
         spawn(linux::Batocera.to_os()),
         spawn(linux::Bazzite.to_os()),
         spawn(linux::BigLinux.to_os()),
+        spawn(linux::BlendOS.to_os()),
     ];
 
     let distros = futures::future::join_all(futures)
@@ -51,9 +52,6 @@ async fn main() {
     if let Ok(output) = serde_json::to_string_pretty(&distros) {
         println!("{}", output);
     }
-
-    // Placeholder: Disable dead code warning for url only
-    let _ = store_data::WebSource::url_only("");
 
     let output = serde_json::to_string(&distros).unwrap();
     let mut file = File::create("quickget_data.json").unwrap();
