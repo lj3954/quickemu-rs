@@ -31,7 +31,7 @@ impl Distro for Antix {
             tokio::spawn(async move {
                 let main_checksums = capture_page(&checksum_mirror).await;
                 let runit_checksums = capture_page(&runit_checksum_mirror).await;
-                let checksums = main_checksums
+                let mut checksums = main_checksums
                     .iter()
                     .chain(runit_checksums.iter())
                     .flat_map(|cs| {
@@ -51,7 +51,7 @@ impl Distro for Antix {
                     main_releases
                         .chain(runit_releases)
                         .map(|(c, ending)| {
-                            let checksum = checksums.get(&c[1]).cloned();
+                            let checksum = checksums.remove(&c[1]);
                             let edition = c[2].to_string() + ending;
                             let url = c[3].to_string();
                             Config {
