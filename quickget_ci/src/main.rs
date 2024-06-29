@@ -54,8 +54,10 @@ async fn main() {
     }
 
     let output = serde_json::to_string(&distros).unwrap();
-    let mut file = File::create("quickget_data.json").unwrap();
-    file.write_all(output.as_bytes()).unwrap();
+
+    output.write_with_compression("quickget_data.json", CompressionType::None);
+    output.write_with_compression("quickget_data.json.gz", CompressionType::Gzip);
+    output.write_with_compression("quickget_data.json.zst", CompressionType::Zstd);
 }
 
 trait DistroSort {
@@ -85,5 +87,33 @@ impl DistroSort for Vec<OS> {
             })
         });
         self
+    }
+}
+
+enum CompressionType {
+    None,
+    Gzip,
+    Zstd,
+}
+
+trait WriteCompressedData {
+    fn write_with_compression(&self, filename: &str, compression: CompressionType);
+}
+
+impl WriteCompressedData for String {
+    fn write_with_compression(&self, filename: &str, compression: CompressionType) {
+        let mut file = File::create(filename).unwrap();
+        let data = self.as_bytes();
+        match compression {
+            CompressionType::None => file.write_all(data).unwrap(),
+            CompressionType::Gzip => {
+                let mut compressor = libdeflater::Compressor::new(libdeflater::CompressionLvl::best());
+                let mut output = vec![0; compressor.gzip_compress_bound(data.len())];
+                let final_size = compressor.gzip_compress(data, &mut output).unwrap();
+                output.resize(final_size, 0);
+                file.write_all(&output).unwrap();
+            }
+            CompressionType::Zstd => zstd::stream::copy_encode(data, file, 22).unwrap(),
+        }
     }
 }

@@ -1129,6 +1129,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
 
 [[package]]
+name = "libdeflate-sys"
+version = "1.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "669ea17f9257bcb48c09c7ee4bef3957777504acffac557263e20c11001977bc"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "libdeflater"
+version = "1.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dfd6424f7010ee0a3416f1d796d0450e3ad3ac237a237644f728277c4ded016"
+dependencies = [
+ "libdeflate-sys",
+]
+
+[[package]]
 name = "libloading"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1584,6 +1602,7 @@ version = "0.7.3"
 dependencies = [
  "env_logger",
  "futures",
+ "libdeflater",
  "log",
  "once_cell",
  "quick-xml 0.31.0",
@@ -1595,6 +1614,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "zstd",
 ]
 
 [[package]]
