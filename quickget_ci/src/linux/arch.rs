@@ -24,7 +24,7 @@ impl Distro for Archcraft {
             let release = r[1].to_string();
             let mirror = format!("{ARCHCRAFT_MIRROR}v{release}/");
             let url_regex = url_regex.clone();
-            tokio::spawn(async move {
+            async move {
                 let page = capture_page(&mirror).await?;
                 let urls = url_regex.captures(&page)?;
                 let download_url = urls[1].to_string();
@@ -38,12 +38,11 @@ impl Distro for Archcraft {
                     iso: Some(vec![Source::Web(WebSource::new(download_url, checksum, None, None))]),
                     ..Default::default()
                 })
-            })
+            }
         });
         futures::future::join_all(futures)
             .await
             .into_iter()
-            .flatten()
             .flatten()
             .collect::<Vec<Config>>()
             .into()
@@ -119,7 +118,7 @@ impl Distro for ArcoLinux {
                 let mirror = format!("{ARCOLINUX_MIRROR}{release}/");
                 let iso_regex = iso_regex.clone();
                 let checksum_regex = checksum_regex.clone();
-                tokio::spawn(async move {
+                async move {
                     let page = capture_page(&mirror).await?;
                     let checksums = checksum_regex
                         .captures_iter(&page)
@@ -135,7 +134,7 @@ impl Distro for ArcoLinux {
                             let download_url = format!("{mirror}{iso}");
                             let checksum_url = checksums.get(edition.as_str()).map(|c| format!("{mirror}{c}"));
                             let release = release.clone();
-                            tokio::spawn(async move {
+                            async move {
                                 let checksum = if let Some(checksum_url) = checksum_url {
                                     capture_page(&checksum_url)
                                         .await
@@ -149,18 +148,16 @@ impl Distro for ArcoLinux {
                                     iso: Some(vec![Source::Web(WebSource::new(download_url, checksum, None, None))]),
                                     ..Default::default()
                                 }
-                            })
+                            }
                         })
                         .collect::<Vec<_>>();
                     Some(futures::future::join_all(futures).await)
-                })
+                }
             })
             .collect::<Vec<_>>();
         futures::future::join_all(futures)
             .await
             .into_iter()
-            .flatten()
-            .flatten()
             .flatten()
             .flatten()
             .collect::<Vec<Config>>()
@@ -217,41 +214,38 @@ impl Distro for AthenaOS {
     async fn generate_configs() -> Option<Vec<Config>> {
         let api_data = GithubAPI::gather_data(ATHENA_API).await?;
 
-        let futures = api_data.into_iter().take(2).map(|mut d| {
-            tokio::spawn(async move {
-                if d.assets.is_empty() {
-                    return None;
-                }
-                let mut release = d.tag_name;
-                if d.prerelease {
-                    release.push_str("-pre");
-                }
-                let iso_index = d.assets.iter().position(|a| a.name.ends_with(".iso"))?;
+        let futures = api_data.into_iter().take(2).map(|mut d| async move {
+            if d.assets.is_empty() {
+                return None;
+            }
+            let mut release = d.tag_name;
+            if d.prerelease {
+                release.push_str("-pre");
+            }
+            let iso_index = d.assets.iter().position(|a| a.name.ends_with(".iso"))?;
 
-                let checksum_name = std::mem::take(&mut d.assets[iso_index].name) + ".sha256";
-                let checksum = {
-                    let checksum_asset = d.assets.iter().find(|a| a.name == checksum_name);
-                    match checksum_asset {
-                        Some(c) => capture_page(&c.browser_download_url)
-                            .await
-                            .and_then(|c| c.split_whitespace().next().map(ToString::to_string)),
-                        None => None,
-                    }
-                };
-                let iso_url = d.assets.remove(iso_index).browser_download_url;
+            let checksum_name = std::mem::take(&mut d.assets[iso_index].name) + ".sha256";
+            let checksum = {
+                let checksum_asset = d.assets.iter().find(|a| a.name == checksum_name);
+                match checksum_asset {
+                    Some(c) => capture_page(&c.browser_download_url)
+                        .await
+                        .and_then(|c| c.split_whitespace().next().map(ToString::to_string)),
+                    None => None,
+                }
+            };
+            let iso_url = d.assets.remove(iso_index).browser_download_url;
 
-                Some(Config {
-                    release: Some(release),
-                    iso: Some(vec![Source::Web(WebSource::new(iso_url, checksum, None, None))]),
-                    ..Default::default()
-                })
+            Some(Config {
+                release: Some(release),
+                iso: Some(vec![Source::Web(WebSource::new(iso_url, checksum, None, None))]),
+                ..Default::default()
             })
         });
 
         futures::future::join_all(futures)
             .await
             .into_iter()
-            .flatten()
             .flatten()
             .collect::<Vec<Config>>()
             .into()

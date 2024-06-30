@@ -1,7 +1,6 @@
 use crate::utils::all_valid;
 use quickemu::config::{Arch, BootType, DiskFormat, GuestOS};
 use serde::{Deserialize, Serialize};
-use tokio::spawn;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OS {
@@ -181,15 +180,16 @@ impl<T: Distro + Send> ToOS for T {
                 extract_disk_urls(r.disk_images.as_deref()),
             ]
             .concat();
-            spawn(async move { all_valid(urls).await })
+            async move { all_valid(urls).await }
         });
         let results = futures::future::join_all(futures).await;
         let releases = releases
             .into_iter()
             .zip(results)
-            .filter_map(|(config, valid)| match valid {
-                Ok(true) => Some(config),
-                _ => {
+            .filter_map(|(config, valid)| {
+                if valid {
+                    Some(config)
+                } else {
                     log::warn!(
                         "Removing {} {} {} {} due to unresolvable URL",
                         Self::PRETTY_NAME,

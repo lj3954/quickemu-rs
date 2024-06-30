@@ -32,7 +32,7 @@ impl Distro for Alma {
                     let checksum_regex = checksum_regex.clone();
                     let mirror = format!("{ALMA_MIRROR}{release}/isos/{arch}/");
 
-                    tokio::spawn(async move {
+                    async move {
                         let page = capture_page(&mirror).await?;
                         let checksum_page = capture_page(&format!("{mirror}CHECKSUM")).await;
                         let checksums = checksum_page.map(|cs| {
@@ -61,7 +61,7 @@ impl Distro for Alma {
                                 })
                                 .collect::<Vec<Config>>(),
                         )
-                    })
+                    }
                 })
                 .collect::<Vec<_>>()
         });
@@ -69,7 +69,6 @@ impl Distro for Alma {
         futures::future::join_all(futures)
             .await
             .into_iter()
-            .flatten()
             .flatten()
             .flatten()
             .collect::<Vec<Config>>()
@@ -105,7 +104,7 @@ impl Distro for Bazzite {
                 };
 
                 let iso = format!("{BAZZITE_MIRROR}{}-stable.iso", &c[1]);
-                tokio::spawn(async move {
+                async move {
                     if BAZZITE_EXCLUDE.iter().any(|e| edition.contains(e)) {
                         return None;
                     }
@@ -119,14 +118,13 @@ impl Distro for Bazzite {
                         iso: Some(vec![Source::Web(WebSource::new(iso, checksum, None, None))]),
                         ..Default::default()
                     })
-                })
+                }
             })
             .collect::<Vec<_>>();
 
         futures::future::join_all(futures)
             .await
             .into_iter()
-            .flatten()
             .flatten()
             .collect::<Vec<Config>>()
             .into()

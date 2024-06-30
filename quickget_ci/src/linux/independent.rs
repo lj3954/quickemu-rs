@@ -55,7 +55,7 @@ impl Distro for NixOS {
                             let name = capture.get(0).map(|n| n.as_str().to_string());
                             let edition = capture.get(1).map(|e| e.as_str().to_string());
                             let arch: Option<Arch> = capture.get(2).map(|a| a.as_str().to_string()).try_into().ok();
-                            tokio::spawn(async move {
+                            async move {
                                 let iso = format!("{NIX_DOWNLOAD_URL}/nixos-{release}/{}", name?);
                                 let hash = capture_page(&format!("{iso}.sha256"))
                                     .await
@@ -67,7 +67,7 @@ impl Distro for NixOS {
                                     iso: Some(vec![Source::Web(WebSource::new(iso, hash, None, None))]),
                                     ..Default::default()
                                 })
-                            })
+                            }
                         })
                         .collect(),
                 );
@@ -76,7 +76,6 @@ impl Distro for NixOS {
         futures::future::join_all(futures)
             .await
             .into_iter()
-            .flatten()
             .flatten()
             .collect::<Vec<Config>>()
             .into()
@@ -116,7 +115,7 @@ impl Distro for Alpine {
                     let mirror = format!("{ALPINE_MIRROR}{release}/releases/{arch}/latest-releases.yaml");
                     let iso_regex = iso_regex.clone();
 
-                    tokio::spawn(async move {
+                    async move {
                         let page = capture_page(&mirror).await?;
                         let captures = iso_regex.captures(&page)?;
                         let iso = captures.get(1).unwrap().as_str();
@@ -128,7 +127,7 @@ impl Distro for Alpine {
                             iso: Some(vec![Source::Web(WebSource::new(iso, Some(checksum), None, None))]),
                             ..Default::default()
                         })
-                    })
+                    }
                 })
                 .collect::<Vec<_>>()
         });
@@ -136,7 +135,6 @@ impl Distro for Alpine {
         futures::future::join_all(futures)
             .await
             .into_iter()
-            .flatten()
             .flatten()
             .collect::<Vec<Config>>()
             .into()
@@ -168,7 +166,7 @@ impl Distro for Batocera {
             .take(3)
             .map(|release| {
                 let iso_regex = iso_regex.clone();
-                tokio::spawn(async move {
+                async move {
                     let url = format!("{BATOCERA_MIRROR}{release}/");
                     let page = capture_page(&url).await?;
                     let captures = iso_regex.captures(&page)?;
@@ -178,14 +176,13 @@ impl Distro for Batocera {
                         img: Some(vec![Source::Web(WebSource::new(iso, None, Some(ArchiveFormat::Gz), None))]),
                         ..Default::default()
                     })
-                })
+                }
             })
             .collect::<Vec<_>>();
 
         futures::future::join_all(futures)
             .await
             .into_iter()
-            .flatten()
             .flatten()
             .collect::<Vec<Config>>()
             .into()

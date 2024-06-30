@@ -1,9 +1,11 @@
-use crate::store_data::{Config, Distro, Source, WebSource};
-use crate::utils::capture_page;
+use crate::{
+    store_data::{Config, Distro, Source, WebSource},
+    utils::capture_page,
+};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Deserialize;
-use tokio::{runtime::Runtime, spawn};
+use tokio::runtime::Runtime;
 
 const LAUNCHPAD_RELEASES_URL: &str = "https://api.launchpad.net/devel/ubuntu/series";
 
@@ -156,7 +158,7 @@ async fn get_ubuntu_releases(variant: UbuntuVariant) -> Option<Vec<Config>> {
             UbuntuVariant::UbuntuStudio => "dvd",
             _ => "desktop",
         };
-        spawn(async move {
+        async move {
             let text = match capture_page(&format!("{}SHA256SUMS", url)).await {
                 Some(text) => text,
                 None => capture_page(&format!("{}MD5SUMS", url)).await?,
@@ -171,13 +173,12 @@ async fn get_ubuntu_releases(variant: UbuntuVariant) -> Option<Vec<Config>> {
                 release: Some(release.to_string()),
                 ..Default::default()
             })
-        })
+        }
     });
 
     futures::future::join_all(futures)
         .await
         .into_iter()
-        .flatten()
         .flatten()
         .collect::<Vec<Config>>()
         .into()

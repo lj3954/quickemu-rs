@@ -39,7 +39,7 @@ impl Distro for FreeBSD {
                 })
             };
 
-            tokio::spawn(async move {
+            async move {
                 if let Some(page) = capture_page(mirror).await {
                     Some(
                         freebsd_regex
@@ -103,10 +103,10 @@ impl Distro for FreeBSD {
                     log::warn!("Failed to fetch FreeBSD {arch} releases");
                     None
                 }
-            })
+            }
         });
         let futures = futures::future::join_all(futures).await;
-        let individual_futures = futures.into_iter().flatten().flatten().flatten().collect::<Vec<_>>();
+        let individual_futures = futures.into_iter().flatten().flatten().collect::<Vec<_>>();
 
         let releases = futures::future::join_all(individual_futures).await;
         releases.into_iter().flatten().flatten().collect::<Vec<Config>>().into()

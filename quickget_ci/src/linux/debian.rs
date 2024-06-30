@@ -28,7 +28,7 @@ impl Distro for Antix {
             let runit_checksum_mirror = format!("{runit_mirror}README2.txt/download");
             let iso_regex = iso_regex.clone();
 
-            tokio::spawn(async move {
+            async move {
                 let main_checksums = capture_page(&checksum_mirror).await;
                 let runit_checksums = capture_page(&runit_checksum_mirror).await;
                 let mut checksums = main_checksums
@@ -63,13 +63,12 @@ impl Distro for Antix {
                         })
                         .collect::<Vec<_>>(),
                 )
-            })
+            }
         });
 
         futures::future::join_all(futures)
             .await
             .into_iter()
-            .flatten()
             .flatten()
             .flatten()
             .collect::<Vec<Config>>()

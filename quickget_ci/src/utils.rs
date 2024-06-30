@@ -5,7 +5,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use serde::Deserialize;
 use std::collections::HashMap;
-use tokio::{spawn, sync::Semaphore};
+use tokio::sync::Semaphore;
 
 pub async fn capture_page(input: &str) -> Option<String> {
     let url: Url = input.parse().ok()?;
@@ -33,42 +33,36 @@ pub async fn capture_page(input: &str) -> Option<String> {
 }
 
 pub async fn all_valid(urls: Vec<String>) -> bool {
-    let futures = urls.into_iter().map(|input| {
-        spawn(async move {
-            let url: Url = input.parse().ok()?;
-            let url_permit = match CLIENT.url_permits.get(url.host_str()?) {
-                Some(semaphore) => Some(semaphore.acquire().await.ok()?),
-                None => None,
-            };
-            let permit = CLIENT.semaphore.acquire().await.ok()?;
+    let futures = urls.into_iter().map(|input| async move {
+        let url: Url = input.parse().ok()?;
+        let url_permit = match CLIENT.url_permits.get(url.host_str()?) {
+            Some(semaphore) => Some(semaphore.acquire().await.ok()?),
+            None => None,
+        };
+        let permit = CLIENT.semaphore.acquire().await.ok()?;
 
-            let response = CLIENT
-                .client
-                .get(url)
-                .send()
-                .await
-                .inspect_err(|e| {
-                    log::error!("Failed to make request to URL {}: {}", input, e);
-                })
-                .ok()?;
-            let status = response.status();
-            let successful = status.is_success() || status == StatusCode::TOO_MANY_REQUESTS;
+        let response = CLIENT
+            .client
+            .get(url)
+            .send()
+            .await
+            .inspect_err(|e| {
+                log::error!("Failed to make request to URL {}: {}", input, e);
+            })
+            .ok()?;
+        let status = response.status();
+        let successful = status.is_success() || status == StatusCode::TOO_MANY_REQUESTS;
 
-            if !successful {
-                log::warn!("Failed to resolve URL {}: {}", input, status);
-            }
-            drop(permit);
-            if let Some(url_permit) = url_permit {
-                drop(url_permit);
-            }
-            Some(successful)
-        })
+        if !successful {
+            log::warn!("Failed to resolve URL {}: {}", input, status);
+        }
+        drop(permit);
+        if let Some(url_permit) = url_permit {
+            drop(url_permit);
+        }
+        Some(successful)
     });
-    futures::future::join_all(futures)
-        .await
-        .into_iter()
-        .flatten()
-        .all(|r| r.unwrap_or(true))
+    futures::future::join_all(futures).await.into_iter().all(|r| r.unwrap_or(true))
 }
 
 struct ReqwestClient {

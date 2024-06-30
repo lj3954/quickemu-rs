@@ -27,7 +27,7 @@ impl Distro for BigLinux {
             let checksum_url = iso.clone() + ".md5";
             let release = c[2].to_string();
             let edition = c[3].to_string();
-            tokio::spawn(async move {
+            async move {
                 let checksum = capture_page(&checksum_url)
                     .await
                     .and_then(|s| s.split_whitespace().next().map(ToString::to_string));
@@ -37,14 +37,9 @@ impl Distro for BigLinux {
                     iso: Some(vec![Source::Web(WebSource::new(iso, checksum, None, None))]),
                     ..Default::default()
                 }
-            })
+            }
         });
 
-        futures::future::join_all(futures)
-            .await
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>()
-            .into()
+        futures::future::join_all(futures).await.into()
     }
 }
