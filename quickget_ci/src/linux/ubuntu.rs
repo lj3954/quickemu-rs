@@ -5,6 +5,7 @@ use crate::{
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Deserialize;
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 const LAUNCHPAD_RELEASES_URL: &str = "https://api.launchpad.net/devel/ubuntu/series";
@@ -274,5 +275,55 @@ impl Distro for Elementary {
             ..Default::default()
         }]
         .into()
+    }
+}
+
+const BODHI_MIRROR: &str = "https://sourceforge.net/projects/bodhilinux/files/";
+
+pub struct Bodhi;
+impl Distro for Bodhi {
+    const NAME: &'static str = "bodhi";
+    const PRETTY_NAME: &'static str = "Bodhi";
+    const HOMEPAGE: Option<&'static str> = Some("https://www.bodhilinux.com/");
+    const DESCRIPTION: Option<&'static str> = Some("Lightweight distribution featuring the fast & fully customizable Moksha Desktop.");
+    async fn generate_configs() -> Option<Vec<Config>> {
+        let page = capture_page(BODHI_MIRROR).await?;
+        let release_regex = Regex::new(r#""name":"([0-9]+.[0-9]+.[0-9]+)""#).unwrap();
+        let iso_regex = Arc::new(Regex::new(r#""name":"(bodhi-[0-9]+.[0-9]+.[0-9]+-64(-[^-.]+)?.iso)""#).unwrap());
+
+        let futures = release_regex.captures_iter(&page).take(3).map(|c| {
+            let release = c[1].to_string();
+            let mirror = format!("{BODHI_MIRROR}{release}/");
+            let iso_regex = iso_regex.clone();
+            async move {
+                let release_page = capture_page(&mirror).await?;
+                let futures = iso_regex.captures_iter(&release_page).map(|c| {
+                    let release = release.clone();
+                    let edition = c.get(2).map(|m| m.as_str()[1..].to_string()).unwrap_or("standard".to_string());
+                    let iso = format!("{mirror}{}/download", &c[1]);
+                    let checksum_url = format!("{mirror}{}.sha256/download", &c[1]);
+                    async move {
+                        let checksum = capture_page(&checksum_url)
+                            .await
+                            .and_then(|c| c.split_whitespace().next().map(Into::into));
+                        Config {
+                            iso: Some(vec![Source::Web(WebSource::new(iso, checksum, None, None))]),
+                            release: Some(release),
+                            edition: Some(edition),
+                            ..Default::default()
+                        }
+                    }
+                });
+                Some(futures::future::join_all(futures).await)
+            }
+        });
+
+        futures::future::join_all(futures)
+            .await
+            .into_iter()
+            .flatten()
+            .flatten()
+            .collect::<Vec<Config>>()
+            .into()
     }
 }
