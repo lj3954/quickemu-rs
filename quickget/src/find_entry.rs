@@ -1,6 +1,7 @@
+use crate::data_structures::{Config, OS};
 use anyhow::{bail, Result};
 use itertools::Itertools;
-use quickget_ci::{Arch, Config, OS};
+use quickemu::config::Arch;
 
 pub trait FindEntry {
     fn find_entry(self, input: &[String], arch: Option<Arch>) -> Result<Config>

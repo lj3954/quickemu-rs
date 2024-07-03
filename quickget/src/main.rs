@@ -1,4 +1,5 @@
 mod configuration;
+mod data_structures;
 mod find_entry;
 mod parse_data;
 
@@ -7,7 +8,7 @@ use clap::Parser;
 use configuration::CreateConfig;
 use find_entry::FindEntry;
 use parse_data::get_json_contents;
-use quickget_ci::{Arch, ConfigFile};
+use quickemu::config::{Arch, ConfigFile};
 use std::{fs::File, io::Write};
 
 #[tokio::main]

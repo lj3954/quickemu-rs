@@ -1,6 +1,7 @@
+use crate::data_structures::{ArchiveFormat as QArchiveFormat, Config, Disk, Source};
 use anyhow::{anyhow, Result};
 use quick_fetcher::{ArchiveFormat, Checksum, Download, Downloader};
-use quickget_ci::{ArchiveFormat as QArchiveFormat, Config, ConfigFile, Disk, DiskImage, Image, Source};
+use quickemu::config::{ConfigFile, DiskImage, Image};
 use std::{
     fs::File,
     os::unix::fs::PermissionsExt,

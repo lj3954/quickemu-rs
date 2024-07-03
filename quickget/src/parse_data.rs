@@ -1,5 +1,5 @@
+use crate::data_structures::OS;
 use anyhow::{anyhow, bail, Result};
-use quickget_ci::OS;
 use std::{
     fs::File,
     path::PathBuf,

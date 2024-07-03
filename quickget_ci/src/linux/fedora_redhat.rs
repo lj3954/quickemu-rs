@@ -1,8 +1,7 @@
 use crate::{
-    store_data::{Config, Distro, Source, WebSource},
+    store_data::{Arch, Config, Distro, Source, WebSource},
     utils::capture_page,
 };
-use quickget_ci::Arch;
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::Arc;
