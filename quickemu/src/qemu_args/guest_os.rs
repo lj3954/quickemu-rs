@@ -42,13 +42,12 @@ impl GuestOS {
 
     pub fn net_device(&self) -> &'static str {
         match self {
-            Self::Batocera | Self::FreeDOS | Self::Haiku => "rtl8139",
             Self::ReactOS => "e1000",
             Self::MacOS { release } => match release {
                 MacOSRelease::BigSur | MacOSRelease::Monterey | MacOSRelease::Ventura | MacOSRelease::Sonoma => "virtio-net",
                 _ => "vmxnet3",
             },
-            Self::Linux | Self::LinuxOld | Self::Solaris | Self::GhostBSD => "virtio-net",
+            Self::Linux | Self::LinuxOld | Self::Solaris | Self::GhostBSD | Self::FreeBSD | Self::DragonFlyBSD => "virtio-net",
             _ => "rtl8139",
         }
     }
@@ -72,7 +71,7 @@ impl GuestOS {
             Arch::aarch64 => default_cpu(),
             Arch::x86_64 => {
                 let cpu_arg = match self {
-                    Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::LinuxOld | Self::Solaris => default_cpu(),
+                    Self::Batocera | Self::FreeBSD | Self::GhostBSD | Self::DragonFlyBSD | Self::FreeDOS | Self::Haiku | Self::Linux | Self::LinuxOld | Self::Solaris => default_cpu(),
                     Self::KolibriOS | Self::ReactOS => "qemu32".to_string(),
                     Self::MacOS { release } => {
                         if release >= &MacOSRelease::Catalina {

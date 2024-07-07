@@ -362,6 +362,7 @@ impl TryFrom<(Option<String>, Option<String>)> for GuestOS {
                 "windows-server" => Self::WindowsServer,
                 "freebsd" => Self::FreeBSD,
                 "ghostbsd" => Self::GhostBSD,
+                "dragonflybsd" => Self::DragonFlyBSD,
                 "freedos" => Self::FreeDOS,
                 "haiku" => Self::Haiku,
                 "solaris" => Self::Solaris,

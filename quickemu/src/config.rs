@@ -343,6 +343,8 @@ pub enum GuestOS {
     FreeBSD,
     #[serde(rename = "ghostbsd", alias = "GhostBSD")]
     GhostBSD,
+    #[serde(rename = "dragonflybsd", alias = "DragonFlyBSD")]
+    DragonFlyBSD,
     #[serde(rename = "freedos", alias = "FreeDOS")]
     FreeDOS,
     #[serde(rename = "haiku", alias = "Haiku")]
@@ -367,6 +369,7 @@ impl fmt::Display for GuestOS {
             GuestOS::MacOS { .. } => write!(f, "macOS"),
             GuestOS::FreeBSD => write!(f, "FreeBSD"),
             GuestOS::GhostBSD => write!(f, "GhostBSD"),
+            GuestOS::DragonFlyBSD => write!(f, "DragonFlyBSD"),
             GuestOS::FreeDOS => write!(f, "FreeDOS"),
             GuestOS::Haiku => write!(f, "Haiku"),
             GuestOS::Solaris => write!(f, "Solaris"),
