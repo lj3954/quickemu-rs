@@ -4,7 +4,7 @@ use crate::{
     config::{Arch, BooleanDisplay, Display, GuestOS, Monitor, Resolution, SoundCard, Viewer},
     qemu_args::find_port,
 };
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use std::{
     ffi::OsString,
     io::{Read, Write},
@@ -125,7 +125,7 @@ impl Display {
                     Access::Address(address) => address,
                 };
                 let port = port
-                    .ok_or_else(|| anyhow!("Requested SPICE display, but no ports are available."))?
+                    .context("Requested SPICE display, but no ports are available.")?
                     .to_string();
                 spice.extend([",port=", &port, ",addr=", &spice_addr]);
 
@@ -150,12 +150,12 @@ fn display_resolution(name: Option<String>, screenpct: Option<u32>) -> Result<(u
         display_info
             .iter()
             .find(|available| available.name == monitor)
-            .ok_or_else(|| anyhow!("Could not find a display matching the name {}", monitor))?
+            .ok_or_else(|| anyhow!("Could not find a display matching the name {monitor}"))?
     } else {
         display_info.iter().find(|available| available.is_primary).unwrap_or(
             display_info
                 .first()
-                .ok_or_else(|| anyhow!("Could not find a monitor. Please manually specify the resolution in your config file."))?,
+                .context("Could not find a monitor. Please manually specify the resolution in your config file.")?,
         )
     };
 
@@ -179,7 +179,7 @@ impl Monitor {
         Ok(match self {
             Self::None => (vec![arg, "none".into()], Some(vec![text + "None"])),
             Self::Telnet { address } => {
-                let port = find_port(address.port(), 9).ok_or_else(|| anyhow!("Could not find an open port for the telnet monitor."))?;
+                let port = find_port(address.port(), 9).context("Could not find an open port for the telnet monitor.")?;
                 let address = address.ip().to_string() + ":" + &port.to_string();
                 let mut telnet = OsString::from("telnet:");
                 telnet.push(&address);

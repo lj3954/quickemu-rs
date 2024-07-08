@@ -2,7 +2,7 @@ use crate::{
     config::{Arch, GuestOS, MacOSRelease},
     config_parse::BYTES_PER_GB,
 };
-use anyhow::{anyhow, bail, Result};
+use anyhow::Result;
 use std::ffi::OsString;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
 
@@ -14,26 +14,26 @@ const OSK: &[u8] = &[
 impl GuestOS {
     #[cfg(target_arch = "x86_64")]
     pub fn validate_cpu(&self) -> Result<()> {
+        use anyhow::{ensure, Context};
+
         let cpuid = raw_cpuid::CpuId::new();
         log::trace!("Testing architecture. Found CPUID: {:?}", cpuid);
 
         let cpu_features = cpuid
             .get_feature_info()
-            .ok_or_else(|| anyhow!("Could not determine whether your CPU supports the necessary instructions."))?;
+            .context("Could not determine whether your CPU supports the necessary instructions.")?;
 
         if let GuestOS::MacOS { release } = self {
+            ensure!(cpu_features.has_sse41(), "macOS requires a CPU which supports SSE4.1.");
             if release >= &MacOSRelease::Ventura {
-                cpuid
+                let extended_features = cpuid
                     .get_extended_feature_info()
-                    .ok_or_else(|| anyhow!("Could not determine whether your CPU supports AVX2."))
-                    .and_then(|extended_features| {
-                        if !(cpu_features.has_sse42() || extended_features.has_avx2()) {
-                            bail!("macOS releases Ventura and newer require a CPU which supports AVX2 and SSE4.2.");
-                        }
-                        Ok(())
-                    })?;
-            } else if !cpu_features.has_sse41() {
-                bail!("macOS requires a CPU which supports SSE4.1.");
+                    .context("Could not determine whether your CPU supports AVX2.")?;
+
+                ensure!(
+                    cpu_features.has_sse42() && extended_features.has_avx2(),
+                    "macOS releases Ventura and newer require a CPU which supports AVX2 and SSE4.2."
+                );
             }
         }
 
@@ -101,11 +101,13 @@ impl GuestOS {
         }
     }
 
-    pub fn guest_tweaks(&self) -> Vec<OsString> {
-        #[cfg(target_os = "linux")]
-        let mut tweaks = vec!["-global".into(), "kvm-pit.lost_tick_policy=discard".into()];
-        #[cfg(not(target_os = "linux"))]
+    pub fn guest_tweaks(&self, arch: &Arch) -> Vec<OsString> {
         let mut tweaks = Vec::new();
+
+        #[cfg(target_os = "linux")]
+        if arch == &Arch::x86_64 {
+            tweaks.extend(["-global".into(), "kvm-pit.lost_tick_policy=discard".into()]);
+        }
 
         let mut disable_s3 = || tweaks.extend(["-global".into(), "ICH9-LPC.disable_s3=1".into()]);
 

@@ -18,7 +18,7 @@ pub mod direct_control {
 
     pub fn with_toml_config(config: impl AsRef<Path>, action: ActionType, vm_name: Option<String>, vm_dir: Option<PathBuf>) -> Result<()> {
         let path = config.as_ref();
-        let conf_file_path = path.parent().ok_or_else(|| anyhow::anyhow!("No parent directory"))?;
+        let conf_file_path = path.parent().context("No parent directory")?;
 
         let vm_dir = vm_dir.unwrap_or_else(|| conf_file_path.join(path.file_stem().unwrap()));
         let vm_name = vm_name.unwrap_or_else(|| "default".to_string());

@@ -14,44 +14,45 @@ use std::{
 };
 
 use crate::config::{ConfigFile, Snapshot};
-use anyhow::{anyhow, bail, Result};
-use std::path::Path;
-use std::process::Command;
+use anyhow::{anyhow, bail, ensure, Context, Result};
+use std::{path::Path, process::Command};
 use which::which;
 
 impl Snapshot {
     #[cfg(not(feature = "control_launch"))]
-    pub fn perform_action(&self, conf_data: Vec<String>) -> Result<String> {
+    pub fn perform_action(&self, conf_data: Vec<String>) -> Result<()> {
         let (conf_file, mut conf_data) = crate::parse_conf(conf_data)?;
 
         let conf_file_path = PathBuf::from(&conf_file);
         let conf_file_path = conf_file_path
             .parent()
-            .ok_or_else(|| anyhow!("The parent directory of the config file cannot be found"))?;
+            .context("The parent directory of the config file cannot be found")?;
 
         crate::config_parse::handle_disk_paths(&mut conf_data.disk_images, conf_file_path)?;
-        self.perform_on_config(conf_data)
+        let output = self.perform_on_config(conf_data)?;
+        println!("{output}");
+        Ok(())
     }
 
     pub fn perform_on_config(&self, conf: ConfigFile) -> Result<String> {
-        let qemu_img = which("qemu-img").map_err(|_| anyhow!("qemu-img could not be found. Please verify that QEMU is installed on your system."))?;
+        let qemu_img = which("qemu-img").context("qemu-img could not be found. Please verify that QEMU is installed on your system.")?;
         conf.disk_images
             .into_iter()
             .map(|disk| {
                 let disk_img = disk.path;
                 match self {
-                    Self::Apply(name) => match snapshot_command(&qemu_img, "-a", name, &disk_img) {
-                        Ok(_) => Ok("Successfully applied snapshot ".to_string() + name + " to " + &disk_img.to_string_lossy()),
-                        Err(e) => bail!("Failed to apply snapshot {} to {}: {}", name, &disk_img.to_string_lossy(), e),
-                    },
-                    Self::Create(name) => match snapshot_command(&qemu_img, "-c", name, &disk_img) {
-                        Ok(_) => Ok("Successfully created snapshot ".to_string() + name + " of " + &disk_img.to_string_lossy()),
-                        Err(e) => bail!("Failed to create snapshot {} of {}: {}", name, &disk_img.to_string_lossy(), e),
-                    },
-                    Self::Delete(name) => match snapshot_command(&qemu_img, "-d", name, &disk_img) {
-                        Ok(_) => Ok("Successfully deleted snapshot ".to_string() + name + " of" + &disk_img.to_string_lossy()),
-                        Err(e) => bail!("Failed to delete snapshot {} of {}: {}", name, &disk_img.to_string_lossy(), e),
-                    },
+                    Self::Apply(name) => {
+                        snapshot_command(&qemu_img, "-a", name, &disk_img).with_context(|| format!("Failed to apply snapshot {name} to {}", disk_img.display()))?;
+                        Ok(format!("Successfully applied snapshot {name} to {}", disk_img.display()))
+                    }
+                    Self::Create(name) => {
+                        snapshot_command(&qemu_img, "-c", name, &disk_img).with_context(|| format!("Failed to create snapshot {name} of {}", disk_img.display()))?;
+                        Ok(format!("Successfully created snapshot {name} of {}", disk_img.display()))
+                    }
+                    Self::Delete(name) => {
+                        snapshot_command(&qemu_img, "-d", name, &disk_img).with_context(|| format!("Failed to delete snapshot {name} of {}", disk_img.display()))?;
+                        Ok(format!("Successfully deleted snapshot {name} of {}", disk_img.display()))
+                    }
                     Self::Info => {
                         let command = Command::new(&qemu_img).arg("info").arg(&disk_img).output()?;
                         Ok(String::from_utf8_lossy(&command.stdout).to_string() + &String::from_utf8_lossy(&command.stderr))
@@ -70,16 +71,13 @@ fn snapshot_command(qemu_img: &Path, arg: &str, tag: &str, disk_img: &Path) -> R
         .arg(tag)
         .arg(disk_img)
         .output()?;
-    if command.status.success() {
-        Ok(())
-    } else {
-        bail!("{}", String::from_utf8_lossy(&command.stderr))
-    }
+    ensure!(command.status.success(), "{}", String::from_utf8_lossy(&command.stderr));
+    Ok(())
 }
 
 #[cfg(not(feature = "control_launch"))]
 pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
-    let conf = read_to_string(config).map_err(|e| anyhow!("Could not read legacy configuration file {}: {}", config.display(), e))?;
+    let conf = read_to_string(config).with_context(|| format!("Could not read legacy configuration file {}", config.display()))?;
     log::debug!("Legacy configuration: {}", conf);
     let mut conf: HashMap<String, String> = conf
         .lines()
@@ -102,7 +100,7 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
         .map(|cores| {
             cores
                 .parse::<std::num::NonZeroUsize>()
-                .map_err(|_| anyhow!("Invalid value for cpu_cores: {}", cores))
+                .map_err(|_| anyhow!("Invalid value for cpu_cores: {cores}"))
         })
         .transpose()?;
     let display: Display = conf.remove("display").try_into()?;
@@ -130,12 +128,12 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
 
     let spice_port = conf
         .remove("spice_port")
-        .map(|port| port.parse::<u16>().map_err(|_| anyhow!("Invalid spice port number: {}", port)))
+        .map(|port| port.parse::<u16>().map_err(|_| anyhow!("Invalid spice port number: {port}")))
         .transpose()?
         .unwrap_or(5930);
     let ssh_port = conf
         .remove("ssh_port")
-        .map(|port| port.parse::<u16>().map_err(|_| anyhow!("Invalid ssh port number: {}", port)))
+        .map(|port| port.parse::<u16>().map_err(|_| anyhow!("Invalid ssh port number: {port}")))
         .transpose()?
         .unwrap_or(22220);
     let usb_devices: Option<Vec<String>> = conf.remove("usb_devices").map(|devices| {
@@ -152,7 +150,7 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
                 "usb" => Mouse::Usb,
                 "ps2" => Mouse::PS2,
                 "virtio" => Mouse::Virtio,
-                _ => bail!("Invalid mouse type: {}", mouse),
+                _ => bail!("Invalid mouse type: {mouse}"),
             })
         })
         .transpose()?;
@@ -163,7 +161,7 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
                 "none" => USBController::None,
                 "ehci" => USBController::Ehci,
                 "xhci" => USBController::Xhci,
-                _ => bail!("Invalid USB controller: {}", controller),
+                _ => bail!("Invalid USB controller: {controller}"),
             })
         })
         .transpose()?;
@@ -173,7 +171,7 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
         let preallocation: PreAlloc = conf.remove("prealloc").try_into()?;
         let disk_file = conf
             .remove("disk_img")
-            .ok_or_else(|| anyhow!("Your legacy configuration file must include a disk_img"))?;
+            .context("Your legacy configuration file must include a disk_img")?;
         let format: Option<DiskFormat> = Some(disk_file.as_str().try_into()?);
         let path = PathBuf::from(disk_file);
         vec![DiskImage { path, size, preallocation, format }]
@@ -222,10 +220,12 @@ pub fn read_legacy_conf(config: &Path) -> Result<ConfigFile> {
 }
 
 #[cfg(not(feature = "control_launch"))]
-pub fn migrate_config(config: Vec<String>) -> Result<String> {
-    if config.len() != 2 {
-        bail!("Invalid arguments for migrate-config. Usage: `quickemu-rs --migrate-config <config.conf> <config.toml>`")
-    }
+pub fn migrate_config(config: Vec<String>) -> Result<()> {
+    ensure!(
+        config.len() == 2,
+        "Invalid arguments for migrate-config. Usage: `{} --migrate-config <config.conf> <config.toml>`",
+        env!("CARGO_PKG_NAME")
+    );
     let (legacy_conf, toml_conf) = (PathBuf::from(&config[0]), PathBuf::from(&config[1]));
     if legacy_conf.extension().unwrap_or_default() != "conf" || !legacy_conf.exists() {
         bail!("Invalid legacy config file. Please provide a valid .conf file.");
@@ -239,22 +239,21 @@ pub fn migrate_config(config: Vec<String>) -> Result<String> {
     let executable = "#!".to_string() + &std::env::current_exe().unwrap_or_default().to_string_lossy() + " --vm\n";
     let config = read_legacy_conf(&legacy_conf)?;
 
-    let toml = executable + &toml::to_string_pretty(&config).map_err(|e| anyhow!("Could not serialize configuration to TOML: {}", e))?;
-    log::debug!("TOML: {}", toml);
+    let toml = executable + &toml::to_string_pretty(&config).context("Could not serialize configuration to TOML")?;
+    log::debug!("TOML: {toml}");
 
-    match write(&toml_conf, toml.as_bytes()) {
-        Ok(_) => {
-            set_permissions(&toml_conf, PermissionsExt::from_mode(0o755)).unwrap_or_else(|e| {
-                log::warn!("Could not make the TOML configuration file executable: {}", e);
-            });
-            Ok(format!(
-                "Successfully migrated configuration file {} to {}",
-                legacy_conf.display(),
-                toml_conf.display()
-            ))
-        }
-        Err(e) => bail!("Could not write to TOML configuration file {}: {}", toml_conf.display(), e),
-    }
+    write(&toml_conf, toml.as_bytes()).with_context(|| format!("Could not write to TOML configuration file {}", toml_conf.display()))?;
+
+    if let Err(e) = set_permissions(&toml_conf, PermissionsExt::from_mode(0o755)) {
+        log::warn!("Could not make the TOML configuration file executable: {e}");
+    };
+
+    println!(
+        "Successfully migrated configuration file {} to {}",
+        legacy_conf.display(),
+        toml_conf.display()
+    );
+    Ok(())
 }
 
 #[cfg(not(feature = "control_launch"))]
@@ -280,13 +279,13 @@ pub fn port_forwards(bash_array: Option<String>) -> Result<Option<Vec<PortForwar
 impl CliArgs {
     pub fn delete_vm(self) -> Result<()> {
         if get_confirmation("This will delete all files related to the VM {}. Are you sure you want to proceed? (y/N): ")? {
-            let (conf_file, _) = crate::parse_conf(self.config_file).map_err(|e| anyhow!("Unable to delete VM due to error in configuration file: {}", e))?;
+            let (conf_file, _) = crate::parse_conf(self.config_file).context("Unable to delete VM due to error in configuration file")?;
             let vm_dir = conf_file[..conf_file.len() - 5].parse::<PathBuf>()?;
 
-            std::fs::remove_file(&conf_file).map_err(|e| anyhow!("Unable to remove config file {}: {}", conf_file, e))?;
+            std::fs::remove_file(&conf_file).with_context(|| format!("Unable to remove config file {conf_file}"))?;
             std::fs::remove_dir_all(&vm_dir)
-                .inspect(|_| println!("Deleted {} and {}", conf_file, vm_dir.display()))
-                .map_err(|e| anyhow!("Failed to delete VM dir {}: {}", vm_dir.display(), e))
+                .inspect(|_| println!("Deleted {conf_file} and {}", vm_dir.display()))
+                .with_context(|| format!("Failed to delete VM dir {}", vm_dir.display()))
         } else {
             println!("Cancelled deletion.");
             Ok(())
@@ -300,29 +299,26 @@ impl Args {
         let disk_list = self
             .disk_images
             .iter()
-            .map(|disk| {
-                format!(
-                    "Path: {}, Configured size: {} GiB, Current size: {} GiB, Preallocation: {}",
-                    disk.path.display(),
-                    disk.size.unwrap_or(self.guest_os.disk_size()) as f64 / BYTES_PER_GB as f64,
-                    disk.path.metadata().map(|data| data.len()).unwrap_or_default() as f64 / BYTES_PER_GB as f64,
-                    disk.preallocation
-                )
+            .map(|DiskImage { path, size, preallocation, .. }| {
+                let configured_size = size.unwrap_or(self.guest_os.disk_size()) as f64 / BYTES_PER_GB as f64;
+                let current_size = path.metadata().map(|data| data.len()).unwrap_or_default() as f64 / BYTES_PER_GB as f64;
+                let path_display = path.display();
+
+                format!("Path: {path_display}, Configured size: {configured_size} GiB, Current size: {current_size} GiB, Preallocation: {preallocation}",)
             })
             .collect::<Vec<String>>()
             .join("\n");
 
-        if get_confirmation(&format!(
-            "This will delete the VM's OVMF VARS along with the following disks\n{disk_list}\nAre you sure you want to proceed? (y/N): "
-        ))? {
+        let confirmation_message = format!("This will delete the VM's OVMF VARS along with the following disks\n{disk_list}\nAre you sure you want to proceed? (y/N): ");
+        if get_confirmation(&confirmation_message)? {
             let vars = self.vm_dir.join("OVMF_VARS.fd");
             if vars.exists() {
-                std::fs::remove_file(&vars).map_err(|e| anyhow!("Unable to delete OVMF VARS file {}: {}", vars.display(), e))?;
+                std::fs::remove_file(&vars).with_context(|| format!("Unable to delete OVMF VARS file {}", vars.display()))?;
                 println!("Deleted OVMF VARS: {}", vars.display());
             }
             for disk in &self.disk_images {
                 let path = &disk.path;
-                std::fs::remove_file(path).map_err(|e| anyhow!("Unable to delete disk {}: {}", path.display(), e))?;
+                std::fs::remove_file(path).with_context(|| format!("Unable to delete disk {}", path.display()))?;
                 println!("Deleted disk: {}", path.display());
             }
         } else {
@@ -343,6 +339,6 @@ fn get_confirmation(prompt: &str) -> Result<bool> {
     match input.as_str() {
         "yes" | "y" => Ok(true),
         "no" | "n" | "" => Ok(false),
-        invalid => bail!("Invalid input: {}", invalid),
+        invalid => bail!("Invalid input: {invalid}"),
     }
 }

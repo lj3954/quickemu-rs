@@ -1,5 +1,5 @@
 use crate::{config::*, validate};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use core::num::NonZeroUsize;
 use std::{
     convert::TryFrom,
@@ -336,7 +336,7 @@ impl TryFrom<Option<String>> for Resolution {
     fn try_from(value: Option<String>) -> Result<Self> {
         Ok(match value {
             Some(res) => {
-                let (w, h) = res.split_once('x').ok_or_else(|| anyhow!("Invalid resolution: {}", res))?;
+                let (w, h) = res.split_once('x').ok_or_else(|| anyhow!("Invalid resolution: {res}"))?;
                 Self::Custom {
                     width: w.parse()?,
                     height: h.parse()?,
@@ -380,22 +380,17 @@ impl TryFrom<&str> for DiskFormat {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self> {
-        Ok(
-            match value
-                .split('.')
-                .last()
-                .ok_or_else(|| anyhow!("Could not find disk image file extension."))?
-            {
-                "raw" | "img" => Self::Raw,
-                "qcow2" => Self::Qcow2,
-                "qed" => Self::Qed,
-                "qcow" => Self::Qcow,
-                "vdi" => Self::Vdi,
-                "vpc" => Self::Vpc,
-                "vhdx" => Self::Vhdx,
-                other => bail!("Disk image format '{}' is not supported.", other),
-            },
-        )
+        let image_extension = value.split('.').last().context("Could not find disk image file extension.")?;
+        Ok(match image_extension {
+            "raw" | "img" => Self::Raw,
+            "qcow2" => Self::Qcow2,
+            "qed" => Self::Qed,
+            "qcow" => Self::Qcow,
+            "vdi" => Self::Vdi,
+            "vpc" => Self::Vpc,
+            "vhdx" => Self::Vhdx,
+            other => bail!("Disk image format '{other}' is not supported."),
+        })
     }
 }
 

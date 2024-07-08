@@ -3,7 +3,7 @@ use crate::{
     config_parse::BYTES_PER_GB,
     qemu_args::external_command,
 };
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use std::{
     collections::HashSet,
     ffi::OsString,
@@ -38,7 +38,7 @@ pub fn image_args(vm_dir: &Path, images: Option<Vec<Image>>, disks: Vec<DiskImag
                     .arg("info")
                     .arg(&disk.path)
                     .output()
-                    .map_err(|e| anyhow!("Could not read disk image information using qemu-img: {}", e))?;
+                    .context("Could not read disk image information using qemu-img")?;
                 if !image_info.status.success() {
                     bail!(
                         "Failed to get write lock on disk image {}. Please ensure that the disk image is not already in use.",
@@ -54,15 +54,9 @@ pub fn image_args(vm_dir: &Path, images: Option<Vec<Image>>, disks: Vec<DiskImag
                             None
                         }
                     })
-                    .ok_or_else(|| anyhow!("Could not read disk size."))?;
+                    .context("Could not read disk size.")?;
                 print_args.push(format!("Using disk image: {}. Size: {}", disk.path.display(), disk_size));
-                Ok(disk.preallocation != PreAlloc::Off
-                    || disk
-                        .path
-                        .metadata()
-                        .map_err(|e| anyhow!("Could not read disk size: {}", e))?
-                        .len()
-                        > MIN_DISK_SIZE)
+                Ok(disk.preallocation != PreAlloc::Off || disk.path.metadata().context("Could not read disk size")?.len() > MIN_DISK_SIZE)
             }
         })
         .collect::<Result<Vec<bool>>>()?
@@ -98,7 +92,7 @@ fn disk_img_args(disks: Vec<DiskImage>, guest_os: &GuestOS, vm_dir: &Path, statu
                         None
                     }
                 })
-                .ok_or_else(|| anyhow!("Could not find macOS bootloader. Please ensure that `OpenCore.qcow2` or `ESP.qcow2` is located within your VM directory."))?;
+                .context("Could not find macOS bootloader. Please ensure that `OpenCore.qcow2` or `ESP.qcow2` is located within your VM directory.")?;
             vec![
                 "-device".into(),
                 "ahci,id=ahci".into(),

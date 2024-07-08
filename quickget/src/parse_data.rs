@@ -1,5 +1,5 @@
 use crate::data_structures::OS;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Context, Result};
 use std::{
     fs::File,
     path::PathBuf,
@@ -27,7 +27,7 @@ impl IsValid for PathBuf {
 }
 
 pub async fn get_json_contents(refresh: bool) -> Result<Vec<OS>> {
-    let dir = dirs::cache_dir().ok_or_else(|| anyhow!("Failed to get cache directory."))?;
+    let dir = dirs::cache_dir().context("Failed to get cache directory.")?;
     if !dir.exists() {
         bail!("Cache directory does not exist.");
     }
@@ -40,9 +40,9 @@ pub async fn get_json_contents(refresh: bool) -> Result<Vec<OS>> {
     }
     let file = File::open(file)?;
     let reader = Decoder::new(file)?;
-    serde_json::from_reader(reader).map_err(|e| {
-        anyhow!(
-            "Unable to read JSON contents: {e}. Please try running {} with the `--refresh` flag to force the data to be refreshed.",
+    serde_json::from_reader(reader).with_context(|| {
+        format!(
+            "Unable to read JSON contents. Please try running {} with the `--refresh` flag to force the data to be refreshed.",
             env!("CARGO_PKG_NAME")
         )
     })

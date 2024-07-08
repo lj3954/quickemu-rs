@@ -1,5 +1,5 @@
 use crate::data_structures::{ArchiveFormat as QArchiveFormat, Config, Disk, Source};
-use anyhow::{anyhow, Result};
+use anyhow::{Context, Result};
 use quick_fetcher::{ArchiveFormat, Checksum, Download, Downloader};
 use quickemu::config::{ConfigFile, DiskImage, Image};
 use std::{
@@ -22,10 +22,8 @@ impl CreateConfig for ConfigFile {
             remote.arch
         );
         let vm_dir = PathBuf::from(&vm_path);
-        std::fs::create_dir(&vm_dir).map_err(|e| anyhow!("Failed to create directory: {}", e))?;
-        let vm_dir = vm_dir
-            .canonicalize()
-            .map_err(|e| anyhow!("Failed to canonicalize directory: {}", e))?;
+        std::fs::create_dir(&vm_dir).context("Failed to create VM directory")?;
+        let vm_dir = vm_dir.canonicalize().context("Failed to canonicalize directory")?;
         let mut images = Vec::new();
         let mut downloads = Vec::new();
         if let Some(iso) = remote.iso {

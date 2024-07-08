@@ -3,7 +3,7 @@ mod data_structures;
 mod find_entry;
 mod parse_data;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use configuration::CreateConfig;
 use find_entry::FindEntry;
@@ -22,11 +22,11 @@ async fn main() -> Result<()> {
 
     let os = json_data.find_entry(&args.other, args.arch)?;
     let (config, vmpath) = ConfigFile::create_config(os, args.other.remove(0), args.download_threads).await?;
-    let config_data = toml::to_string_pretty(&config).map_err(|e| anyhow!("Failed to serialize config: {}", e))?;
+    let config_data = toml::to_string_pretty(&config).context("Failed to serialize config")?;
     let quickemu = configuration::find_quickemu();
 
     let config_filename = vmpath + ".toml";
-    let config_file = File::create(&config_filename).map_err(|e| anyhow!("Failed to create config file: {}", e))?;
+    let config_file = File::create(&config_filename).context("Failed to create config file")?;
 
     let is_executable = configuration::set_executable(&config_file);
     let optional_msg = if quickemu.is_some() && is_executable {

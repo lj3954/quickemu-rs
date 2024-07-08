@@ -4,7 +4,7 @@ mod config_parse;
 mod qemu_args;
 mod validate;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use config::{ActionType, Args, ConfigFile};
 use std::{fs::read_to_string, path::PathBuf};
@@ -16,26 +16,14 @@ fn main() {
     env_logger::Builder::new().filter_level(args.verbose.log_level_filter()).init();
 
     match args.get_action_type() {
-        ActionType::MigrateConfig => match actions::migrate_config(args.config_file) {
-            Ok(output) => println!("{}", output),
-            Err(e) => {
-                log::error!("{}", e);
-                std::process::exit(1);
-            }
-        },
+        ActionType::MigrateConfig => actions::migrate_config(args.config_file).unwrap_or_exit(),
         ActionType::Launch => {
             let args: Args = args.try_into().unwrap_or_exit();
             args.launch_qemu().unwrap_or_exit();
         }
         ActionType::DeleteVM => args.delete_vm().unwrap_or_exit(),
         ActionType::DeleteDisk => args.try_into().and_then(|args: Args| args.delete_disk()).unwrap_or_exit(),
-        ActionType::Snapshot(snapshot) => match snapshot.perform_action(args.config_file) {
-            Ok(output) => println!("{}", output),
-            Err(e) => {
-                log::error!("{}", e);
-                std::process::exit(1);
-            }
-        },
+        ActionType::Snapshot(snapshot) => snapshot.perform_action(args.config_file).unwrap_or_exit(),
         ActionType::EditConfig => todo!(),
         ActionType::Kill => {
             let args: Args = args.try_into().unwrap_or_exit();
@@ -69,10 +57,7 @@ impl CliArgs {
         } else if self.edit_config {
             ActionType::EditConfig
         } else if let Some(snapshot) = &self.snapshot {
-            ActionType::Snapshot(snapshot.as_slice().try_into().unwrap_or_else(|e| {
-                log::error!("{}", e);
-                std::process::exit(1);
-            }))
+            ActionType::Snapshot(snapshot.as_slice().try_into().unwrap_or_exit())
         } else {
             ActionType::Launch
         }
@@ -92,7 +77,7 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
                     .enumerate()
                     .filter(|(i, _)| *i != position)
                     .for_each(|(_, arg)| {
-                        log::error!("Unrecognized argument: {}", arg);
+                        log::error!("Unrecognized argument: {arg}");
                     });
             }
             let file = conf_file[position].clone();
@@ -136,8 +121,8 @@ fn parse_conf(conf_file: Vec<String>) -> Result<(String, ConfigFile)> {
 
     log::info!("Using configuration file: {}", &conf_file);
 
-    let conf_data = read_to_string(&conf_file).map_err(|e| anyhow!("Could not read configuration file {}: {}", &conf_file, e))?;
-    let conf: ConfigFile = toml::from_str(&conf_data).map_err(|e| anyhow!("Failed to parse config file: {}", e))?;
+    let conf_data = read_to_string(&conf_file).with_context(|| format!("Could not read configuration file {conf_file}"))?;
+    let conf: ConfigFile = toml::from_str(&conf_data).context("Failed to parse config file")?;
     Ok((conf_file, conf))
 }
 
@@ -153,7 +138,7 @@ impl TryFrom<CliArgs> for Args {
         let conf_file_path = PathBuf::from(&conf_file);
         let conf_file_path = conf_file_path
             .parent()
-            .ok_or_else(|| anyhow!("The parent directory of the config file cannot be found"))?;
+            .context("The parent directory of the config file cannot be found")?;
         log::debug!("Config file path: {:?}", conf_file_path);
 
         log::debug!("{:?} {}", conf_file_path, conf_file);

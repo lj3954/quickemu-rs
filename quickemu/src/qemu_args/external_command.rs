@@ -1,7 +1,7 @@
 #[cfg(not(target_os = "macos"))]
 use crate::config::Viewer;
 use crate::config::{DiskFormat, Display, PreAlloc};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use std::{
     ffi::OsString,
     fs::File,
@@ -17,7 +17,7 @@ pub fn launch_qemu(qemu_bin: &Path, args: &[OsString], display: &Display) -> Res
             .spawn(),
         _ => Command::new(qemu_bin).args(args).spawn(),
     }
-    .map_err(|e| anyhow!("Failed to start QEMU: {}", e))?;
+    .context("Failed to start QEMU")?;
     Ok(())
 }
 
@@ -27,7 +27,7 @@ pub fn qemu_version_process(qemu_bin: &Path) -> Result<Child> {
         .arg("--version")
         .stdout(Stdio::piped())
         .spawn()
-        .map_err(|e| anyhow!("Failed to find {} version: {}", qemu_bin.display(), e))
+        .with_context(|| format!("Failed to find {} version", qemu_bin.display()))
 }
 
 pub fn smartcard_process(qemu_bin: &Path) -> Result<Child> {
@@ -62,7 +62,7 @@ pub fn launch_viewer(viewer: &Path, vm_name: &str, publicdir: &str, port: u16, f
         _ => unreachable!(),
     };
 
-    command.spawn().map_err(|e| anyhow!("Failed to start viewer: {}", e))?;
+    command.spawn().context("Failed to start viewer")?;
     Ok(())
 }
 
@@ -79,13 +79,13 @@ pub fn create_disk_image(qemu_img: &Path, path: &Path, size: u64, format: &DiskF
 
     let creation = qemu_img_command
         .output()
-        .map_err(|e| anyhow!("Could not launch qemu-img to create disk image {}: {}", &path.display(), e))?;
-    if !creation.status.success() {
-        bail!(
-            "Failed to create disk image {}: {}",
-            &path.display(),
-            String::from_utf8_lossy(&creation.stderr)
-        );
-    }
+        .with_context(|| format!("Could not launch qemu-img to create disk image {}", &path.display()))?;
+
+    ensure!(
+        creation.status.success(),
+        "Failed to create disk image {}: {}",
+        &path.display(),
+        String::from_utf8_lossy(&creation.stderr)
+    );
     Ok(())
 }

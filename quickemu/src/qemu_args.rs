@@ -5,7 +5,7 @@ mod guest_os;
 mod images;
 
 use crate::{config::*, config_parse::BYTES_PER_GB};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use std::{
     ffi::OsString,
     fs::{create_dir, read_to_string, File, OpenOptions},
@@ -27,10 +27,10 @@ impl Args {
             Arch::aarch64 => "qemu-system-aarch64",
             Arch::riscv64 => "qemu-system-riscv64",
         };
-        let qemu_bin = which(qemu_bin).map_err(|_| anyhow!("Could not find QEMU binary: {qemu_bin}. Please make sure QEMU is installed on your system.",))?;
+        let qemu_bin = which(qemu_bin).map_err(|_| anyhow!("Could not find QEMU binary: {qemu_bin}. Please make sure QEMU is installed on your system."))?;
 
         if !self.vm_dir.exists() {
-            create_dir(&self.vm_dir).map_err(|e| anyhow!("Could not create VM directory: {:?}", e))?;
+            create_dir(&self.vm_dir).context("Could not create VM directory")?;
         }
 
         let mut sh_file = OpenOptions::new()
@@ -176,10 +176,16 @@ impl Args {
             let friendly_ver = std::str::from_utf8(&qemu_version.stdout)?
                 .split_whitespace()
                 .nth(3)
-                .ok_or_else(|| anyhow::anyhow!("Failed to get QEMU version."))?;
-            if friendly_ver[0..1].parse::<u8>()? < 7 {
-                bail!("QEMU version 7.0.0 or higher is required. Found version {}.", friendly_ver);
-            }
+                .context("Failed to get QEMU version.")?;
+            let integer_release: u32 = friendly_ver
+                .split('.')
+                .next()
+                .context("Failed to parse QEMU version.")?
+                .parse()?;
+            ensure!(
+                integer_release >= 7,
+                "QEMU version 7.0.0 or higher is required. Found version {friendly_ver}."
+            );
             println!("QuickemuRS {PKG_VERSION} using {} {friendly_ver}.", qemu_bin.display(),);
         }
         #[cfg(not(feature = "get_qemu_ver"))]
@@ -203,7 +209,7 @@ impl Args {
     pub fn kill(self) -> Result<()> {
         let pid_path = self.vm_dir.join(self.vm_name + ".pid");
         let pid = read_to_string(&pid_path).map_err(|_| anyhow!("Unable to read PID file. Are you sure the VM is active?"))?;
-        let pid = pid.trim().parse::<u32>().map_err(|_| anyhow!("Invalid PID: {}", pid))?;
+        let pid = pid.trim().parse::<u32>().map_err(|_| anyhow!("Invalid PID: {pid}"))?;
 
         std::fs::remove_file(pid_path)?;
         let processes = System::new_with_specifics(RefreshKind::new().with_processes(ProcessRefreshKind::new()));
@@ -285,22 +291,15 @@ impl BootType {
                 }
             }
             (Self::Legacy, Arch::x86_64) => {
-                if let GuestOS::MacOS { .. } = guest_os {
-                    bail!("macOS guests require EFI boot.");
-                } else {
-                    Ok(("Boot: Legacy/BIOS".to_string(), None))
-                }
+                ensure!(!matches!(guest_os, GuestOS::MacOS { .. }), "macOS guests require EFI boot.");
+                Ok(("Boot: Legacy/BIOS".to_string(), None))
             }
             (Self::Efi { secure_boot }, _) => {
                 let (ovmf_code, ovmf_vars) = match guest_os {
                     GuestOS::MacOS { .. } => {
-                        if *secure_boot {
-                            bail!("macOS guests do not support Secure Boot.");
-                        }
+                        ensure!(!*secure_boot, "macOS guests do not support Secure Boot.");
                         let efi_code = vm_dir.join("OVMF_CODE.fd");
-                        if !efi_code.exists() {
-                            bail!("macOS firmware \"OVMF_CODE.fd\" could not be found.");
-                        }
+                        ensure!(efi_code.exists(), "macOS firmware \"OVMF_CODE.fd\" could not be found.");
                         let efi_vars = ["OVMF_VARS-1024x768.fd", "OVMF_VARS-1920x1080.fd"]
                             .iter()
                             .find_map(|vars| {
@@ -311,15 +310,15 @@ impl BootType {
                                     None
                                 }
                             })
-                            .ok_or_else(|| anyhow!("macOS EFI VARS could not be found."))?;
+                            .context("macOS EFI VARS could not be found.")?;
                         (efi_code, efi_vars)
                     }
                     _ => {
                         let vm_vars = vm_dir.join("OVMF_VARS.fd");
                         let (efi_code, extra_vars) = match (arch, secure_boot) {
-                            (Arch::aarch64, _) => find_firmware(&AARCH64_OVMF).ok_or_else(|| anyhow!("Firmware for aarch64 could not be found."))?,
-                            (_, true) => find_firmware(&SECURE_BOOT_OVMF).ok_or_else(|| anyhow!("Secure Boot capable firmware could not be found."))?,
-                            _ => find_firmware(&EFI_OVMF).ok_or_else(|| anyhow!("EFI firmware could not be found. Please install OVMF firmware."))?,
+                            (Arch::aarch64, _) => find_firmware(&AARCH64_OVMF).context("Firmware for aarch64 could not be found.")?,
+                            (_, true) => find_firmware(&SECURE_BOOT_OVMF).context("Secure Boot capable firmware could not be found.")?,
+                            _ => find_firmware(&EFI_OVMF).context("EFI firmware could not be found. Please install OVMF firmware.")?,
                         };
                         let efi_code = efi_code.canonicalize()?;
                         if !vm_vars.exists() || vm_vars.metadata()?.permissions().readonly() {
@@ -470,9 +469,7 @@ impl Network {
             }
             Self::Bridged { bridge, mac_addr } => {
                 let network = Networks::new_with_refreshed_list();
-                if !network.contains_key(&bridge) {
-                    bail!("Network interface {} could not be found.", bridge);
-                }
+                ensure!(network.contains_key(&bridge), "Network interface {bridge} could not be found.");
                 let mac_addr = mac_addr.and_then(|mac| format!(",mac={}", mac).into()).unwrap_or_default();
                 Ok((
                     vec!["-nic".into(), "bridge,br=".to_string() + &bridge + &mac_addr],
@@ -498,11 +495,8 @@ impl TryInto<Option<OsString>> for PublicDir {
             }
             Self::Custom(dir) => {
                 let path = PathBuf::from(&dir);
-                if path.exists() {
-                    Some(path.into_os_string())
-                } else {
-                    bail!("Chosen public directory {} does not exist.", dir)
-                }
+                ensure!(path.exists(), "Chosen public directory {dir} does not exist.");
+                Some(path.into_os_string())
             }
         })
     }
@@ -533,7 +527,7 @@ fn tpm_args(vm_dir: &Path, vm_name: &str, sh_file: &mut File) -> Result<([OsStri
             .join(" \\\n    ")
     );
     let tpm_pid = external_command::tpm_pid(&swtpm, &tpm_args, log_file)?;
-    let tpm_print = format!("TPM: {} (pid: {tpm_pid})", tpm_socket.to_string_lossy());
+    let tpm_print = format!("TPM: {} (pid: {tpm_pid})", tpm_socket.display());
 
     let mut socket = OsString::from("socket,id=chrtpm,path=");
     socket.push(tpm_socket);
@@ -553,11 +547,10 @@ fn tpm_args(vm_dir: &Path, vm_name: &str, sh_file: &mut File) -> Result<([OsStri
 
 fn cpucores_ram(cpu: CpuCores, system_info: &System, ram: u64, guest_os: &GuestOS) -> Result<(Vec<String>, Option<Vec<String>>)> {
     let mut cores = cpu.cores;
-    if ram < 4 * BYTES_PER_GB {
-        if let GuestOS::MacOS { .. } | GuestOS::Windows | GuestOS::WindowsServer = guest_os {
-            bail!("{} guests require at least 4GB of RAM.", guest_os);
-        }
-    }
+    ensure!(
+        !(ram < 4 * BYTES_PER_GB && matches!(guest_os, GuestOS::MacOS { .. } | GuestOS::Windows | GuestOS::WindowsServer)),
+        "{guest_os} guests require at least 4GB of RAM.",
+    );
     if let GuestOS::MacOS { .. } = guest_os {
         if !cores.is_power_of_two() {
             log::warn!("macOS guests usually will not boot with a core count that is not a power of 2. Rounding down.");
@@ -689,8 +682,8 @@ impl Mouse {
 fn publicdir_args(publicdir: &OsString, guest_os: &GuestOS) -> Result<(Vec<OsString>, Option<Vec<String>>)> {
     let mut print_args: Vec<String> = Vec::new();
     let mut args: Vec<OsString> = Vec::new();
-    let home_dir = dirs::home_dir().ok_or(anyhow!("Could not find home directory"))?;
-    let username = home_dir.file_name().ok_or(anyhow!("Could not find username"))?;
+    let home_dir = dirs::home_dir().context("Could not find home directory")?;
+    let username = home_dir.file_name().context("Could not find username")?;
 
     if let GuestOS::MacOS { .. } = guest_os {
         print_args.push("WebDAV - On guest: build spice-webdavd (https://gitlab.gnome.org/GNOME/phodav/-/merge_requests/24)\n    Then: Finder -> Connect to Server -> http://localhost:9843/".into());
@@ -750,7 +743,7 @@ fn basic_args(vm_name: &str, vm_dir: &Path, guest_os: &GuestOS, arch: &Arch) -> 
         #[cfg(target_os = "macos")]
         args.extend(["-accel".into(), "hvf".into()]);
     }
-    args.append(&mut guest_os.guest_tweaks());
+    args.append(&mut guest_os.guest_tweaks(arch));
     Some(args)
 }
 

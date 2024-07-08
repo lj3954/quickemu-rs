@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{ensure, Result};
 
 // QEMU supported keyboard layouts. According to the documentation, these are unnecessary
 // (excluding macOS hosts, where they will always be used)
@@ -9,11 +9,11 @@ const KEYBOARD_LAYOUTS: [&str; 33] = [
 ];
 
 pub fn validate_keyboard_layout(layout: String) -> Result<String> {
-    if KEYBOARD_LAYOUTS.contains(&layout.as_str()) {
-        Ok(layout)
-    } else {
-        Err(anyhow::anyhow!("Keyboard layout {} is not supported by QEMU.", layout))
-    }
+    ensure!(
+        KEYBOARD_LAYOUTS.contains(&layout.as_str()),
+        "Keyboard layout {layout} is not supported by QEMU."
+    );
+    Ok(layout)
 }
 
 #[cfg(test)]
