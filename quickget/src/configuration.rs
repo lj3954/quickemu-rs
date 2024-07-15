@@ -132,6 +132,7 @@ fn convert_source(source: Source, vm_dir: &Path, default_filename: String) -> Re
             Ok((path, Some(dl)))
         }
         Source::Custom => todo!(),
+        Source::Docker(_) => todo!(),
     }
 }
 

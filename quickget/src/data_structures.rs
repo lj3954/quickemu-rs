@@ -96,6 +96,15 @@ pub enum Source {
     #[serde(rename = "custom")]
     // Quickget will be required to manually handle "custom" sources.
     Custom,
+    #[serde(rename = "docker")]
+    Docker(DockerSource),
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct DockerSource {
+    pub url: String,
+    pub env: Vec<(String, String)>,
+    pub output_filename: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
