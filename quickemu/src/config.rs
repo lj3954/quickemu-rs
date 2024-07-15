@@ -250,7 +250,7 @@ where
     deserializer.deserialize_any(SizeUnit)
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, PartialEq)]
+#[derive(Serialize, Clone, Deserialize, Default, Debug, PartialEq)]
 pub enum DiskFormat {
     #[serde(alias = "qcow2")]
     #[default]
@@ -326,7 +326,7 @@ impl Default for Display {
     }
 }
 
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum GuestOS {
     #[serde(rename = "linux", alias = "Linux")]
     #[default]
@@ -380,7 +380,7 @@ impl fmt::Display for GuestOS {
     }
 }
 
-#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, PartialOrd, Serialize, Deserialize)]
 pub enum MacOSRelease {
     #[serde(alias = "highsierra", alias = "10.13")]
     HighSierra,
