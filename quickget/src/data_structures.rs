@@ -103,7 +103,8 @@ pub enum Source {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct DockerSource {
     pub url: String,
-    pub env: Vec<(String, String)>,
+    pub privileged: bool,
+    pub shared_dirs: Vec<String>,
     pub output_filename: String,
 }
 

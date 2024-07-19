@@ -122,7 +122,7 @@ impl FindEntry for Vec<OS> {
             if arch.is_none() {
                 let pos = matching_editions
                     .iter()
-                    .find_map(|(i, c)| if c.arch == preferred_arch { Some(*i) } else { None })
+                    .find_map(|(i, c)| (c.arch == preferred_arch).then_some(*i))
                     .unwrap_or_default();
                 self[os_index].releases.remove(pos)
             } else {

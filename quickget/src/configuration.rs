@@ -1,7 +1,7 @@
 use crate::data_structures::{ArchiveFormat as QArchiveFormat, Config, Disk, DockerSource, Source};
 use anyhow::{ensure, Context, Result};
 use quick_fetcher::{ArchiveFormat, Checksum, Download, Downloader};
-use quickemu::config::{Arch, ConfigFile, DiskImage, Image};
+use quickemu::config::{ConfigFile, DiskImage, Image};
 use std::{
     fs::File,
     os::unix::fs::PermissionsExt,
@@ -14,40 +14,40 @@ pub trait CreateConfig {
 }
 
 impl CreateConfig for ConfigFile {
-    async fn create_config(remote: Config, os: String, dl_threads: Option<u8>) -> Result<(ConfigFile, String)> {
-        let arch = &remote.arch;
+    async fn create_config(mut remote: Config, os: String, dl_threads: Option<u8>) -> Result<(ConfigFile, String)> {
         let vm_path = format!(
-            "{os}{}{}-{arch}",
-            remote.release.map(|r| "-".to_string() + &r).unwrap_or_default(),
-            remote.edition.map(|e| "-".to_string() + &e).unwrap_or_default(),
+            "{os}{}{}-{}",
+            remote.arch,
+            remote.release.as_ref().map(|r| "-".to_string() + r).unwrap_or_default(),
+            remote.edition.as_ref().map(|e| "-".to_string() + e).unwrap_or_default(),
         );
         let vm_dir = PathBuf::from(&vm_path);
         std::fs::create_dir(&vm_dir).context("Failed to create VM directory")?;
         let vm_dir = vm_dir.canonicalize().context("Failed to canonicalize directory")?;
         let mut images = Vec::new();
         let mut downloads = Vec::new();
-        if let Some(iso) = remote.iso {
-            let (iso_paths, iso_downloads) = convert_sources(iso, &vm_dir, vm_path.clone() + ".iso", arch)?;
+        if let Some(iso) = remote.iso.take() {
+            let (iso_paths, iso_downloads) = convert_sources(iso, &vm_dir, vm_path.clone() + ".iso", &remote)?;
             images.extend(iso_paths.into_iter().map(Image::Iso));
             downloads.extend(iso_downloads);
         }
-        if let Some(img) = remote.img {
-            let (img_paths, img_downloads) = convert_sources(img, &vm_dir, vm_path.clone() + ".img", arch)?;
+        if let Some(img) = remote.img.take() {
+            let (img_paths, img_downloads) = convert_sources(img, &vm_dir, vm_path.clone() + ".img", &remote)?;
             images.extend(img_paths.into_iter().map(Image::Img));
             downloads.extend(img_downloads);
         }
-        if let Some(floppy) = remote.floppy {
-            let (floppy_paths, floppy_downloads) = convert_sources(floppy, &vm_dir, vm_path.clone() + "-floppy.img", arch)?;
+        if let Some(floppy) = remote.floppy.take() {
+            let (floppy_paths, floppy_downloads) = convert_sources(floppy, &vm_dir, vm_path.clone() + "-floppy.img", &remote)?;
             images.extend(floppy_paths.into_iter().map(Image::Floppy));
             downloads.extend(floppy_downloads);
         }
-        if let Some(fixed_iso) = remote.fixed_iso {
-            let (fixed_iso_paths, fixed_iso_downloads) = convert_sources(fixed_iso, &vm_dir, vm_path.clone() + "-cdrom.iso", arch)?;
+        if let Some(fixed_iso) = remote.fixed_iso.take() {
+            let (fixed_iso_paths, fixed_iso_downloads) = convert_sources(fixed_iso, &vm_dir, vm_path.clone() + "-cdrom.iso", &remote)?;
             images.extend(fixed_iso_paths.into_iter().map(Image::FixedIso));
             downloads.extend(fixed_iso_downloads);
         }
-        let disk_images = if let Some(disks) = remote.disk_images {
-            let (disk_images, disk_downloads) = handle_disks(disks, &vm_dir, arch)?;
+        let disk_images = if let Some(disks) = remote.disk_images.take() {
+            let (disk_images, disk_downloads) = handle_disks(disks, &vm_dir, &remote)?;
             downloads.extend(disk_downloads);
             disk_images
         } else {
@@ -77,12 +77,12 @@ impl CreateConfig for ConfigFile {
     }
 }
 
-fn convert_sources(sources: Vec<Source>, vm_dir: &Path, default_filename: String, arch: &Arch) -> Result<(Vec<PathBuf>, Vec<Download>)> {
+fn convert_sources(sources: Vec<Source>, vm_dir: &Path, default_filename: String, remote: &Config) -> Result<(Vec<PathBuf>, Vec<Download>)> {
     let mut downloads = Vec::new();
     let paths = sources
         .into_iter()
         .map(|source| {
-            let (path, dl) = convert_source(source, vm_dir, default_filename.clone(), arch)?;
+            let (path, dl) = convert_source(source, vm_dir, default_filename.clone(), remote)?;
             if let Some(dl) = dl {
                 downloads.push(dl);
             }
@@ -92,7 +92,7 @@ fn convert_sources(sources: Vec<Source>, vm_dir: &Path, default_filename: String
     Ok((paths, downloads))
 }
 
-fn convert_source(source: Source, vm_dir: &Path, default_filename: String, arch: &Arch) -> Result<(PathBuf, Option<Download>)> {
+fn convert_source(source: Source, vm_dir: &Path, default_filename: String, remote: &Config) -> Result<(PathBuf, Option<Download>)> {
     match source {
         Source::FileName(file) => {
             let path = vm_dir.join(file);
@@ -132,15 +132,30 @@ fn convert_source(source: Source, vm_dir: &Path, default_filename: String, arch:
             Ok((path, Some(dl)))
         }
         Source::Custom => todo!(),
-        Source::Docker(DockerSource { url, env, output_filename }) => {
+        Source::Docker(DockerSource {
+            url,
+            privileged,
+            shared_dirs,
+            output_filename,
+        }) => {
             let mut docker = std::process::Command::new("docker");
 
-            docker.args(["run", "--rm", "-it", "--privileged"]);
-            docker.args(["-v", "/proc:/proc", "-v", &format!("{}:/output", vm_dir.display())]);
-            docker.args(["-e", &format!("ARCH={arch}")]);
+            docker.args(["run", "--rm", "-it"]);
+            docker.args(["-v", &format!("{}:/output", vm_dir.display())]);
 
-            env.iter().for_each(|(var, value)| {
-                docker.args(["-e", &format!("{var}={value}")]);
+            if let Some(ref release) = remote.release {
+                docker.args(["-e", &format!("RELEASE={release}")]);
+            }
+            if let Some(ref edition) = remote.edition {
+                docker.args(["-e", &format!("EDITION={edition}")]);
+            }
+            docker.args(["-e", &format!("ARCH={}", remote.arch)]);
+
+            if privileged {
+                docker.arg("--privileged");
+            }
+            shared_dirs.iter().for_each(|dir| {
+                docker.args(["-v", &format!("{dir}:{dir}")]);
             });
 
             docker.arg(url);
@@ -153,12 +168,12 @@ fn convert_source(source: Source, vm_dir: &Path, default_filename: String, arch:
     }
 }
 
-fn handle_disks(disks: Vec<Disk>, vm_dir: &Path, arch: &Arch) -> Result<(Vec<DiskImage>, Vec<Download>)> {
+fn handle_disks(disks: Vec<Disk>, vm_dir: &Path, remote: &Config) -> Result<(Vec<DiskImage>, Vec<Download>)> {
     let mut downloads = Vec::new();
     let disk_images = disks
         .into_iter()
         .map(|disk| {
-            let (path, dl) = convert_source(disk.source, vm_dir, "custom_disk.qcow2".into(), arch)?;
+            let (path, dl) = convert_source(disk.source, vm_dir, "custom_disk.qcow2".into(), remote)?;
             if let Some(dl) = dl {
                 downloads.push(dl);
             }
