@@ -17,9 +17,9 @@ impl CreateConfig for ConfigFile {
     async fn create_config(mut remote: Config, os: String, dl_threads: Option<u8>) -> Result<(ConfigFile, String)> {
         let vm_path = format!(
             "{os}{}{}-{}",
-            remote.arch,
             remote.release.as_ref().map(|r| "-".to_string() + r).unwrap_or_default(),
             remote.edition.as_ref().map(|e| "-".to_string() + e).unwrap_or_default(),
+            remote.arch,
         );
         let vm_dir = PathBuf::from(&vm_path);
         std::fs::create_dir(&vm_dir).context("Failed to create VM directory")?;
