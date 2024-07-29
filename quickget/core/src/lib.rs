@@ -1,6 +1,5 @@
 pub mod data_structures;
 
-mod instance;
-pub use instance::QuickgetInstance;
-
+mod config_search;
 mod error;
+pub use config_search::ConfigSearchInstance;

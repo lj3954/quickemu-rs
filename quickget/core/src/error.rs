@@ -1,9 +1,10 @@
 use std::{path::PathBuf, time::SystemTimeError};
 
+use quickemu::config::Arch;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum QuickgetError {
+pub enum ConfigSearchError {
     #[error("Failed to determine system cache directory")]
     FailedCacheDir,
     #[error("Cache directory {0} does not exist.")]
@@ -16,4 +17,20 @@ pub enum QuickgetError {
     FailedDownload(#[from] reqwest::Error),
     #[error("Could not serialize JSON data")]
     FailedJson(#[from] serde_json::Error),
+    #[error("An OS must be specified before searching for releases, editions, or architectures")]
+    RequiredOS,
+    #[error("A release is required before searching for editions")]
+    RequiredRelease,
+    #[error("An edition is required before selecting a config")]
+    RequiredEdition,
+    #[error("No OS matching {0} was found")]
+    InvalidOS(String),
+    #[error("No release {0} found for {1}")]
+    InvalidRelease(String, String),
+    #[error("No edition {0} found")]
+    InvalidEdition(String),
+    #[error("Architecture {0} not found including other parameters")]
+    InvalidArchitecture(Arch),
+    #[error("No editions are available for the specified release")]
+    NoEditions,
 }
