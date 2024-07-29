@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use quickemu::config::Arch;
 
 use crate::{
@@ -107,13 +106,14 @@ impl ConfigSearchInstance {
     }
     pub fn list_releases(&self) -> Result<Vec<&str>, ConfigSearchError> {
         let os = self.chosen_os.as_ref().ok_or(ConfigSearchError::RequiredOS)?;
-        let releases = os
+        let mut releases = os
             .releases
             .iter()
             .map(|Config { release, .. }| release.as_deref().unwrap())
-            .sorted_unstable()
-            .dedup()
             .collect::<Vec<&str>>();
+
+        releases.sort_unstable();
+        releases.dedup();
 
         Ok(releases)
     }
