@@ -1,5 +1,5 @@
 [workspace]
-members = ["quickemu", "quickget"]
+members = ["quickemu", "quickget", "quickget/core"]
 
 resolver = "2"
 
