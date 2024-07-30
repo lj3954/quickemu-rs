@@ -5,7 +5,7 @@ use crate::{
     error::ConfigSearchError,
 };
 use std::{
-    fs::{File, OpenOptions},
+    fs::File,
     io::Write,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
@@ -32,12 +32,13 @@ impl ConfigSearchInstance {
             return Err(ConfigSearchError::InvalidCacheDir(cache_dir));
         }
         let cache_file_path = cache_dir.join("quickget_data.json.zst");
-        let mut cache_file = OpenOptions::new().read(true).write(true).create(true).open(&cache_file_path)?;
 
-        let configs = if cache_file_path.is_valid()? {
-            read_cache_file(&cache_file)?
+        let (configs, cache_file) = if cache_file_path.is_valid()? {
+            let cache_file = File::open(&cache_file_path)?;
+            (read_cache_file(&cache_file)?, cache_file)
         } else {
-            gather_configs(Some(&mut cache_file)).await?
+            let mut cache_file = File::create(&cache_file_path)?;
+            (gather_configs(Some(&mut cache_file)).await?, cache_file)
         };
 
         Ok(Self {
@@ -59,6 +60,9 @@ impl ConfigSearchInstance {
     }
     pub fn get_os_list(&self) -> &[OS] {
         &self.configs
+    }
+    pub fn get_chosen_os(&self) -> Option<&OS> {
+        self.chosen_os.as_ref()
     }
     pub fn get_configs(&self) -> Result<&[Config], ConfigSearchError> {
         let os = self.chosen_os.as_ref().ok_or(ConfigSearchError::RequiredOS)?;
@@ -157,7 +161,7 @@ impl ConfigSearchInstance {
             return Err(ConfigSearchError::NoEditions);
         }
         os.releases
-            .retain(|Config { edition, .. }| edition.as_ref().map_or(false, |edition| edition == matching_edition));
+            .retain(|Config { edition, .. }| edition.as_ref().map_or(true, |edition| edition == matching_edition));
 
         if os.releases.is_empty() {
             return Err(ConfigSearchError::InvalidEdition(matching_edition.into()));
@@ -198,11 +202,12 @@ fn read_cache_file(file: &File) -> Result<Vec<OS>, ConfigSearchError> {
 
 async fn gather_configs(file: Option<&mut File>) -> Result<Vec<OS>, ConfigSearchError> {
     let request = reqwest::get(CONFIG_URL).await?;
-    let data = request.text().await?;
+    let data = request.bytes().await?;
     if let Some(file) = file {
-        file.write_all(data.as_bytes())?;
+        file.write_all(&data)?;
     }
-    serde_json::from_str(&data).map_err(ConfigSearchError::from)
+    let reader = zstd::stream::Decoder::new(&data[..])?;
+    serde_json::from_reader(reader).map_err(ConfigSearchError::from)
 }
 
 trait IsValid {
