@@ -34,3 +34,11 @@ pub enum ConfigSearchError {
     #[error("No editions are available for the specified release")]
     NoEditions,
 }
+
+#[derive(Error, Debug)]
+pub enum DLError {
+    #[error("A source does not currently exist for {0}")]
+    UnsupportedSource(String),
+    #[error("Invalid VM name {0}")]
+    InvalidVMName(String),
+}
