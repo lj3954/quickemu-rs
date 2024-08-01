@@ -13,8 +13,8 @@ use std::{
 
 const CONFIG_URL: &str = "https://github.com/quickemu-project/quickget_configs/releases/download/daily/quickget_data.json.zst";
 
-#[derive(Default)]
-pub struct ConfigSearchInstance {
+#[derive(Debug, Default)]
+pub struct ConfigSearch {
     configs: Vec<OS>,
     cache_file: Option<File>,
     chosen_os: Option<OS>,
@@ -22,7 +22,7 @@ pub struct ConfigSearchInstance {
     edition_is_chosen: bool,
 }
 
-impl ConfigSearchInstance {
+impl ConfigSearch {
     pub async fn new() -> Result<Self, ConfigSearchError> {
         let cache_dir = dirs::cache_dir().ok_or(ConfigSearchError::FailedCacheDir)?;
         Self::new_with_cache_dir(cache_dir).await
@@ -71,7 +71,7 @@ impl ConfigSearchInstance {
     pub fn list_os_names(&self) -> Vec<&str> {
         self.configs.iter().map(|OS { name, .. }| &**name).collect()
     }
-    pub fn filter_os(&mut self, os: &str) -> Result<&OS, ConfigSearchError> {
+    pub fn filter_os(&mut self, os: &str) -> Result<&mut OS, ConfigSearchError> {
         let mut os = self
             .configs
             .drain(..)
@@ -86,7 +86,7 @@ impl ConfigSearchInstance {
         });
 
         self.chosen_os = Some(os);
-        Ok(self.chosen_os.as_ref().unwrap())
+        Ok(self.chosen_os.as_mut().unwrap())
     }
     pub fn list_architectures(&self) -> Result<Vec<Arch>, ConfigSearchError> {
         let os = self.chosen_os.as_ref().ok_or(ConfigSearchError::RequiredOS)?;
@@ -98,15 +98,19 @@ impl ConfigSearchInstance {
 
         Ok(architectures)
     }
-    pub fn filter_architecture(&mut self, matching_arch: &Arch) -> Result<(), ConfigSearchError> {
-        let os = self.chosen_os.as_mut().ok_or(ConfigSearchError::RequiredOS)?;
-        os.releases.retain(|Config { arch, .. }| arch == matching_arch);
+    pub fn filter_arch_supported_os(&mut self, matching_arch: &Arch) -> Result<(), ConfigSearchError> {
+        self.configs
+            .retain(|OS { releases, .. }| releases.iter().any(|Config { arch, .. }| arch == matching_arch));
 
-        if os.releases.is_empty() {
+        if self.configs.is_empty() {
             return Err(ConfigSearchError::InvalidArchitecture(matching_arch.to_owned()));
         }
 
         Ok(())
+    }
+    pub fn filter_arch_configs(&mut self, matching_arch: &Arch) -> Result<(), ConfigSearchError> {
+        let os = self.chosen_os.as_mut().ok_or(ConfigSearchError::RequiredOS)?;
+        os.filter_arch(matching_arch)
     }
     pub fn list_releases(&self) -> Result<Vec<&str>, ConfigSearchError> {
         let os = self.chosen_os.as_ref().ok_or(ConfigSearchError::RequiredOS)?;
@@ -123,17 +127,8 @@ impl ConfigSearchInstance {
     }
     pub fn filter_release(&mut self, matching_release: &str) -> Result<(), ConfigSearchError> {
         let os = self.chosen_os.as_mut().ok_or(ConfigSearchError::RequiredOS)?;
-        os.releases
-            .retain(|Config { release, .. }| release.as_ref().unwrap() == matching_release);
-
-        if os.releases.is_empty() {
-            return Err(ConfigSearchError::InvalidRelease(
-                matching_release.into(),
-                os.pretty_name.clone(),
-            ));
-        }
         self.release_is_chosen = true;
-        Ok(())
+        os.filter_release(matching_release)
     }
     pub fn list_editions(&mut self) -> Result<Option<Vec<&str>>, ConfigSearchError> {
         let os = self.chosen_os.as_ref().ok_or(ConfigSearchError::RequiredOS)?;
@@ -160,16 +155,10 @@ impl ConfigSearchInstance {
         } else if self.edition_is_chosen {
             return Err(ConfigSearchError::NoEditions);
         }
-        os.releases
-            .retain(|Config { edition, .. }| edition.as_ref().map_or(true, |edition| edition == matching_edition));
-
-        if os.releases.is_empty() {
-            return Err(ConfigSearchError::InvalidEdition(matching_edition.into()));
-        }
         self.edition_is_chosen = true;
-        Ok(())
+        os.filter_edition(matching_edition)
     }
-    pub fn pick_best_match(self) -> Result<Config, ConfigSearchError> {
+    pub fn pick_best_match(self) -> Result<QuickgetConfig, ConfigSearchError> {
         let mut os = self.chosen_os.ok_or(ConfigSearchError::RequiredOS)?;
         if !self.release_is_chosen {
             return Err(ConfigSearchError::RequiredRelease);
@@ -177,22 +166,28 @@ impl ConfigSearchInstance {
             return Err(ConfigSearchError::RequiredEdition);
         }
 
-        if os.releases.len() == 1 {
-            return Ok(os.releases.pop().unwrap());
-        }
-
-        let preferred_arch = match std::env::consts::ARCH {
+        let preferred_arch = || match std::env::consts::ARCH {
             "aarch64" => Arch::aarch64,
             "riscv64" => Arch::riscv64,
             _ => Arch::x86_64,
         };
 
-        if let Some(position) = os.releases.iter().position(|Config { arch, .. }| arch == &preferred_arch) {
-            Ok(os.releases.remove(position))
+        let config = if os.releases.len() == 1 {
+            os.releases.pop().unwrap()
+        } else if let Some(position) = os.releases.iter().position(|Config { arch, .. }| arch == &preferred_arch()) {
+            os.releases.remove(position)
         } else {
-            Ok(os.releases.pop().unwrap())
-        }
+            os.releases.pop().unwrap()
+        };
+
+        Ok(QuickgetConfig { os: os.name, config })
     }
+}
+
+#[derive(Debug)]
+pub struct QuickgetConfig {
+    pub os: String,
+    pub config: Config,
 }
 
 fn read_cache_file(file: &File) -> Result<Vec<OS>, ConfigSearchError> {
@@ -226,5 +221,37 @@ impl IsValid for PathBuf {
             }
         }
         Ok(false)
+    }
+}
+
+impl OS {
+    pub fn filter_release(&mut self, matching_release: &str) -> Result<(), ConfigSearchError> {
+        self.releases
+            .retain(|Config { release, .. }| release.as_ref().unwrap() == matching_release);
+
+        if self.releases.is_empty() {
+            return Err(ConfigSearchError::InvalidRelease(
+                matching_release.into(),
+                self.pretty_name.clone(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn filter_edition(&mut self, matching_edition: &str) -> Result<(), ConfigSearchError> {
+        self.releases
+            .retain(|Config { edition, .. }| edition.as_ref().map_or(true, |edition| edition == matching_edition));
+
+        if self.releases.is_empty() {
+            return Err(ConfigSearchError::InvalidEdition(matching_edition.into()));
+        }
+        Ok(())
+    }
+    pub fn filter_arch(&mut self, matching_arch: &Arch) -> Result<(), ConfigSearchError> {
+        self.releases.retain(|Config { arch, .. }| arch == matching_arch);
+
+        if self.releases.is_empty() {
+            return Err(ConfigSearchError::InvalidArchitecture(matching_arch.to_owned()));
+        }
+        Ok(())
     }
 }
