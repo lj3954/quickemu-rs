@@ -1,0 +1,16 @@
+[package]
+name = "quickget-rs"
+version = "0.7.3"
+edition = "2021"
+
+[dependencies]
+quickget_core = { path = "../core" }
+tokio = { version = "1.39.2", features = ["full"] }
+anyhow = "1.0.86"
+quickemu-rs = { path = "../../quickemu" }
+itertools = "0.13.0"
+clap = { version = "4.5.4", features = ["derive"] }
+clap-verbosity-flag = "2.2.0"
+futures = "0.3.30"
+reqwest = "0.12.5"
+indicatif = "0.17.8"
