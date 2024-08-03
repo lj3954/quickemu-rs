@@ -41,4 +41,16 @@ pub enum DLError {
     UnsupportedSource(String),
     #[error("Invalid VM name {0}")]
     InvalidVMName(String),
+    #[error("Unable to write to config file")]
+    ConfigFileError(#[from] std::io::Error),
+    #[error("Failed to serialize config data")]
+    ConfigDataError(#[from] toml::ser::Error),
+    #[error("File {0} was not successfully downloaded")]
+    DownloadError(PathBuf),
+    #[error("Invalid checksum {0}")]
+    InvalidChecksum(String),
+    #[error("Checksums did not match. Expected {0}, got {1}")]
+    FailedValidation(String, String),
+    #[error("VM Directory {0} already exists")]
+    DirAlreadyExists(PathBuf),
 }

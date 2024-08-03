@@ -13,13 +13,23 @@ toml = "0.8.13"
 zstd = "0.13.1"
 quick_fetcher = "0.4.3"
 #quick_fetcher = { path = "../../quick_fetcher" }
-tokio = { version = "1.38.0", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.39.2" }
+futures = "0.3.30"
 env_logger = "0.11.3"
 log = "0.4.21"
 clap = { version = "4.5.4", features = ["derive"] }
 clap-verbosity-flag = "2.2.0"
 which = "6.0.1"
 thiserror = "1.0.63"
+portable-pty = "0.8.1"
+num_cpus = "1.16.0"
+sysinfo = "0.31.2"
+md-5 = "0.10.6"
+sha2 = "0.10.8"
+sha1 = "0.10.6"
+bzip2 = "0.4.4"
+flate2 = "1.0.31"
+liblzma = "0.3.3"
 
 [features]
 default = ["quickget"]
