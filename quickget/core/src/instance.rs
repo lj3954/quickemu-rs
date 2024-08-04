@@ -223,8 +223,14 @@ impl QuickgetInstance {
         std::fs::create_dir_all(&self.vm_path)?;
         Ok(())
     }
+    pub fn get_total_cpu_cores(&self) -> usize {
+        num_cpus::get()
+    }
     pub fn set_cpu_cores(&mut self, cores: NonZeroUsize) {
         self.config_data.cpu_cores = Some(cores);
+    }
+    pub fn get_cpu_cores(&self) -> Option<usize> {
+        self.config_data.cpu_cores.map(NonZeroUsize::get)
     }
     pub fn get_recommended_ram(&self) -> u64 {
         let system = sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_memory(sysinfo::MemoryRefreshKind::new().with_ram()));
@@ -237,8 +243,15 @@ impl QuickgetInstance {
             _ => ram,
         }
     }
+    pub fn get_total_ram(&self) -> u64 {
+        let system = sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_memory(sysinfo::MemoryRefreshKind::new().with_ram()));
+        system.total_memory()
+    }
     pub fn set_ram(&mut self, ram: u64) {
         self.config_data.ram = Some(ram);
+    }
+    pub fn get_ram(&self) -> Option<u64> {
+        self.config_data.ram
     }
     pub fn create_config(self) -> Result<File, DLError> {
         let image_files = {
