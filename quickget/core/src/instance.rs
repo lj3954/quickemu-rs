@@ -203,7 +203,7 @@ impl QuickgetInstance {
             })
             .collect()
     }
-    pub fn get_recommended_cpu_cores(&self) -> usize {
+    pub fn get_recommended_cpu_cores() -> usize {
         match num_cpus::get() {
             32.. => 16,
             16.. => 8,
@@ -223,7 +223,7 @@ impl QuickgetInstance {
         std::fs::create_dir_all(&self.vm_path)?;
         Ok(())
     }
-    pub fn get_total_cpu_cores(&self) -> usize {
+    pub fn get_total_cpu_cores() -> usize {
         num_cpus::get()
     }
     pub fn set_cpu_cores(&mut self, cores: NonZeroUsize) {
@@ -232,7 +232,7 @@ impl QuickgetInstance {
     pub fn get_cpu_cores(&self) -> Option<usize> {
         self.config_data.cpu_cores.map(NonZeroUsize::get)
     }
-    pub fn get_recommended_ram(&self) -> u64 {
+    pub fn get_recommended_ram() -> u64 {
         let system = sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_memory(sysinfo::MemoryRefreshKind::new().with_ram()));
         let ram = system.total_memory();
         match ram / (1000 * 1000 * 1000) {
@@ -243,7 +243,7 @@ impl QuickgetInstance {
             _ => ram,
         }
     }
-    pub fn get_total_ram(&self) -> u64 {
+    pub fn get_total_ram() -> u64 {
         let system = sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_memory(sysinfo::MemoryRefreshKind::new().with_ram()));
         system.total_memory()
     }
