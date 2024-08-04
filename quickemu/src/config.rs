@@ -189,6 +189,15 @@ impl fmt::Display for Arch {
         }
     }
 }
+impl AsRef<str> for Arch {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::x86_64 => "x86_64",
+            Self::aarch64 => "aarch64",
+            Self::riscv64 => "riscv64",
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum BootType {
