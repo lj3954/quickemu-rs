@@ -2,7 +2,7 @@
 use quickemu::config::{Arch, BootType, DiskFormat, GuestOS};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OS {
     pub name: String,
     pub pretty_name: String,
@@ -13,7 +13,7 @@ pub struct OS {
     pub releases: Vec<Config>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
@@ -69,7 +69,7 @@ fn is_default<T: Default + PartialEq>(input: &T) -> bool {
     input == &T::default()
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Disk {
     pub source: Source,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -87,7 +87,7 @@ impl Default for Disk {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum Source {
     #[serde(rename = "web")]
     Web(WebSource),
@@ -100,7 +100,7 @@ pub enum Source {
     Docker(DockerSource),
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct DockerSource {
     pub url: String,
     pub privileged: bool,
@@ -108,7 +108,7 @@ pub struct DockerSource {
     pub output_filename: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct WebSource {
     pub url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -137,7 +137,7 @@ impl WebSource {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ArchiveFormat {
     #[serde(rename = "tar")]
     Tar,

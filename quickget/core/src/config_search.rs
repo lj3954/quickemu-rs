@@ -61,6 +61,9 @@ impl ConfigSearch {
     pub fn get_os_list(&self) -> &[OS] {
         &self.configs
     }
+    pub fn into_os_list(self) -> Vec<OS> {
+        self.configs
+    }
     pub fn get_chosen_os(&self) -> Option<&OS> {
         self.chosen_os.as_ref()
     }

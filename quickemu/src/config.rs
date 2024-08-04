@@ -190,7 +190,7 @@ impl fmt::Display for Arch {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum BootType {
     #[serde(rename = "efi", alias = "EFI", alias = "Efi")]
     Efi {

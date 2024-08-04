@@ -17,6 +17,7 @@ use std::{
     process::Command,
 };
 
+#[derive(Debug, Clone)]
 pub struct QuickgetInstance {
     downloads: Vec<QGDownload>,
     docker_builds: Vec<QGDockerSource>,
@@ -41,6 +42,7 @@ pub struct QGDockerSource {
     pub shared_dirs: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
 struct ConfigData {
     guest_os: GuestOS,
     arch: Arch,
@@ -55,12 +57,14 @@ struct ConfigData {
     ram: Option<u64>,
 }
 
+#[derive(Debug, Clone)]
 struct FinalDisk {
     source: FinalSource,
     size: Option<u64>,
     format: DiskFormat,
 }
 
+#[derive(Debug, Clone)]
 struct FinalSource {
     path: PathBuf,
     checksum: Option<String>,
