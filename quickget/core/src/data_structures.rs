@@ -44,7 +44,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            release: String::new(),
+            release: "latest".to_string(),
             edition: None,
             guest_os: GuestOS::Linux,
             arch: Arch::x86_64,
