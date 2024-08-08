@@ -15,8 +15,8 @@ pub struct OS {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub release: Option<String>,
+    #[serde(default)]
+    pub release: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub edition: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -44,7 +44,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            release: None,
+            release: String::new(),
             edition: None,
             guest_os: GuestOS::Linux,
             arch: Arch::x86_64,

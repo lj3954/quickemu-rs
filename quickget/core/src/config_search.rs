@@ -75,18 +75,11 @@ impl ConfigSearch {
         self.configs.iter().map(|OS { name, .. }| &**name).collect()
     }
     pub fn filter_os(&mut self, os: &str) -> Result<&mut OS, ConfigSearchError> {
-        let mut os = self
+        let os = self
             .configs
             .drain(..)
             .find(|OS { name, .. }| name == os)
             .ok_or(ConfigSearchError::InvalidOS(os.into()))?;
-
-        // Fix missing releases
-        os.releases.iter_mut().for_each(|Config { release, .. }| {
-            if release.is_none() {
-                *release = Some("latest".into());
-            }
-        });
 
         self.chosen_os = Some(os);
         Ok(self.chosen_os.as_mut().unwrap())
@@ -120,7 +113,7 @@ impl ConfigSearch {
         let mut releases = os
             .releases
             .iter()
-            .map(|Config { release, .. }| release.as_deref().unwrap())
+            .map(|Config { release, .. }| release.as_str())
             .collect::<Vec<&str>>();
 
         releases.sort_unstable();
@@ -229,8 +222,7 @@ impl IsValid for PathBuf {
 
 impl OS {
     pub fn filter_release(&mut self, matching_release: &str) -> Result<(), ConfigSearchError> {
-        self.releases
-            .retain(|Config { release, .. }| release.as_ref().unwrap() == matching_release);
+        self.releases.retain(|Config { release, .. }| release == matching_release);
 
         if self.releases.is_empty() {
             return Err(ConfigSearchError::InvalidRelease(

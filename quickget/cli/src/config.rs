@@ -42,7 +42,7 @@ fn list_releases(configs: &[Config], arch: Option<&Arch>) -> String {
     let releases = configs
         .iter()
         .filter(|c| arch.map_or(true, |arch| c.arch == *arch))
-        .map(|c| c.release.as_deref().unwrap_or_default())
+        .map(|c| c.release.as_str())
         .unique()
         .collect::<Vec<&str>>();
     let editions = releases
@@ -70,7 +70,7 @@ fn editions_list(configs: &[Config], release: &str, arch: Option<&Arch>) -> Stri
     configs
         .iter()
         .filter(|c| {
-            let conf_release = c.release.as_deref().unwrap_or_default();
+            let conf_release = c.release.as_str();
             conf_release.eq_ignore_ascii_case(release) && arch.map_or(true, |arch| *arch == c.arch)
         })
         .map(|c| c.edition.as_deref().unwrap_or_default())

@@ -24,7 +24,7 @@ pub struct QuickgetInstance {
     vm_path: PathBuf,
     config_file_path: PathBuf,
     config_data: ConfigData,
-    pub release: Option<String>,
+    pub release: String,
     pub edition: Option<String>,
 }
 
@@ -74,7 +74,7 @@ struct FinalSource {
 struct QuickgetData<'a> {
     vm_path: &'a Path,
     os: &'a str,
-    release: Option<&'a str>,
+    release: &'a str,
     edition: Option<&'a str>,
     arch: &'a Arch,
 }
@@ -85,7 +85,7 @@ impl QuickgetInstance {
             os,
             config: Config { release, edition, arch, .. },
         } = &config;
-        let vm_name = os_display('-', os, release.as_deref(), edition.as_deref(), arch);
+        let vm_name = os_display('-', os, release, edition.as_deref(), arch);
         Self::new_with_vm_name(config, parent_directory, &vm_name)
     }
     pub fn new_with_vm_name(config: QuickgetConfig, parent_directory: PathBuf, vm_name: &str) -> Result<Self, DLError> {
@@ -118,7 +118,7 @@ impl QuickgetInstance {
         let data = QuickgetData {
             vm_path: &vm_path,
             os: &os,
-            release: release.as_deref(),
+            release: release.as_str(),
             edition: edition.as_deref(),
             arch: &arch,
         };
@@ -183,9 +183,7 @@ impl QuickgetInstance {
                 command.args(["run", "--rm", "-it"]);
                 command.args(["-v", &format!("{}:/output", self.vm_path.display())]);
 
-                if let Some(ref release) = self.release {
-                    command.args(["-e", &format!("RELEASE={release}")]);
-                }
+                command.args(["-e", &format!("RELEASE={}", self.release)]);
                 if let Some(ref edition) = self.edition {
                     command.args(["-e", &format!("EDITION={edition}")]);
                 }
@@ -457,14 +455,13 @@ fn gather_filename(url: &str, index: usize, extension: &str) -> String {
         .unwrap_or_else(|| format!("download{index}{extension}"))
 }
 
-fn os_display(delim: char, os: &str, release: Option<&str>, edition: Option<&str>, arch: &Arch) -> String {
-    let mut msg = os.to_string();
-    let mut add_text = |text: &str| {
+fn os_display(delim: char, os: &str, release: &str, edition: Option<&str>, arch: &Arch) -> String {
+    let mut msg = format!("{os}{delim}{release}");
+    if let Some(edition) = edition {
         msg.push(delim);
-        msg.push_str(text);
-    };
-    release.map(&mut add_text);
-    edition.map(&mut add_text);
-    add_text(&arch.to_string());
+        msg.push_str(edition);
+    }
+    msg.push(delim);
+    msg.push_str(arch.as_ref());
     msg
 }
