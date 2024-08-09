@@ -1,12 +1,7 @@
 [package]
-name = "quickemu-rs"
-version = "0.7.1"
+name = "quickemu_core"
 edition = "2021"
 license.workspace = true
-
-[lib]
-name = "quickemu"
-path = "src/lib.rs"
 
 [dependencies]
 anyhow = "1.0.81"

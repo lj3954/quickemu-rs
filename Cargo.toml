@@ -1,3 +1,6 @@
+[workspace.package]
+license = "GPL-3.0"
+
 [workspace]
 members = ["quickemu", "quickget/cli", "quickget/core"]
 

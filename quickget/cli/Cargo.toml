@@ -2,6 +2,7 @@
 name = "quickget-rs"
 version = "0.7.3"
 edition = "2021"
+license.workspace = true
 
 [dependencies]
 quickget_core = { path = "../core" }
