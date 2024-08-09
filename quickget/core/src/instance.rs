@@ -13,6 +13,7 @@ use std::{
     fs::File,
     io::Write,
     num::NonZeroUsize,
+    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -305,8 +306,23 @@ impl QuickgetInstance {
             ..Default::default()
         };
         let mut config_file = File::create(&self.config_file_path)?;
+
+        let shebang = which::which("quickemu-rs")
+            .ok()
+            .or_else(|| {
+                std::env::current_exe()
+                    .ok()
+                    .map(|path| path.with_file_name("quickemu-rs"))
+                    .filter(|path| path.exists())
+            })
+            .map(|path| format!("#!{} --vm\n", path.to_string_lossy()));
+
+        if shebang.is_some() {
+            let _ = config_file.set_permissions(PermissionsExt::from_mode(0o755));
+        }
+
         let serialized_config = toml::to_string_pretty(&config)?;
-        config_file.write_all(serialized_config.as_bytes())?;
+        writeln!(config_file, "{}{serialized_config}", shebang.unwrap_or_default())?;
 
         Ok(config_file)
     }
