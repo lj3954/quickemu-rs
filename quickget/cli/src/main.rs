@@ -1,7 +1,8 @@
 mod config;
 
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use clap::Parser;
+use config::ListType;
 use quickemu::config::Arch;
 use quickget_core::{QuickgetConfig, QuickgetInstance};
 use std::io::Write;
@@ -9,10 +10,30 @@ use std::io::Write;
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    let config = config::get(&args.other, args.arch.as_ref()).await?;
-    println!("{config:#?}");
-    let file = create_config(config).await?;
-    println!("Completed. File {file:?}");
+
+    let list_type = if args.list_csv {
+        Some(ListType::Csv)
+    } else if args.list_json {
+        Some(ListType::Json)
+    } else {
+        None
+    };
+    match list_type {
+        Some(list_type) => {
+            ensure!(
+                args.other.is_empty(),
+                "An operating system must not be specified for list_csv or list_json options"
+            );
+            config::list(list_type, args.refresh).await?;
+        }
+        None => {
+            let config = config::get(&args.other, args.arch.as_ref(), args.refresh).await?;
+            println!("{config:#?}");
+            let file = create_config(config).await?;
+            println!("Completed. File {file:?}");
+        }
+    }
+
     Ok(())
 }
 

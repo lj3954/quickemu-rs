@@ -1,10 +1,80 @@
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
 use quickemu::config::Arch;
-use quickget_core::{data_structures::Config, ConfigSearch, QuickgetConfig};
+use quickget_core::{data_structures::Config, ConfigSearch, ConfigSearchError, QuickgetConfig};
+use serde::Serialize;
 
-pub async fn get(args: &[String], preferred_arch: Option<&Arch>) -> Result<QuickgetConfig> {
+async fn create_instance(refresh: bool) -> Result<ConfigSearch, ConfigSearchError> {
     let mut instance = ConfigSearch::new().await?;
+    if refresh {
+        instance.refresh_data().await?;
+    }
+    Ok(instance)
+}
+
+pub enum ListType {
+    Csv,
+    Json,
+}
+
+#[derive(Serialize)]
+struct QuickgetList<'a> {
+    #[serde(rename = "Display Name")]
+    display_name: &'a str,
+    #[serde(rename = "OS")]
+    os: &'a str,
+    #[serde(rename = "Release")]
+    release: &'a str,
+    #[serde(rename = "Option")]
+    option: &'a str,
+    #[serde(rename = "Arch")]
+    arch: &'a Arch,
+    #[serde(rename = "PNG")]
+    png: String,
+    #[serde(rename = "SVG")]
+    svg: String,
+}
+
+pub async fn list(list_type: ListType, refresh: bool) -> Result<()> {
+    let instance = create_instance(refresh).await?;
+    let empty_str = "";
+    let list = instance
+        .get_os_list()
+        .iter()
+        .flat_map(|os| {
+            os.releases.iter().map(|config| QuickgetList {
+                display_name: os.pretty_name.as_str(),
+                os: os.name.as_str(),
+                release: config.release.as_str(),
+                option: config.edition.as_deref().unwrap_or(empty_str),
+                arch: &config.arch,
+                png: format!(
+                    "https://quickemu-project.github.io/quickemu-icons/png/{}/{}-quickemu-white-pinkbg.png",
+                    os.name, os.name
+                ),
+                svg: format!(
+                    "https://quickemu-project.github.io/quickemu-icons/svg/{}/{}-quickemu-white-pinkbg.svg",
+                    os.name, os.name
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    match list_type {
+        ListType::Csv => {
+            let mut wtr = csv::Writer::from_writer(std::io::stdout());
+            for item in list {
+                wtr.serialize(item)?;
+            }
+            wtr.flush()?;
+        }
+        ListType::Json => println!("{}", serde_json::to_string_pretty(&list)?),
+    };
+    Ok(())
+}
+
+pub async fn get(args: &[String], preferred_arch: Option<&Arch>, refresh: bool) -> Result<QuickgetConfig> {
+    let mut instance = create_instance(refresh).await?;
     let mut args = args.iter();
 
     if let Some(arch) = preferred_arch {
