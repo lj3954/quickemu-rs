@@ -144,6 +144,7 @@ fn editions_list(configs: &[Config], release: &str, arch: Option<&Arch>) -> Stri
             conf_release.eq_ignore_ascii_case(release) && arch.map_or(true, |arch| *arch == c.arch)
         })
         .map(|c| c.edition.as_deref().unwrap_or_default())
+        .unique()
         .collect::<Vec<&str>>()
         .join(" ")
 }
