@@ -131,11 +131,14 @@ impl ConfigSearch {
         if !self.release_is_chosen {
             return Err(ConfigSearchError::RequiredRelease);
         }
-        let editions = os
+        let mut editions = os
             .releases
             .iter()
             .filter_map(|Config { edition, .. }| edition.as_deref())
             .collect::<Vec<&str>>();
+
+        editions.sort_unstable();
+        editions.dedup();
 
         if editions.is_empty() {
             self.edition_is_chosen = true;
