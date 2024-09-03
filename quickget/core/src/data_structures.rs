@@ -155,4 +155,6 @@ pub enum ArchiveFormat {
     Bz2,
     #[serde(rename = "zip")]
     Zip,
+    #[serde(rename = "7z")]
+    SevenZip,
 }
