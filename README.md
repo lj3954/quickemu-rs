@@ -32,6 +32,11 @@ does not launch or if you're unable to launch a VM for any reason.
 
 TODO. Use the documentation provided by quickemu for now, most features should be nearly the same.
 
+## Licensing
+
+All parts of quickget-rs are licensed under the GPLv3-only license. Full text can be found in the LICENSE-GPLv3 file.
+Quickemu core is dual licensed under GPLv2-only and GPLv3-only. This is done to allow QEMU to be statically linked with the produced binary in the future, simplifying distribution of quickemu-rs in containerized formats or where a builtin QEMU is otherwise wanted.
+
 
 ## Planned features
 

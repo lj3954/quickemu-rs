@@ -2,7 +2,7 @@
 name = "quickemu_core"
 edition = "2021"
 version = "1.0.0"
-license.workspace = true
+license = "GPL-3.0 OR GPL-2.0"
 
 [dependencies]
 anyhow = "1.0.81"
