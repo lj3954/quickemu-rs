@@ -12,40 +12,14 @@ pub use io::*;
 pub use machine::*;
 pub use network::*;
 
-use serde::{de, Deserialize, Serialize};
-use std::{fmt, path::PathBuf};
+use serde::de;
+use std::fmt;
 
 pub fn is_default<T: Default + PartialEq>(input: &T) -> bool {
     input == &T::default()
 }
 pub fn is_true(input: &bool) -> bool {
     *input
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum BootType {
-    #[serde(rename = "efi", alias = "EFI", alias = "Efi")]
-    Efi {
-        #[serde(default)]
-        secure_boot: bool,
-    },
-    #[serde(rename = "legacy", alias = "Legacy", alias = "bios")]
-    Legacy,
-}
-impl Default for BootType {
-    fn default() -> Self {
-        Self::Efi { secure_boot: false }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DiskImage {
-    pub path: PathBuf,
-    #[serde(deserialize_with = "deserialize_size", default)]
-    pub size: Option<u64>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub preallocation: PreAlloc,
-    pub format: Option<DiskFormat>,
 }
 
 struct SizeUnit;
@@ -65,10 +39,10 @@ impl<'de> de::Visitor<'de> for SizeUnit {
         }
         let unit_char = unit_char.ok_or_else(|| de::Error::custom("No unit type was specified"))?;
         let size = match unit_char {
-            'K' => 2u64 << 9,
-            'M' => 2 << 19,
-            'G' => 2 << 29,
-            'T' => 2 << 39,
+            'K' => 1u64 << 10,
+            'M' => 1 << 20,
+            'G' => 1 << 30,
+            'T' => 1 << 40,
             _ => return Err(de::Error::custom("Unexpected unit type")),
         } as f64;
 

@@ -1,8 +1,10 @@
 use crate::data::*;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct ConfigFile {
+    pub vm_dir: Option<PathBuf>,
     pub guest: GuestOS,
     #[serde(default, skip_serializing_if = "is_default")]
     pub machine: MachineInfo,
@@ -12,10 +14,6 @@ pub struct ConfigFile {
     pub image_files: Option<Vec<Image>>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub network: Network,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub monitor: Monitor,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub serial: Monitor,
     #[serde(default, skip_serializing_if = "is_default")]
     pub io: Io,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
