@@ -1,12 +1,14 @@
 [package]
 name = "quickemu_core"
 edition = "2021"
+version = "1.0.0"
 license.workspace = true
 
 [dependencies]
 anyhow = "1.0.81"
 clap = { version = "4.5.4", features = ["derive"] }
 clap-verbosity-flag = "2.2.0"
+derive_more = { version = "1.0.0", features = ["display", "as_ref"] }
 dirs = "5.0.1"
 display-info = "0.5.1"
 env_logger = "0.11.3"
@@ -19,6 +21,9 @@ serde = { version = "1.0.201", features = ["derive"] }
 sysinfo = { version = "0.30.10", default-features = false }
 toml = "0.8.12"
 which = "6.0.1"
+quickget_core = { path = "../../quickget/core" }
+thiserror = "2.0.8"
+itertools = "0.13.0"
 
 [features]
 default = ["check_smartcard", "get_qemu_ver", "support_bash_conf"]
