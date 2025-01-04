@@ -7,32 +7,34 @@ use quickemu::config::Arch;
 use quickget_core::{QuickgetConfig, QuickgetInstance};
 use std::io::Write;
 
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
 
     let list_type = if args.list_csv {
-        Some(ListType::Csv)
+        eprintln!("Warning: `{PKG_NAME} --list-csv` has been deprecated. Switch to `{PKG_NAME} --list csv` instead.",);
+        Some(Some(ListType::Csv))
     } else if args.list_json {
-        Some(ListType::Json)
+        eprintln!("Warning: `{PKG_NAME} --list-json` has been deprecated. Switch to `{PKG_NAME} --list json` instead.",);
+        Some(Some(ListType::Json))
     } else {
-        None
+        args.list
     };
-    match list_type {
-        Some(list_type) => {
-            ensure!(
-                args.other.is_empty(),
-                "An operating system must not be specified for list_csv or list_json options"
-            );
-            config::list(list_type, args.refresh).await?;
-        }
-        None => {
-            let config = config::get(&args.other, args.arch.as_ref(), args.refresh).await?;
-            println!("{config:#?}");
-            let file = create_config(config).await?;
-            println!("Completed. File {file:?}");
-        }
+
+    if let Some(list_type) = list_type {
+        ensure!(
+            args.other.is_empty(),
+            "An operating system must not be specified for list operations"
+        );
+        return config::list(list_type, args.refresh).await;
     }
+
+    let config = config::get(&args.other, args.arch.as_ref(), args.refresh).await?;
+    println!("{config:#?}");
+    let file = create_config(config).await?;
+    println!("Completed. File {file:?}");
 
     Ok(())
 }
@@ -92,6 +94,8 @@ struct Args {
     #[clap(short, long, group = "actions")]
     download_only: bool,
     #[clap(short, long, group = "actions")]
+    list: Option<Option<ListType>>,
+    #[clap(long, group = "actions")]
     list_csv: bool,
     #[clap(long, group = "actions")]
     list_json: bool,

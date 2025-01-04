@@ -1,8 +1,10 @@
 use anyhow::{bail, Context, Result};
+use clap::ValueEnum;
 use itertools::Itertools;
 use quickemu::config::Arch;
 use quickget_core::{data_structures::Config, ConfigSearch, ConfigSearchError, QuickgetConfig};
 use serde::Serialize;
+use std::io::{stdout, Write};
 
 async fn create_instance(refresh: bool) -> Result<ConfigSearch, ConfigSearchError> {
     let mut instance = ConfigSearch::new().await?;
@@ -12,6 +14,7 @@ async fn create_instance(refresh: bool) -> Result<ConfigSearch, ConfigSearchErro
     Ok(instance)
 }
 
+#[derive(Debug, Clone, ValueEnum)]
 pub enum ListType {
     Csv,
     Json,
@@ -35,40 +38,48 @@ struct QuickgetList<'a> {
     svg: String,
 }
 
-pub async fn list(list_type: ListType, refresh: bool) -> Result<()> {
+pub async fn list(list_type: Option<ListType>, refresh: bool) -> Result<()> {
     let instance = create_instance(refresh).await?;
     let empty_str = "";
-    let list = instance
-        .get_os_list()
-        .iter()
-        .flat_map(|os| {
-            os.releases.iter().map(|config| QuickgetList {
-                display_name: os.pretty_name.as_str(),
-                os: os.name.as_str(),
-                release: config.release.as_str(),
-                option: config.edition.as_deref().unwrap_or(empty_str),
-                arch: &config.arch,
-                png: format!(
-                    "https://quickemu-project.github.io/quickemu-icons/png/{}/{}-quickemu-white-pinkbg.png",
-                    os.name, os.name
-                ),
-                svg: format!(
-                    "https://quickemu-project.github.io/quickemu-icons/svg/{}/{}-quickemu-white-pinkbg.svg",
-                    os.name, os.name
-                ),
-            })
+    let list = instance.get_os_list().iter().flat_map(|os| {
+        os.releases.iter().map(|config| QuickgetList {
+            display_name: os.pretty_name.as_str(),
+            os: os.name.as_str(),
+            release: config.release.as_str(),
+            option: config.edition.as_deref().unwrap_or(empty_str),
+            arch: &config.arch,
+            png: format!(
+                "https://quickemu-project.github.io/quickemu-icons/png/{}/{}-quickemu-white-pinkbg.png",
+                os.name, os.name
+            ),
+            svg: format!(
+                "https://quickemu-project.github.io/quickemu-icons/svg/{}/{}-quickemu-white-pinkbg.svg",
+                os.name, os.name
+            ),
         })
-        .collect::<Vec<_>>();
+    });
 
     match list_type {
-        ListType::Csv => {
-            let mut wtr = csv::Writer::from_writer(std::io::stdout());
+        Some(ListType::Csv) => {
+            let mut wtr = csv::Writer::from_writer(stdout());
             for item in list {
                 wtr.serialize(item)?;
             }
             wtr.flush()?;
         }
-        ListType::Json => println!("{}", serde_json::to_string_pretty(&list)?),
+        Some(ListType::Json) => {
+            let list: Vec<_> = list.collect();
+            let mut stdout = stdout().lock();
+            serde_json::to_writer_pretty(&mut stdout, &list)?;
+            stdout.flush()?;
+        }
+        None => {
+            let mut stdout = stdout().lock();
+            for item in list {
+                writeln!(&mut stdout, "{} {} {} {}", item.os, item.release, item.option, item.arch)?;
+            }
+            stdout.flush()?;
+        }
     };
     Ok(())
 }
