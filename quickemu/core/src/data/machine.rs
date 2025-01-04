@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct MachineInfo {
-    pub cpu_cores: Option<std::num::NonZeroUsize>,
+    pub cpu_threads: Option<std::num::NonZeroUsize>,
     #[serde(default)]
     pub arch: Arch,
     #[serde(default, skip_serializing_if = "is_default")]
