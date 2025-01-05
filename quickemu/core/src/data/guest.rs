@@ -1,7 +1,7 @@
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 
-#[derive(Display, Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Display, Default, Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "os")]
 pub enum GuestOS {
     #[serde(rename = "linux", alias = "Linux")]
@@ -36,7 +36,7 @@ pub enum GuestOS {
     Batocera,
 }
 
-#[derive(Display, Debug, PartialEq, Clone, PartialOrd, Serialize, Deserialize)]
+#[derive(Display, Debug, PartialEq, Clone, Copy, PartialOrd, Serialize, Deserialize)]
 pub enum MacOSRelease {
     #[serde(alias = "highsierra", alias = "10.13")]
     HighSierra,

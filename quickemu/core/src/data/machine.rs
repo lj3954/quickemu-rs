@@ -1,12 +1,11 @@
 use super::{deserialize_size, is_default};
-use clap::ValueEnum;
 use derive_more::derive::Display;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
-pub struct MachineInfo {
+pub struct Machine {
     pub cpu_threads: Option<std::num::NonZeroUsize>,
-    #[serde(default)]
+    #[serde(default, flatten)]
     pub arch: Arch,
     #[serde(default, skip_serializing_if = "is_default")]
     pub boot: BootType,
@@ -18,14 +17,49 @@ pub struct MachineInfo {
     pub status_quo: bool,
 }
 
-#[allow(non_camel_case_types)]
-#[derive(Display, ValueEnum, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-#[clap(rename_all = "verbatim")]
+#[derive(Display, Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "arch")]
 pub enum Arch {
+    #[serde(rename = "x86_64")]
+    X86_64 {
+        #[serde(default, skip_serializing_if = "is_default")]
+        machine: X86_64Machine,
+    },
+    #[serde(alias = "aarch64")]
+    AArch64 {
+        #[serde(default, skip_serializing_if = "is_default")]
+        machine: AArch64Machine,
+    },
+    #[serde(rename = "riscv64")]
+    Riscv64 {
+        #[serde(default, skip_serializing_if = "is_default")]
+        machine: Riscv64Machine,
+    },
+}
+
+impl Default for Arch {
+    fn default() -> Self {
+        Self::X86_64 { machine: X86_64Machine::Standard }
+    }
+}
+
+// Below enums will be used for future SBC / other specialized machine emulation
+#[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub enum X86_64Machine {
     #[default]
-    x86_64,
-    aarch64,
-    riscv64,
+    Standard,
+}
+
+#[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub enum AArch64Machine {
+    #[default]
+    Standard,
+}
+
+#[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Riscv64Machine {
+    #[default]
+    Standard,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

@@ -19,7 +19,8 @@ pub struct DiskImage {
     pub path: PathBuf,
     #[serde(deserialize_with = "deserialize_size", default)]
     pub size: Option<u64>,
-    #[serde(flatten, skip_serializing_if = "is_default")]
+    #[serde(default, flatten, skip_serializing_if = "is_default")]
+    #[serde(deserialize_with = "default_if_empty")]
     pub format: DiskFormat,
 }
 
@@ -32,13 +33,19 @@ pub enum PreAlloc {
     Full,
 }
 
-#[derive(Copy, Serialize, Clone, Deserialize, Debug, PartialEq)]
+#[derive(Copy, Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "format")]
 pub enum DiskFormat {
     #[serde(alias = "qcow2")]
-    Qcow2 { preallocation: PreAlloc },
+    Qcow2 {
+        #[serde(default, skip_serializing_if = "is_default")]
+        preallocation: PreAlloc,
+    },
     #[serde(alias = "raw")]
-    Raw { preallocation: PreAlloc },
+    Raw {
+        #[serde(default, skip_serializing_if = "is_default")]
+        preallocation: PreAlloc,
+    },
     #[serde(alias = "qed")]
     Qed,
     #[serde(alias = "qcow")]
@@ -49,6 +56,18 @@ pub enum DiskFormat {
     Vpc,
     #[serde(alias = "vhdx")]
     Vhdx,
+}
+
+// This is a workaround to an issue in upstream serde
+// https://github.com/serde-rs/serde/issues/1626
+// Preallocation is non-functional when a format isn't specified with this workaround
+fn default_if_empty<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de> + Default,
+{
+    let opt = Option::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
 }
 
 impl Default for DiskFormat {

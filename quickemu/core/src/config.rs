@@ -1,21 +1,18 @@
 use crate::{
     data::*,
-    error::{ConfigError, MonitorError},
-    utils::EmulatorArgs,
+    error::{ConfigError, Error, MonitorError, Warning},
+    qemu_args,
+    utils::{EmulatorArgs, QemuArg},
 };
-use itertools::chain;
 use serde::{Deserialize, Serialize};
-use std::{
-    iter,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Config {
     pub vm_dir: Option<PathBuf>,
     pub guest: GuestOS,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub machine: MachineInfo,
+    pub machine: Machine,
     #[serde(default, skip_serializing_if = "is_default")]
     pub display: Display,
     pub disk_images: Vec<DiskImage>,
@@ -38,7 +35,7 @@ impl Config {
         self.network.send_monitor_cmd(command)
     }
 
-    fn to_arg_iter(self) -> impl Iterator<Item = impl EmulatorArgs> {
-        todo!()
+    pub fn to_qemu_args(&self) -> Result<(Vec<QemuArg>, Vec<Warning>), Error> {
+        qemu_args!(self.machine.cpu_args(self.guest), self.guest.tweaks(self.machine.arch))
     }
 }
