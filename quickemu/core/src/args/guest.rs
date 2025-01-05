@@ -89,7 +89,7 @@ impl EmulatorArgs for GuestTweaks {
         }
         #[cfg(target_os = "windows")]
         if self.hw_virt {
-            tweaks.extend([Cow::Borrowed(OsStr::new("-accel")), Cow::Borrowed(OsStr::new("hax"))]);
+            tweaks.extend([Cow::Borrowed(OsStr::new("-accel")), Cow::Borrowed(OsStr::new("whpx"))]);
         }
 
         #[cfg(target_os = "linux")]
