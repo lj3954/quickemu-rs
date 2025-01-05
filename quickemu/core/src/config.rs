@@ -13,8 +13,6 @@ pub struct Config {
     pub guest: GuestOS,
     #[serde(default, skip_serializing_if = "is_default")]
     pub machine: Machine,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub display: Display,
     pub disk_images: Vec<DiskImage>,
     pub image_files: Option<Vec<Image>>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -36,6 +34,10 @@ impl Config {
     }
 
     pub fn to_qemu_args(&self) -> Result<(Vec<QemuArg>, Vec<Warning>), Error> {
-        qemu_args!(self.machine.cpu_args(self.guest), self.guest.tweaks(self.machine.arch))
+        qemu_args!(
+            self.machine.cpu_args(self.guest),
+            self.guest.tweaks(self.machine.arch),
+            self.io.display.audio(self.io.soundcard)
+        )
     }
 }

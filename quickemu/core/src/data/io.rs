@@ -1,6 +1,5 @@
-use super::is_default;
+use super::{is_default, Display};
 use clap::ValueEnum;
-use derive_more::Display;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
@@ -16,7 +15,9 @@ pub struct Io {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mouse: Option<Mouse>,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub soundcard: Option<SoundCard>,
+    pub soundcard: SoundCard,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub display: Display,
 }
 
 #[derive(PartialEq, ValueEnum, Copy, Clone, Debug, Serialize, Deserialize)]
@@ -52,7 +53,7 @@ pub enum Keyboard {
     PS2,
 }
 
-#[derive(Display, PartialEq, Default, ValueEnum, Clone, Debug, Serialize, Deserialize)]
+#[derive(derive_more::Display, PartialEq, Default, ValueEnum, Clone, Debug, Serialize, Deserialize)]
 pub enum KeyboardLayout {
     #[serde(alias = "ar")]
     Arabic,
