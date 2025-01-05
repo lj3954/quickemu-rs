@@ -1,4 +1,4 @@
-use super::{is_default, is_true};
+use super::{default_if_empty, is_default};
 use clap::{builder::PossibleValue, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -8,20 +8,16 @@ use std::{
 
 #[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Display {
-    #[serde(default, flatten)]
+    #[serde(default, flatten, rename = "type")]
+    #[serde(deserialize_with = "default_if_empty")]
     pub display_type: DisplayType,
     #[serde(default, skip_serializing_if = "is_default")]
     pub resolution: Resolution,
-    #[serde(default = "default_accel", skip_serializing_if = "is_true")]
-    pub accelerated: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub fullscreen: bool,
+    // Serde appears to have a bug where it uses T::Default() rather than the specified default
+    // deserializer when a field isn't present. Instead, we'll use an optional value for this
+    pub accelerated: Option<bool>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub braille: bool,
-}
-
-fn default_accel() -> bool {
-    cfg!(not(target_os = "macos"))
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
@@ -37,9 +33,10 @@ pub enum Resolution {
         width: u32,
         height: u32,
     },
+    FullScreen,
 }
 
-#[derive(Default, derive_more::Display, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Default, derive_more::Display, PartialEq, Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum DisplayType {
     #[serde(alias = "none")]
@@ -153,7 +150,7 @@ impl FromStr for DisplayType {
 }
 
 #[cfg(not(target_os = "macos"))]
-#[derive(derive_more::Display, PartialEq, Default, Deserialize, Serialize, ValueEnum, Clone, Debug)]
+#[derive(Copy, derive_more::Display, PartialEq, Default, Deserialize, Serialize, ValueEnum, Clone, Debug)]
 pub enum Viewer {
     None,
     #[default]

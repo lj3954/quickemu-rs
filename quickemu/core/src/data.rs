@@ -12,7 +12,7 @@ pub use io::*;
 pub use machine::*;
 pub use network::*;
 
-use serde::de;
+use serde::{de, Deserialize};
 use std::fmt;
 
 pub fn is_default<T: Default + PartialEq>(input: &T) -> bool {
@@ -66,4 +66,16 @@ where
     D: serde::Deserializer<'de>,
 {
     deserializer.deserialize_any(SizeUnit)
+}
+
+// This is a workaround to an issue in upstream serde
+// https://github.com/serde-rs/serde/issues/1626
+// Preallocation is non-functional when a format isn't specified with this workaround
+pub fn default_if_empty<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de> + Default,
+{
+    let opt = Option::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
 }

@@ -1,4 +1,4 @@
-use super::{deserialize_size, is_default};
+use super::{default_if_empty, deserialize_size, is_default};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -56,18 +56,6 @@ pub enum DiskFormat {
     Vpc,
     #[serde(alias = "vhdx")]
     Vhdx,
-}
-
-// This is a workaround to an issue in upstream serde
-// https://github.com/serde-rs/serde/issues/1626
-// Preallocation is non-functional when a format isn't specified with this workaround
-fn default_if_empty<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: serde::Deserialize<'de> + Default,
-{
-    let opt = Option::deserialize(deserializer)?;
-    Ok(opt.unwrap_or_default())
 }
 
 impl Default for DiskFormat {

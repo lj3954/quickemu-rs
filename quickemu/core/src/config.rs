@@ -37,7 +37,8 @@ impl Config {
         qemu_args!(
             self.machine.cpu_args(self.guest),
             self.guest.tweaks(self.machine.arch),
-            self.io.display.audio(self.io.soundcard)
+            self.io.display.audio(self.io.soundcard),
+            self.io.display.args(self.guest, self.machine.arch),
         )
     }
 }
