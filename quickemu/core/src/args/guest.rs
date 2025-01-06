@@ -1,14 +1,13 @@
-use std::{borrow::Cow, ffi::OsStr};
-
 use crate::{
     data::{Arch, GuestOS},
     error::{Error, Warning},
     utils::{EmulatorArgs, QemuArg},
 };
+use std::{borrow::Cow, ffi::OsStr};
 
 impl GuestOS {
     #[cfg(target_arch = "x86_64")]
-    pub fn validate_cpu(&self) -> Result<(), Error> {
+    pub(crate) fn validate_cpu(&self) -> Result<(), Error> {
         use crate::data::MacOSRelease;
 
         let cpuid = raw_cpuid::CpuId::new();
@@ -68,7 +67,7 @@ const OSK: &[u8] = &[
 
 pub(crate) struct GuestTweaks {
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-    hw_virt: bool,
+    pub hw_virt: bool,
     #[cfg(target_os = "linux")]
     discard_lost_ticks: bool,
     disable_s3: bool,
