@@ -167,8 +167,10 @@ pub enum Access {
     Address(IpAddr),
 }
 
+#[cfg(not(target_os = "macos"))]
 const ACCESS_VARIANTS: [Access; 3] = [Access::Remote, Access::Local, Access::Address(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))];
 
+#[cfg(not(target_os = "macos"))]
 impl ValueEnum for Access {
     fn value_variants<'a>() -> &'a [Self] {
         &ACCESS_VARIANTS
@@ -183,6 +185,7 @@ impl ValueEnum for Access {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 impl FromStr for Access {
     type Err = String;
 
