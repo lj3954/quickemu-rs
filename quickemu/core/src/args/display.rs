@@ -20,7 +20,7 @@ impl Display {
                 #[cfg(not(target_os = "macos"))]
                 GuestOS::Windows | GuestOS::WindowsServer if matches!(self.display_type, DisplayType::SpiceApp { .. }) => GpuType::VirtIOVGA,
                 #[cfg(target_os = "macos")]
-                GuestOS::Windows | GuestOS::WindowsServer if self.display_type == &DisplayType::Cocoa => GpuType::VirtIOVGA,
+                GuestOS::Windows | GuestOS::WindowsServer if self.display_type == DisplayType::Cocoa => GpuType::VirtIOVGA,
                 GuestOS::Solaris | GuestOS::LinuxOld => GpuType::VMWareSVGA,
                 _ => GpuType::Qxl,
             },
