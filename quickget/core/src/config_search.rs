@@ -11,7 +11,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-const CONFIG_URL: &str = "https://github.com/quickemu-project/quickget_configs/releases/download/daily/quickget_data.json.zst";
+const CONFIG_URL: &str = "https://github.com/lj3954/quickget_cigo/releases/download/daily/quickget_data.json.zst";
 
 #[derive(Debug, Default)]
 pub struct ConfigSearch {
