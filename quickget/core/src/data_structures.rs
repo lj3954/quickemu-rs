@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use quickemu::config::{Arch, BootType, DiskFormat, GuestOS};
+pub use quickemu::config::{Arch, BootType, DiskFormat, GuestOS};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
