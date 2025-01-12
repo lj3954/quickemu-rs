@@ -352,7 +352,7 @@ pub enum GuestOS {
     FreeBSD,
     #[serde(rename = "ghostbsd", alias = "GhostBSD")]
     GhostBSD,
-    #[serde(rename = "dragonflybsd", alias = "DragonFlyBSD")]
+    #[serde(rename = "dragonflybsd", alias = "bsd", alias = "DragonFlyBSD")]
     DragonFlyBSD,
     #[serde(rename = "freedos", alias = "FreeDOS")]
     FreeDOS,
