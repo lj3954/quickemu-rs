@@ -101,7 +101,8 @@ impl EmulatorArgs for GuestTweaks {
         }
 
         if self.osk {
-            tweaks.extend([Cow::Borrowed("-device".as_ref()), Cow::Borrowed(std::str::from_utf8(OSK).unwrap().as_ref())]);
+            let osk = format!("isa-applesmc,osk={}", std::str::from_utf8(OSK).unwrap());
+            tweaks.extend([Cow::Borrowed("-device".as_ref()), Cow::Owned(osk.into())]);
         }
 
         tweaks
