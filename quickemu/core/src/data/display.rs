@@ -67,6 +67,7 @@ impl Visitor<'_> for Accelerated {
 pub enum Resolution {
     #[default]
     Default,
+    #[cfg(feature = "display_resolution")]
     Display {
         display_name: Option<String>,
         percentage: Option<f64>,

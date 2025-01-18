@@ -6,11 +6,9 @@ license = "GPL-3.0 OR GPL-2.0"
 
 [dependencies]
 anyhow = "1.0.81"
-clap = { version = "4.5.4", features = ["derive"] }
-clap-verbosity-flag = "2.2.0"
 derive_more = { version = "1.0.0", features = ["display", "as_ref"] }
 dirs = "5.0.1"
-display-info = "0.5.1"
+display-info = { version = "0.5.1", optional = true }
 env_logger = "0.11.3"
 log = "0.4.21"
 num_cpus = "1.16.0"
@@ -26,10 +24,4 @@ thiserror = "2.0.8"
 itertools = "0.13.0"
 
 [features]
-default = ["check_smartcard", "get_qemu_ver", "support_bash_conf"]
-
-check_smartcard = []
-get_qemu_ver = []
-support_bash_conf = []
-
-control_launch = []
+display_resolution = ["display-info"]

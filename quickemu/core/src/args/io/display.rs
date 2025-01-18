@@ -30,8 +30,12 @@ impl Display {
 
         let (fullscreen, res) = match &self.resolution {
             Resolution::FullScreen => (true, None),
+            #[cfg(feature = "display_resolution")]
             Resolution::Default => (false, display_resolution(None, None)),
+            #[cfg(not(feature = "display_resolution"))]
+            Resolution::Default => (false, Some((1280, 800))),
             Resolution::Custom { width, height } => (false, Some((*width, *height))),
+            #[cfg(feature = "display_resolution")]
             Resolution::Display { display_name, percentage } => (false, display_resolution(display_name.as_deref(), *percentage)),
         };
 
@@ -45,6 +49,7 @@ impl Display {
     }
 }
 
+#[cfg(feature = "display_resolution")]
 fn display_resolution(name: Option<&str>, screenpct: Option<f64>) -> Option<(u32, u32)> {
     let display_info = display_info::DisplayInfo::all().ok()?;
     log::debug!("Displays: {:?}", display_info);
