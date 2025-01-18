@@ -1,7 +1,4 @@
-use std::{
-    ops::Deref,
-    path::{Path, PathBuf},
-};
+use std::path::PathBuf;
 
 use super::{is_default, Display};
 use serde::{de::Visitor, Deserialize, Serialize};

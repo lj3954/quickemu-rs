@@ -1,3 +1,4 @@
+#![allow(unused_lifetimes, unused_variables)]
 use audio::Audio;
 use display::DisplayArgs;
 use itertools::chain;
@@ -51,12 +52,10 @@ pub struct IoArgs<'a> {
 
 impl EmulatorArgs for IoArgs<'_> {
     fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
-        chain!(
-            self.display.display(),
-            self.audio.display(),
-            #[cfg(not(target_os = "macos"))]
-            self.spice.as_ref().map(|spice| spice.display()).into_iter().flatten()
-        )
+        let iter = chain!(self.display.display(), self.audio.display(),);
+        #[cfg(not(target_os = "macos"))]
+        let iter = iter.chain(self.spice.as_ref().map(|spice| spice.display()).into_iter().flatten());
+        iter
     }
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
         chain!(
