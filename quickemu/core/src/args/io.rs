@@ -1,4 +1,4 @@
-#![allow(unused_lifetimes, unused_variables)]
+#![allow(unused_lifetimes)]
 use audio::Audio;
 use display::DisplayArgs;
 use itertools::chain;

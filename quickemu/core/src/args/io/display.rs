@@ -38,7 +38,7 @@ impl Display {
         Ok(DisplayArgs {
             fullscreen,
             res,
-            accelerated: self.accelerated.into(),
+            accelerated: self.accelerated,
             gpu,
             display: self.display_type,
         })
