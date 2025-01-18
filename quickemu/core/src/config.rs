@@ -65,9 +65,7 @@ impl Config {
         qemu_args!(
             self.basic_args(),
             self.machine.cpu_args(self.guest),
-            self.io.args(self.machine.arch, self.guest),
-            self.io.display.audio(self.io.soundcard),
-            self.io.display.args(self.guest, self.machine.arch),
+            self.io.args(self.machine.arch, self.guest, &self.vm_name),
         )
     }
 

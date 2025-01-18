@@ -1,6 +1,6 @@
 use super::{default_if_empty, is_default};
-use serde::{Deserialize, Serialize};
-use std::net::IpAddr;
+use serde::{de::Visitor, Deserialize, Serialize};
+use std::net::{IpAddr, Ipv4Addr};
 
 #[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Display {
@@ -9,11 +9,57 @@ pub struct Display {
     pub display_type: DisplayType,
     #[serde(default, skip_serializing_if = "is_default")]
     pub resolution: Resolution,
-    // Serde appears to have a bug where it uses T::Default() rather than the specified default
-    // deserializer when a field isn't present. Instead, we'll use an optional value for this
-    pub accelerated: Option<bool>,
+    pub accelerated: Accelerated,
     #[serde(default, skip_serializing_if = "is_default")]
     pub braille: bool,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Accelerated(bool);
+
+impl From<Accelerated> for bool {
+    fn from(value: Accelerated) -> Self {
+        value.0
+    }
+}
+
+impl AsRef<str> for Accelerated {
+    fn as_ref(&self) -> &str {
+        if self.0 {
+            "on"
+        } else {
+            "off"
+        }
+    }
+}
+
+impl std::fmt::Display for Accelerated {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = if self.0 { "Enabled" } else { "Disabled" };
+        write!(f, "{}", text)
+    }
+}
+
+impl Default for Accelerated {
+    fn default() -> Self {
+        Self(default_accel())
+    }
+}
+fn default_accel() -> bool {
+    cfg!(not(target_os = "macos"))
+}
+
+impl Visitor<'_> for Accelerated {
+    type Value = Accelerated;
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a boolean")
+    }
+    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Self(value))
+    }
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
@@ -58,12 +104,7 @@ pub enum DisplayType {
     #[cfg(not(target_os = "macos"))]
     #[serde(alias = "spice_app", alias = "spice-app")]
     #[display("Spice App")]
-    SpiceApp {
-        #[serde(default, skip_serializing_if = "is_default")]
-        viewer: Viewer,
-        #[serde(default = "default_spice_port", skip_serializing_if = "is_default_spice")]
-        spice_port: u16,
-    },
+    SpiceApp,
     #[cfg(target_os = "macos")]
     #[cfg_attr(target_os = "macos", default)]
     #[serde(alias = "cocoa")]
@@ -86,10 +127,37 @@ pub enum Viewer {
 }
 
 #[cfg(not(target_os = "macos"))]
-#[derive(Copy, Clone, Default, Serialize, Deserialize, Debug, PartialEq)]
-pub enum Access {
-    Remote,
-    #[default]
-    Local,
-    Address(IpAddr),
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
+pub struct Access(Option<IpAddr>);
+
+#[cfg(not(target_os = "macos"))]
+impl Default for Access {
+    fn default() -> Self {
+        local_access()
+    }
+}
+
+fn local_access() -> Access {
+    Access(Some(IpAddr::V4(Ipv4Addr::LOCALHOST)))
+}
+
+#[cfg(not(target_os = "macos"))]
+impl Visitor<'_> for Access {
+    type Value = Access;
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("an IP address, 'remote', or 'local'")
+    }
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(match value {
+            "remote" => Self(None),
+            "local" => local_access(),
+            _ => {
+                let address = value.parse().map_err(serde::de::Error::custom)?;
+                Self(Some(address))
+            }
+        })
+    }
 }

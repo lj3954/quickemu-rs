@@ -14,6 +14,8 @@ pub enum ConfigError {
 pub enum Error {
     #[error("CPU does not support the necessary instruction for this macOS release: {0}.")]
     Instructions(&'static str),
+    #[error("Requested port {0} is unavailable.")]
+    UnavailablePort(u16),
 }
 
 #[derive(Error, Debug)]

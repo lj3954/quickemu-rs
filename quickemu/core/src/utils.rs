@@ -1,4 +1,8 @@
-use std::{borrow::Cow, ffi::OsStr};
+use std::{
+    borrow::Cow,
+    ffi::OsStr,
+    net::{Ipv4Addr, SocketAddrV4, TcpListener},
+};
 
 pub struct ArgDisplay {
     // e.g. "CPU"
@@ -21,6 +25,13 @@ pub(crate) fn plural_if(b: bool) -> &'static str {
     } else {
         ""
     }
+}
+
+pub(crate) fn find_port(port: u16, offset: u16) -> Option<u16> {
+    (port..=port + offset).find(|port| {
+        let port = SocketAddrV4::new(Ipv4Addr::LOCALHOST, *port);
+        TcpListener::bind(port).is_ok()
+    })
 }
 
 #[macro_export]

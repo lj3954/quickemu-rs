@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    ops::Deref,
+    path::{Path, PathBuf},
+};
 
 use super::{is_default, Display};
 use serde::{de::Visitor, Deserialize, Serialize};
@@ -22,7 +25,7 @@ pub struct Io {
     pub public_dir: PublicDir,
 }
 
-#[derive(PartialEq, Debug, Deserialize, Serialize)]
+#[derive(PartialEq, Debug, Deserialize, Serialize, derive_more::AsRef)]
 pub struct PublicDir(Option<PathBuf>);
 
 impl Default for PublicDir {
