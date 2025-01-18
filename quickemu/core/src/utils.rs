@@ -9,8 +9,8 @@ pub struct ArgDisplay {
 pub type QemuArg = Cow<'static, OsStr>;
 
 pub trait EmulatorArgs {
-    fn display(&self) -> Option<ArgDisplay> {
-        None
+    fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
+        std::iter::empty()
     }
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg>;
 }

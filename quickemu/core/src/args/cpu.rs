@@ -97,7 +97,7 @@ pub(crate) struct Cpu {
 }
 
 impl EmulatorArgs for Cpu {
-    fn display(&self) -> Option<crate::utils::ArgDisplay> {
+    fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
         let sockets = self.unique_cpus.len();
         let cores = self.phys_cores;
         let threads = if self.smt { self.phys_cores * 2 } else { self.phys_cores };
