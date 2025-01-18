@@ -137,6 +137,7 @@ impl Default for Access {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 fn local_access() -> Access {
     Access(Some(IpAddr::V4(Ipv4Addr::LOCALHOST)))
 }
