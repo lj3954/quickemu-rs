@@ -1,5 +1,7 @@
+use std::path::PathBuf;
+
 use super::{is_default, Display};
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Io {
@@ -17,6 +19,41 @@ pub struct Io {
     pub soundcard: SoundCard,
     #[serde(default, skip_serializing_if = "is_default")]
     pub display: Display,
+    pub public_dir: PublicDir,
+}
+
+#[derive(PartialEq, Debug, Deserialize, Serialize)]
+pub struct PublicDir(Option<PathBuf>);
+
+impl Default for PublicDir {
+    fn default() -> Self {
+        let home = dirs::home_dir().unwrap_or_default();
+        let public = dirs::public_dir().unwrap_or_default();
+        Self((home != public).then_some(public))
+    }
+}
+
+impl Visitor<'_> for PublicDir {
+    type Value = PublicDir;
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a valid path, 'default', or 'none'")
+    }
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        match value {
+            "default" => Ok(Self::default()),
+            "none" => Ok(Self(None)),
+            _ => {
+                let path = PathBuf::from(value);
+                if !path.is_dir() {
+                    return Err(serde::de::Error::custom(format!("Path '{}' is not a directory", value)));
+                }
+                Ok(Self(Some(path)))
+            }
+        }
+    }
 }
 
 #[derive(PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]

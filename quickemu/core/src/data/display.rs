@@ -60,8 +60,6 @@ pub enum DisplayType {
     #[display("Spice App")]
     SpiceApp {
         #[serde(default, skip_serializing_if = "is_default")]
-        access: Access,
-        #[serde(default, skip_serializing_if = "is_default")]
         viewer: Viewer,
         #[serde(default = "default_spice_port", skip_serializing_if = "is_default_spice")]
         spice_port: u16,

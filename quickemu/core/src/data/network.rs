@@ -11,7 +11,6 @@ pub struct Network {
     pub port_forwards: Vec<PortForward>,
     #[serde(default = "default_ssh_port", skip_serializing_if = "is_default_ssh")]
     pub ssh_port: u16,
-    pub public_dir: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub monitor: Monitor,
     #[serde(default, skip_serializing_if = "is_default")]
