@@ -1,5 +1,5 @@
 mod arch;
-mod cpu;
 mod guest;
 mod io;
+mod machine;
 mod network;

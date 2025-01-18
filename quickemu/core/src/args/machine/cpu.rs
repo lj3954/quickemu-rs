@@ -1,12 +1,11 @@
 use crate::{
+    args::guest::GuestTweaks,
     data::{Arch, GuestOS, MacOSRelease, Machine},
     error::{Error, Warning},
     utils::{plural_if, ArgDisplay, EmulatorArgs, QemuArg},
 };
 use itertools::Itertools;
 use std::{borrow::Cow, ffi::OsStr};
-
-use super::guest::GuestTweaks;
 
 impl Machine {
     pub(crate) fn cpu_args(&self, guest: GuestOS) -> Result<(Cpu, Vec<Warning>), Error> {

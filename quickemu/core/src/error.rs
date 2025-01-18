@@ -1,6 +1,9 @@
 use std::num::NonZeroUsize;
 
+use size::Size;
 use thiserror::Error;
+
+use crate::data::GuestOS;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -19,6 +22,8 @@ pub enum Error {
     #[cfg(target_os = "linux")]
     #[error("Sound was requested, but no audio backend could be detected (PipeWire/PulseAudio).")]
     AudioBackend,
+    #[error("System RAM {0} is insufficient for {1} VMs.")]
+    InsufficientRam(Size, GuestOS),
 }
 
 #[derive(Error, Debug)]
@@ -37,4 +42,6 @@ pub enum Warning {
     MacOSCorePow2(NonZeroUsize),
     #[error("Hardware virtualization{0} is not enabled on your CPU. Falling back to software virtualization, performance will be degraded")]
     HwVirt(&'static str),
+    #[error("The specified amount of RAM ({0}) is insufficient for {1}. Performance issues may arise")]
+    InsufficientRamConfiguration(Size, GuestOS),
 }

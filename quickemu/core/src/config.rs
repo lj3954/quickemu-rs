@@ -64,7 +64,7 @@ impl Config {
 
         qemu_args!(
             self.basic_args(),
-            self.machine.cpu_args(self.guest),
+            self.machine.args(self.guest),
             self.io.args(self.machine.arch, self.guest, &self.vm_name),
         )
     }
