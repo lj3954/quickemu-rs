@@ -1,4 +1,5 @@
-#![allow(unused_lifetimes)]
+use std::marker::PhantomData;
+
 use audio::Audio;
 use display::DisplayArgs;
 use itertools::chain;
@@ -37,6 +38,7 @@ impl<'a> Io {
                 audio,
                 #[cfg(not(target_os = "macos"))]
                 spice,
+                _phantom: PhantomData,
             },
             warnings,
         ))
@@ -48,6 +50,7 @@ pub struct IoArgs<'a> {
     audio: Audio,
     #[cfg(not(target_os = "macos"))]
     spice: Option<spice::SpiceArgs<'a>>,
+    _phantom: PhantomData<&'a ()>,
 }
 
 impl EmulatorArgs for IoArgs<'_> {
