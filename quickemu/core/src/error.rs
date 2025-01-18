@@ -16,6 +16,9 @@ pub enum Error {
     Instructions(&'static str),
     #[error("Requested port {0} is unavailable.")]
     UnavailablePort(u16),
+    #[cfg(target_os = "linux")]
+    #[error("Sound was requested, but no audio backend could be detected (PipeWire/PulseAudio).")]
+    AudioBackend,
 }
 
 #[derive(Error, Debug)]
@@ -34,7 +37,4 @@ pub enum Warning {
     MacOSCorePow2(NonZeroUsize),
     #[error("Hardware virtualization{0} is not enabled on your CPU. Falling back to software virtualization, performance will be degraded")]
     HwVirt(&'static str),
-    #[cfg(target_os = "linux")]
-    #[error("Sound was requested, but no audio backend could be detected (PipeWire/PulseAudio).")]
-    AudioBackend,
 }

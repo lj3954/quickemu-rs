@@ -6,8 +6,7 @@ use crate::{
 use std::{borrow::Cow, ffi::OsStr};
 
 impl Display {
-    pub(crate) fn audio(&self, sound_card: SoundCard) -> Result<(Audio, Vec<Warning>), Error> {
-        let mut warnings = Vec::new();
+    pub(crate) fn audio(&self, sound_card: SoundCard) -> Result<(Audio, Option<Warning>), Error> {
         let backend = match sound_card {
             SoundCard::None => None,
             _ => match self.display_type {
@@ -22,15 +21,14 @@ impl Display {
                     } else if process_active("pulseaudio") {
                         Some(AudioBackend::PulseAudio)
                     } else {
-                        warnings.push(Warning::AudioBackend);
-                        None
+                        return Err(Error::AudioBackend);
                     }
                 }
                 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
                 _ => None,
             },
         };
-        Ok((Audio { sound_card, backend }, warnings))
+        Ok((Audio { sound_card, backend }, None))
     }
 }
 
@@ -39,7 +37,7 @@ fn process_active(name: &str) -> bool {
     std::process::Command::new("pidof")
         .arg(name)
         .output()
-        .map_or(false, |o| o.status.success())
+        .is_ok_and(|o| o.status.success())
 }
 
 pub(crate) struct Audio {
