@@ -1,5 +1,4 @@
 use super::{is_default, Display};
-use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
@@ -20,14 +19,14 @@ pub struct Io {
     pub display: Display,
 }
 
-#[derive(PartialEq, ValueEnum, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum USBController {
     None,
     Ehci,
     Xhci,
 }
 
-#[derive(PartialEq, ValueEnum, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Mouse {
     Usb,
     Tablet,
@@ -35,7 +34,7 @@ pub enum Mouse {
     PS2,
 }
 
-#[derive(Default, Copy, ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Copy, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum SoundCard {
     None,
     #[default]
@@ -44,7 +43,7 @@ pub enum SoundCard {
     ES1370,
     SB16,
 }
-#[derive(Default, ValueEnum, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Keyboard {
     #[default]
@@ -53,7 +52,7 @@ pub enum Keyboard {
     PS2,
 }
 
-#[derive(derive_more::Display, PartialEq, Default, ValueEnum, Clone, Debug, Serialize, Deserialize)]
+#[derive(derive_more::Display, PartialEq, Default, Clone, Debug, Serialize, Deserialize)]
 pub enum KeyboardLayout {
     #[serde(alias = "ar")]
     Arabic,

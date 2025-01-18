@@ -1,10 +1,6 @@
 use super::{default_if_empty, is_default};
-use clap::{builder::PossibleValue, ValueEnum};
 use serde::{Deserialize, Serialize};
-use std::{
-    net::{IpAddr, Ipv4Addr},
-    str::FromStr,
-};
+use std::net::IpAddr;
 
 #[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Display {
@@ -82,75 +78,8 @@ fn is_default_spice(input: &u16) -> bool {
     *input == default_spice_port()
 }
 
-const DISPLAY_VARIANTS: &[DisplayType] = &[
-    DisplayType::None,
-    DisplayType::Sdl,
-    DisplayType::Gtk,
-    #[cfg(not(target_os = "macos"))]
-    DisplayType::Spice {
-        access: Access::Local,
-        viewer: Viewer::Spicy,
-        spice_port: default_spice_port(),
-    },
-    #[cfg(not(target_os = "macos"))]
-    DisplayType::SpiceApp {
-        access: Access::Local,
-        viewer: Viewer::Spicy,
-        spice_port: default_spice_port(),
-    },
-    #[cfg(target_os = "macos")]
-    DisplayType::Cocoa,
-];
-
-impl ValueEnum for DisplayType {
-    fn value_variants<'a>() -> &'a [Self] {
-        &DISPLAY_VARIANTS
-    }
-
-    fn to_possible_value(&self) -> Option<PossibleValue> {
-        Some(match self {
-            Self::None => PossibleValue::new("none"),
-            Self::Sdl => PossibleValue::new("sdl"),
-            Self::Gtk => PossibleValue::new("gtk"),
-            #[cfg(not(target_os = "macos"))]
-            Self::Spice { .. } => PossibleValue::new("spice"),
-            #[cfg(not(target_os = "macos"))]
-            Self::SpiceApp { .. } => PossibleValue::new("spice-app"),
-            #[cfg(target_os = "macos")]
-            Self::Cocoa => PossibleValue::new("cocoa"),
-        })
-    }
-}
-
-impl FromStr for DisplayType {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "none" => Ok(Self::None),
-            "sdl" => Ok(Self::Sdl),
-            "gtk" => Ok(Self::Gtk),
-            #[cfg(not(target_os = "macos"))]
-            "spice" => Ok(Self::Spice {
-                access: Access::Local,
-                viewer: Viewer::Spicy,
-                spice_port: default_spice_port(),
-            }),
-            #[cfg(not(target_os = "macos"))]
-            "spice-app" => Ok(Self::SpiceApp {
-                access: Access::Local,
-                viewer: Viewer::Spicy,
-                spice_port: default_spice_port(),
-            }),
-            #[cfg(target_os = "macos")]
-            "cocoa" => Ok(Self::Cocoa),
-            _ => Err(format!("Invalid variant: {s}")),
-        }
-    }
-}
-
 #[cfg(not(target_os = "macos"))]
-#[derive(Copy, derive_more::Display, PartialEq, Default, Deserialize, Serialize, ValueEnum, Clone, Debug)]
+#[derive(Copy, derive_more::Display, PartialEq, Default, Deserialize, Serialize, Clone, Debug)]
 pub enum Viewer {
     None,
     #[default]
@@ -165,35 +94,4 @@ pub enum Access {
     #[default]
     Local,
     Address(IpAddr),
-}
-
-#[cfg(not(target_os = "macos"))]
-const ACCESS_VARIANTS: [Access; 3] = [Access::Remote, Access::Local, Access::Address(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))];
-
-#[cfg(not(target_os = "macos"))]
-impl ValueEnum for Access {
-    fn value_variants<'a>() -> &'a [Self] {
-        &ACCESS_VARIANTS
-    }
-
-    fn to_possible_value(&self) -> Option<PossibleValue> {
-        Some(match self {
-            Self::Remote => PossibleValue::new("remote"),
-            Self::Local => PossibleValue::new("local"),
-            Self::Address(_) => PossibleValue::new("other"),
-        })
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-impl FromStr for Access {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "remote" => Ok(Self::Remote),
-            "local" => Ok(Self::Local),
-            _ => IpAddr::from_str(s).map(Self::Address).map_err(|e| e.to_string()),
-        }
-    }
 }
