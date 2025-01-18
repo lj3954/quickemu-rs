@@ -58,11 +58,9 @@ impl EmulatorArgs for IoArgs<'_> {
         iter
     }
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
-        chain!(
-            self.display.qemu_args(),
-            self.audio.qemu_args(),
-            #[cfg(not(target_os = "macos"))]
-            self.spice.as_ref().map(|spice| spice.qemu_args()).into_iter().flatten()
-        )
+        let iter = chain!(self.display.qemu_args(), self.audio.qemu_args(),);
+        #[cfg(not(target_os = "macos"))]
+        let iter = iter.chain(self.spice.as_ref().map(|spice| spice.qemu_args()).into_iter().flatten());
+        iter
     }
 }
