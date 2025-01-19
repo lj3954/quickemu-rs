@@ -30,7 +30,7 @@ pub struct Config {
     pub extra_args: Vec<String>,
 }
 
-impl Config {
+impl<'a> Config {
     pub fn parse(file: &Path) -> Result<Self, ConfigError> {
         let contents = std::fs::read_to_string(file)?;
         let mut conf: Self = toml::from_str(&contents).map_err(ConfigError::Parse)?;
@@ -69,25 +69,25 @@ impl Config {
         )
     }
 
-    fn basic_args(&self) -> Result<(BasicArgs, Vec<Warning>), Error> {
+    fn basic_args(&'a self) -> Result<(BasicArgs<'a>, Option<Warning>), Error> {
         Ok((
             BasicArgs {
                 slew_driftfix: matches!(self.machine.arch, Arch::X86_64 { .. }),
                 pid_path: self.vm_dir.as_ref().unwrap().join(format!("{}.pid", self.vm_name)),
-                vm_name: self.vm_name.clone(),
+                vm_name: &self.vm_name,
             },
-            Vec::new(),
+            None,
         ))
     }
 }
 
-pub(crate) struct BasicArgs {
+pub(crate) struct BasicArgs<'a> {
     slew_driftfix: bool,
     pid_path: PathBuf,
-    vm_name: String,
+    vm_name: &'a str,
 }
 
-impl EmulatorArgs for BasicArgs {
+impl EmulatorArgs for BasicArgs<'_> {
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
         let mut args = Vec::with_capacity(4);
 
