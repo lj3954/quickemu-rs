@@ -1,5 +1,7 @@
 use crate::{data::Arch, error::Warning};
 use raw_cpuid::{CpuId, CpuIdReader};
+
+#[cfg(target_os = "linux")]
 use std::path::Path;
 
 impl Arch {
@@ -39,6 +41,7 @@ impl Arch {
     }
 }
 
+#[cfg(target_arch = "x86_64")]
 fn query_virt_type<R: CpuIdReader>(cpuid_reader: CpuId<R>) -> &'static str {
     cpuid_reader.get_vendor_info().map_or("", |v| match v.as_str() {
         "GenuineIntel" => " (VT-x)",
