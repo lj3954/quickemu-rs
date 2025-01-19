@@ -7,20 +7,23 @@ use serde::{de::Visitor, Deserialize, Serialize};
 pub struct Io {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usb_controller: Option<USBController>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub usb_devices: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub usb_devices: USBDevices,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keyboard: Option<Keyboard>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub keyboard_layout: KeyboardLayout,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mouse: Option<Mouse>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub soundcard: SoundCard,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub soundcard: Option<SoundCard>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub display: Display,
     pub public_dir: PublicDir,
 }
+
+#[derive(PartialEq, Default, Debug, Deserialize, Serialize, derive_more::AsRef, Clone)]
+pub struct USBDevices(Option<Vec<String>>);
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, derive_more::AsRef)]
 pub struct PublicDir(Option<PathBuf>);
@@ -71,16 +74,17 @@ pub enum Mouse {
     PS2,
 }
 
-#[derive(Default, Copy, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum SoundCard {
     None,
-    #[default]
     IntelHDA,
     AC97,
     ES1370,
     SB16,
+    USBAudio,
 }
-#[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
+
+#[derive(Copy, Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Keyboard {
     #[default]
@@ -89,7 +93,7 @@ pub enum Keyboard {
     PS2,
 }
 
-#[derive(derive_more::Display, PartialEq, Default, Clone, Debug, Serialize, Deserialize)]
+#[derive(derive_more::Display, Copy, PartialEq, Default, Clone, Debug, Serialize, Deserialize)]
 pub enum KeyboardLayout {
     #[serde(alias = "ar")]
     Arabic,

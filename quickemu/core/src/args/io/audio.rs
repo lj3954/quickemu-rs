@@ -1,9 +1,29 @@
 use crate::{
-    data::{Display, DisplayType, SoundCard},
+    data::{Display, DisplayType, GuestOS, MacOSRelease, SoundCard, USBController},
     error::{Error, Warning},
     utils::{ArgDisplay, EmulatorArgs, QemuArg},
 };
 use std::{borrow::Cow, ffi::OsStr};
+
+impl GuestOS {
+    pub(crate) fn default_soundcard(&self) -> SoundCard {
+        match self {
+            GuestOS::FreeDOS => SoundCard::SB16,
+            GuestOS::Solaris => SoundCard::AC97,
+            GuestOS::MacOS { release } if release >= &MacOSRelease::BigSur => SoundCard::USBAudio,
+            _ => SoundCard::IntelHDA,
+        }
+    }
+}
+
+impl SoundCard {
+    pub(crate) fn validate(&self, usb_controller: USBController) -> Result<(), Error> {
+        if matches!(self, SoundCard::USBAudio) && usb_controller != USBController::Xhci {
+            return Err(Error::ConflictingSoundUsb);
+        }
+        Ok(())
+    }
+}
 
 impl Display {
     pub(crate) fn audio(&self, sound_card: SoundCard) -> Result<(Audio, Option<Warning>), Error> {
@@ -75,6 +95,7 @@ impl EmulatorArgs for Audio {
             SoundCard::ES1370 => "ES1370",
             SoundCard::SB16 => "Sound Blaster 16",
             SoundCard::IntelHDA => "Intel HDA",
+            SoundCard::USBAudio => "USB Audio",
         };
         Some(ArgDisplay {
             name: "Sound".into(),
@@ -105,6 +126,7 @@ impl EmulatorArgs for Audio {
             SoundCard::AC97 => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("ac97,audiodev=audio0"))]),
             SoundCard::ES1370 => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("es1370,audiodev=audio0"))]),
             SoundCard::SB16 => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("sb16,audiodev=audio0"))]),
+            SoundCard::USBAudio => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("usb-audio,audiodev=audio0"))]),
             SoundCard::IntelHDA => args.extend([
                 Cow::Borrowed(OsStr::new("-device")),
                 Cow::Borrowed(OsStr::new("intel-hda")),

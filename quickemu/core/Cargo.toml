@@ -26,3 +26,4 @@ size = "0.4.1"
 
 [features]
 display_resolution = ["display-info"]
+smartcard_args = []

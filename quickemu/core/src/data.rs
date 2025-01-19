@@ -25,7 +25,7 @@ pub fn is_true(input: &bool) -> bool {
 fn parse_size<E: de::Error>(value: &str) -> Result<u64, E> {
     let mut chars = value.chars().rev();
     let mut unit_char = chars.next();
-    if unit_char.map_or(false, |c| c == 'B') {
+    if unit_char == Some('B') {
         unit_char = chars.next();
     }
     let unit_char = unit_char.ok_or_else(|| de::Error::custom("No unit type was specified"))?;

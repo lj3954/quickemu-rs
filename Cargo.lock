@@ -1287,8 +1287,6 @@ name = "quickemu_core"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "clap",
- "clap-verbosity-flag",
  "derive_more",
  "dirs",
  "display-info",
@@ -1301,6 +1299,7 @@ dependencies = [
  "quickget_core",
  "raw-cpuid",
  "serde",
+ "size",
  "sysinfo 0.30.13",
  "thiserror 2.0.8",
  "toml",
@@ -1685,6 +1684,12 @@ checksum = "a9e9e0b4211b72e7b8b6e85c807d36c212bdb33ea8587f7569562a84df5465b1"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "size"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fed904c7fb2856d868b92464fc8fa597fce366edea1a9cbfaa8cb5fe080bd6d"
 
 [[package]]
 name = "slab"
