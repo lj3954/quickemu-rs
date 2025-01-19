@@ -52,4 +52,6 @@ pub enum MacOSRelease {
     Ventura,
     #[serde(alias = "sonoma", alias = "14")]
     Sonoma,
+    #[serde(alias = "sequoia", alias = "15")]
+    Sequoia,
 }
