@@ -20,6 +20,8 @@ impl Display {
                         Some(AudioBackend::PipeWire)
                     } else if process_active("pulseaudio") {
                         Some(AudioBackend::PulseAudio)
+                    } else if process_active("alsa") {
+                        Some(AudioBackend::Alsa)
                     } else {
                         return Err(Error::AudioBackend);
                     }
@@ -54,6 +56,8 @@ enum AudioBackend {
     PipeWire,
     #[cfg(target_os = "linux")]
     PulseAudio,
+    #[cfg(target_os = "linux")]
+    Alsa,
 }
 
 impl EmulatorArgs for Audio {
@@ -83,6 +87,8 @@ impl EmulatorArgs for Audio {
                 AudioBackend::PipeWire => "pipewire,id=audio0",
                 #[cfg(target_os = "linux")]
                 AudioBackend::PulseAudio => "pulse,id=audio0",
+                #[cfg(target_os = "linux")]
+                AudioBackend::Alsa => "alsa,id=audio0",
             })));
         }
         match self.sound_card {
