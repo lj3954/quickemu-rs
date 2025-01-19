@@ -7,30 +7,34 @@ use std::{borrow::Cow, ffi::OsStr};
 
 impl Display {
     pub(crate) fn audio(&self, sound_card: SoundCard) -> Result<(Audio, Option<Warning>), Error> {
+        let mut warning = None;
         let backend = match sound_card {
-            SoundCard::None => None,
+            SoundCard::None => AudioBackend::None,
             _ => match self.display_type {
                 #[cfg(not(target_os = "macos"))]
-                DisplayType::Spice { .. } | DisplayType::SpiceApp { .. } | DisplayType::None => Some(AudioBackend::Spice),
+                DisplayType::Spice { .. } | DisplayType::SpiceApp { .. } | DisplayType::None => AudioBackend::Spice,
                 #[cfg(target_os = "macos")]
                 _ => Some(AudioBackend::CoreAudio),
+                #[cfg(target_os = "windows")]
+                _ => AudioBackend::DirectSound,
                 #[cfg(target_os = "linux")]
                 _ => {
                     if process_active("pipewire") {
-                        Some(AudioBackend::PipeWire)
+                        AudioBackend::PipeWire
                     } else if process_active("pulseaudio") {
-                        Some(AudioBackend::PulseAudio)
+                        AudioBackend::PulseAudio
                     } else if process_active("alsa") {
-                        Some(AudioBackend::Alsa)
+                        AudioBackend::Alsa
                     } else {
-                        return Err(Error::AudioBackend);
+                        warning = Some(Warning::AudioBackend);
+                        AudioBackend::None
                     }
                 }
                 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-                _ => None,
+                _ => AudioBackend::None,
             },
         };
-        Ok((Audio { sound_card, backend }, None))
+        Ok((Audio { sound_card, backend }, warning))
     }
 }
 
@@ -44,10 +48,11 @@ fn process_active(name: &str) -> bool {
 
 pub(crate) struct Audio {
     sound_card: SoundCard,
-    backend: Option<AudioBackend>,
+    backend: AudioBackend,
 }
 
 enum AudioBackend {
+    None,
     #[cfg(not(target_os = "macos"))]
     Spice,
     #[cfg(target_os = "macos")]
@@ -58,6 +63,8 @@ enum AudioBackend {
     PulseAudio,
     #[cfg(target_os = "linux")]
     Alsa,
+    #[cfg(target_os = "windows")]
+    DirectSound,
 }
 
 impl EmulatorArgs for Audio {
@@ -75,22 +82,24 @@ impl EmulatorArgs for Audio {
         })
     }
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
-        let mut args = Vec::new();
-        if let Some(backend) = &self.backend {
-            args.push(Cow::Borrowed(OsStr::new("-audiodev")));
-            args.push(Cow::Borrowed(OsStr::new(match backend {
-                #[cfg(not(target_os = "macos"))]
-                AudioBackend::Spice => "spice,id=audio0",
-                #[cfg(target_os = "macos")]
-                AudioBackend::CoreAudio => "coreaudio,id=audio0",
-                #[cfg(target_os = "linux")]
-                AudioBackend::PipeWire => "pipewire,id=audio0",
-                #[cfg(target_os = "linux")]
-                AudioBackend::PulseAudio => "pulse,id=audio0",
-                #[cfg(target_os = "linux")]
-                AudioBackend::Alsa => "alsa,id=audio0",
-            })));
-        }
+        let backend = match self.backend {
+            AudioBackend::None => "none,id=audio0",
+            #[cfg(not(target_os = "macos"))]
+            AudioBackend::Spice => "spice,id=audio0",
+            #[cfg(target_os = "macos")]
+            AudioBackend::CoreAudio => "coreaudio,id=audio0",
+            #[cfg(target_os = "linux")]
+            AudioBackend::PipeWire => "pipewire,id=audio0",
+            #[cfg(target_os = "linux")]
+            AudioBackend::PulseAudio => "pulse,id=audio0",
+            #[cfg(target_os = "linux")]
+            AudioBackend::Alsa => "alsa,id=audio0",
+            #[cfg(target_os = "windows")]
+            AudioBackend::DirectSound => "dsound,id=audio0",
+        };
+
+        let mut args = vec![Cow::Borrowed(OsStr::new("-audiodev")), Cow::Borrowed(OsStr::new(backend))];
+
         match self.sound_card {
             SoundCard::None => {}
             SoundCard::AC97 => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("ac97,audiodev=audio0"))]),
