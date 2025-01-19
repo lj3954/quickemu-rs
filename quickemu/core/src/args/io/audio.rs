@@ -34,7 +34,7 @@ impl Display {
                 #[cfg(not(target_os = "macos"))]
                 DisplayType::Spice { .. } | DisplayType::SpiceApp { .. } | DisplayType::None => AudioBackend::Spice,
                 #[cfg(target_os = "macos")]
-                _ => Some(AudioBackend::CoreAudio),
+                _ => AudioBackend::CoreAudio,
                 #[cfg(target_os = "windows")]
                 _ => AudioBackend::DirectSound,
                 #[cfg(target_os = "linux")]
