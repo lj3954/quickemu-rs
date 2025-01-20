@@ -63,10 +63,9 @@ impl Display {
 
 #[cfg(target_os = "linux")]
 fn process_active(name: &str) -> bool {
-    std::process::Command::new("pidof")
-        .arg(name)
-        .output()
-        .is_ok_and(|o| o.status.success())
+    let system = sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_processes(sysinfo::ProcessRefreshKind::new()));
+    let process = system.processes_by_exact_name(name).next();
+    process.is_some()
 }
 
 pub(crate) struct Audio {
