@@ -1,6 +1,7 @@
 use audio::Audio;
 use display::DisplayArgs;
 use itertools::chain;
+use public_dir::PublicDirArgs;
 use usb::USBArgs;
 
 use crate::{
@@ -13,6 +14,7 @@ mod audio;
 mod display;
 mod keyboard;
 mod mouse;
+mod public_dir;
 mod usb;
 
 #[cfg(not(target_os = "macos"))]
@@ -34,15 +36,16 @@ impl<'a> Io {
 
         let display = self.display.args(guest, arch)?;
 
+        let public_dir_str = self.public_dir.as_ref().as_ref().map(|path| path.to_string_lossy());
+        let public_dir_args = self.public_dir.as_ref().as_deref().map(|d| PublicDirArgs::new(d, guest));
+
         #[cfg(not(target_os = "macos"))]
-        let spice = {
-            if let DisplayType::Spice { .. } | DisplayType::SpiceApp { .. } = self.display.display_type {
-                let public_dir_str = self.public_dir.as_ref().as_ref().map(|path| path.to_string_lossy());
-                Some(self.display.spice_args(vm_name, guest, public_dir_str)?)
-            } else {
-                None
-            }
-        };
+        let spice = matches!(
+            self.display.display_type,
+            DisplayType::Spice { .. } | DisplayType::SpiceApp { .. }
+        )
+        .then(|| self.display.spice_args(vm_name, guest, public_dir_str))
+        .transpose()?;
 
         let mouse = self.mouse.unwrap_or(guest.default_mouse());
         let usb = usb_controller.usb_args(guest, &self.usb_devices);
@@ -57,6 +60,7 @@ impl<'a> Io {
                 keyboard_layout: self.keyboard_layout,
                 #[cfg(not(target_os = "macos"))]
                 spice,
+                public_dir_args,
             },
             warnings,
         ))
@@ -72,6 +76,7 @@ pub struct IoArgs<'a> {
     keyboard_layout: KeyboardLayout,
     #[cfg(not(target_os = "macos"))]
     spice: Option<spice::SpiceArgs<'a>>,
+    public_dir_args: Option<PublicDirArgs<'a>>,
 }
 
 impl EmulatorArgs for IoArgs<'_> {
@@ -83,6 +88,7 @@ impl EmulatorArgs for IoArgs<'_> {
             self.usb.display(),
             self.keyboard.display(),
             self.keyboard_layout.display(),
+            self.public_dir_args.as_ref().map(|d| d.display()).into_iter().flatten(),
         );
 
         #[cfg(not(target_os = "macos"))]
@@ -98,6 +104,7 @@ impl EmulatorArgs for IoArgs<'_> {
             self.usb.qemu_args(),
             self.keyboard.qemu_args(),
             self.keyboard_layout.qemu_args(),
+            self.public_dir_args.as_ref().map(|d| d.qemu_args()).into_iter().flatten(),
         );
 
         #[cfg(not(target_os = "macos"))]
