@@ -2,8 +2,17 @@ use std::{
     borrow::Cow,
     ffi::OsStr,
     net::{Ipv4Addr, SocketAddrV4, TcpListener},
+    thread::JoinHandle,
 };
 
+#[cfg(feature = "inbuilt_commands")]
+use memfd_exec::Child;
+#[cfg(not(feature = "inbuilt_commands"))]
+use std::process::Child;
+
+use crate::error::Error;
+
+#[derive(Debug)]
 pub struct ArgDisplay {
     // e.g. "CPU"
     pub name: Cow<'static, str>,
@@ -11,12 +20,26 @@ pub struct ArgDisplay {
     pub value: Cow<'static, str>,
 }
 pub type QemuArg = Cow<'static, OsStr>;
+pub type LaunchFn = Box<dyn FnOnce() -> Result<Vec<LaunchFnReturn>, Error>>;
 
-pub trait EmulatorArgs {
+pub trait EmulatorArgs: Sized {
     fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
         std::iter::empty()
     }
-    fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg>;
+    fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
+        std::iter::empty()
+    }
+    fn launch_fn(self) -> Option<LaunchFn> {
+        None
+    }
+}
+
+#[derive(Debug)]
+pub enum LaunchFnReturn {
+    Thread(JoinHandle<Result<(), Error>>),
+    Process(Child),
+    Arg(QemuArg),
+    Display(ArgDisplay),
 }
 
 pub(crate) fn plural_if(b: bool) -> &'static str {
@@ -48,6 +71,41 @@ macro_rules! qemu_args {
                 }
             )*
             Ok((qemu_args, warnings))
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! full_qemu_args {
+    ($($arg:expr),* $(,)?) => {
+        {
+            let mut warnings = Vec::new();
+            let mut display = Vec::new();
+            let mut qemu_args = Vec::new();
+            let mut launch_fns = Vec::new();
+            $(
+                {
+                    let (args, warn) = $arg?;
+                    warnings.extend(warn);
+                    display.extend(args.display());
+                    qemu_args.extend(args.qemu_args());
+                    if let Some(launch_fn) = args.launch_fn() {
+                        launch_fns.push(launch_fn);
+                    }
+                }
+            )*
+
+            let mut launch_fn_returns = Vec::new();
+            for launch_fn in launch_fns {
+                launch_fn_returns.extend(launch_fn()?);
+            }
+
+            Ok(QemuArgs {
+                qemu_args,
+                warnings,
+                display,
+                launch_fn_returns,
+            })
         }
     };
 }

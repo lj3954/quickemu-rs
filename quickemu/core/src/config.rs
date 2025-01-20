@@ -1,8 +1,8 @@
 use crate::{
     data::*,
     error::{ConfigError, Error, MonitorError, Warning},
-    qemu_args,
-    utils::{EmulatorArgs, QemuArg},
+    full_qemu_args, qemu_args,
+    utils::{ArgDisplay, EmulatorArgs, LaunchFnReturn, QemuArg},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -28,6 +28,14 @@ pub struct Config {
     pub io: Io,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_args: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct QemuArgs {
+    pub qemu_args: Vec<QemuArg>,
+    pub warnings: Vec<Warning>,
+    pub launch_fn_returns: Vec<LaunchFnReturn>,
+    pub display: Vec<ArgDisplay>,
 }
 
 impl<'a> Config {
@@ -58,13 +66,26 @@ impl<'a> Config {
         self.network.send_monitor_cmd(command)
     }
 
+    pub fn to_full_qemu_args(&self) -> Result<QemuArgs, Error> {
+        let vm_dir = self.vm_dir.as_ref().unwrap();
+        #[cfg(target_arch = "x86_64")]
+        self.guest.validate_cpu()?;
+
+        full_qemu_args!(
+            self.basic_args(),
+            self.machine.args(self.guest, vm_dir, &self.vm_name),
+            self.io.args(self.machine.arch, self.guest, &self.vm_name),
+        )
+    }
+
     pub fn to_qemu_args(&self) -> Result<(Vec<QemuArg>, Vec<Warning>), Error> {
+        let vm_dir = self.vm_dir.as_ref().unwrap();
         #[cfg(target_arch = "x86_64")]
         self.guest.validate_cpu()?;
 
         qemu_args!(
             self.basic_args(),
-            self.machine.args(self.guest),
+            self.machine.args(self.guest, vm_dir, &self.vm_name),
             self.io.args(self.machine.arch, self.guest, &self.vm_name),
         )
     }

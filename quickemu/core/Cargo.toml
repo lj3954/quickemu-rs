@@ -23,6 +23,7 @@ quickget_core = { path = "../../quickget/core" }
 thiserror = "2.0.8"
 itertools = "0.13.0"
 size = "0.4.1"
+memfd-exec = "0.2.1"
 
 [features]
 default = ["display_resolution", "smartcard_args", "qemu_8_1"]
@@ -31,3 +32,5 @@ display_resolution = ["display-info"]
 smartcard_args = []
 
 qemu_8_1 = []
+
+inbuilt_commands = ["qemu_8_1"]

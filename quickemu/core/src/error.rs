@@ -23,6 +23,11 @@ pub enum Error {
     InsufficientRam(Size, GuestOS),
     #[error("USB Audio requires the XHCI USB controller.")]
     ConflictingSoundUsb,
+    #[cfg(not(feature = "inbuilt_commands"))]
+    #[error("Could not find binary: {0}")]
+    Which(#[from] which::Error),
+    #[error("Failed to launch {0}: {1}")]
+    Command(&'static str, String),
 }
 
 #[derive(Error, Debug)]
