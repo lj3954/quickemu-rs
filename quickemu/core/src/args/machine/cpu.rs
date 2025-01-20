@@ -155,6 +155,7 @@ fn default_cpu(hw_accel: bool) -> &'static str {
 }
 
 fn macos_legacy_cpu_flag() -> String {
+    #[allow(unused_mut)]
     let mut cpu_arg = "Penryn,vendor=GenuineIntel,+sse,+sse2,+ssse3,+sse4.1".to_string();
     #[cfg(target_arch = "x86_64")]
     {

@@ -1,9 +1,12 @@
 use crate::{
-    data::{Display, DisplayType, GuestOS, MacOSRelease, SoundCard, USBController},
+    data::{Display, GuestOS, MacOSRelease, SoundCard, USBController},
     error::{Error, Warning},
     utils::{ArgDisplay, EmulatorArgs, QemuArg},
 };
 use std::{borrow::Cow, ffi::OsStr};
+
+#[cfg(target_os = "linux")]
+use crate::data::DisplayType;
 
 impl GuestOS {
     pub(crate) fn default_soundcard(&self) -> SoundCard {
@@ -27,7 +30,9 @@ impl SoundCard {
 
 impl Display {
     pub(crate) fn audio(&self, sound_card: SoundCard) -> Result<(Audio, Option<Warning>), Error> {
+        #[allow(unused_mut)]
         let mut warning = None;
+
         let backend = match sound_card {
             SoundCard::None => AudioBackend::None,
             _ => match self.display_type {

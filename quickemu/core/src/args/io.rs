@@ -4,7 +4,7 @@ use itertools::chain;
 use usb::USBArgs;
 
 use crate::{
-    data::{Arch, DisplayType, GuestOS, Io, Keyboard, KeyboardLayout, Mouse},
+    data::{Arch, GuestOS, Io, Keyboard, KeyboardLayout, Mouse},
     error::{Error, Warning},
     utils::{ArgDisplay, EmulatorArgs, QemuArg},
 };
@@ -17,6 +17,8 @@ mod usb;
 
 #[cfg(not(target_os = "macos"))]
 mod spice;
+#[cfg(not(target_os = "macos"))]
+use crate::data::DisplayType;
 
 impl<'a> Io {
     pub fn args(&'a self, arch: Arch, guest: GuestOS, vm_name: &'a str) -> Result<(IoArgs<'a>, Vec<Warning>), Error> {

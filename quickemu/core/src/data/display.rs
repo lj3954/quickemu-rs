@@ -1,5 +1,7 @@
 use super::{default_if_empty, is_default};
 use serde::{de::Visitor, Deserialize, Serialize};
+
+#[cfg(not(target_os = "macos"))]
 use std::net::{IpAddr, Ipv4Addr};
 
 #[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
