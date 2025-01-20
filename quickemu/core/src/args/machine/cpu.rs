@@ -1,6 +1,6 @@
 use crate::{
     args::guest::GuestTweaks,
-    data::{Arch, GuestOS, MacOSRelease, Machine},
+    data::{AArch64Machine, Arch, GuestOS, MacOSRelease, Machine, Riscv64Machine, X86_64Machine},
     error::{Error, Warning},
     utils::{plural_if, ArgDisplay, EmulatorArgs, QemuArg},
 };
@@ -51,9 +51,9 @@ impl Machine {
         warnings.extend(warns);
 
         let cpu_type = match self.arch {
-            Arch::Riscv64 { .. } => None,
-            Arch::AArch64 { .. } => Some(CpuArg::Default),
-            Arch::X86_64 { .. } => Some(match guest {
+            Arch::Riscv64 { machine: Riscv64Machine::Standard } => None,
+            Arch::AArch64 { machine: AArch64Machine::Standard } => Some(CpuArg::Default),
+            Arch::X86_64 { machine: X86_64Machine::Standard } => Some(match guest {
                 GuestOS::Batocera | GuestOS::FreeBSD | GuestOS::GhostBSD | GuestOS::GenericBSD | GuestOS::FreeDOS | GuestOS::Haiku | GuestOS::Linux | GuestOS::LinuxOld | GuestOS::Solaris => {
                     CpuArg::Default
                 }
