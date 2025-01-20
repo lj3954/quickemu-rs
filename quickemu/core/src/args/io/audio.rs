@@ -30,9 +30,6 @@ impl SoundCard {
 
 impl Display {
     pub(crate) fn audio(&self, sound_card: SoundCard) -> Result<(Audio, Option<Warning>), Error> {
-        #[allow(unused_mut)]
-        let mut warning = None;
-
         let backend = match sound_card {
             SoundCard::None => AudioBackend::None,
             _ => match self.display_type {
@@ -45,21 +42,22 @@ impl Display {
                 #[cfg(target_os = "linux")]
                 _ => {
                     if process_active("pipewire") {
-                        AudioBackend::PipeWire
+                        if cfg!(feature = "qemu_8_1") {
+                            AudioBackend::PipeWire
+                        } else {
+                            AudioBackend::PulseAudio
+                        }
                     } else if process_active("pulseaudio") {
                         AudioBackend::PulseAudio
-                    } else if process_active("alsa") {
-                        AudioBackend::Alsa
                     } else {
-                        warning = Some(Warning::AudioBackend);
-                        AudioBackend::None
+                        AudioBackend::Alsa
                     }
                 }
-                #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+                #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
                 _ => AudioBackend::None,
             },
         };
-        Ok((Audio { sound_card, backend }, warning))
+        Ok((Audio { sound_card, backend }, None))
     }
 }
 
@@ -82,7 +80,7 @@ enum AudioBackend {
     Spice,
     #[cfg(target_os = "macos")]
     CoreAudio,
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "qemu_8_1"))]
     PipeWire,
     #[cfg(target_os = "linux")]
     PulseAudio,
@@ -114,7 +112,7 @@ impl EmulatorArgs for Audio {
             AudioBackend::Spice => "spice,id=audio0",
             #[cfg(target_os = "macos")]
             AudioBackend::CoreAudio => "coreaudio,id=audio0",
-            #[cfg(target_os = "linux")]
+            #[cfg(all(target_os = "linux", feature = "qemu_8_1"))]
             AudioBackend::PipeWire => "pipewire,id=audio0",
             #[cfg(target_os = "linux")]
             AudioBackend::PulseAudio => "pulse,id=audio0",

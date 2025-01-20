@@ -25,5 +25,9 @@ itertools = "0.13.0"
 size = "0.4.1"
 
 [features]
+default = ["display_resolution", "smartcard_args", "qemu_8_1"]
+
 display_resolution = ["display-info"]
 smartcard_args = []
+
+qemu_8_1 = []
