@@ -1,11 +1,11 @@
 use std::{net::SocketAddr, path::PathBuf};
 
-use super::is_default;
+use super::{default_if_empty, is_default};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Network {
-    #[serde(default, flatten)]
+    #[serde(default, flatten, deserialize_with = "default_if_empty")]
     pub network_type: NetworkType,
     #[serde(default, skip_serializing_if = "is_default")]
     pub port_forwards: Vec<PortForward>,
