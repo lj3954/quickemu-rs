@@ -61,12 +61,12 @@ impl<'a> Config {
         }
         #[cfg(unix)]
         {
-            if let MonitorInner::Socket { socketpath } = conf.network.monitor.as_mut() {
+            if let MonitorInner::Socket { socketpath } = &mut conf.network.monitor {
                 if socketpath.is_none() {
                     *socketpath = Some(conf.vm_dir.as_ref().unwrap().join(format!("{}-monitor.socket", conf.vm_name)));
                 }
             }
-            if let MonitorInner::Socket { socketpath } = conf.network.serial.as_mut() {
+            if let MonitorInner::Socket { socketpath } = &mut conf.network.serial {
                 if socketpath.is_none() {
                     *socketpath = Some(conf.vm_dir.as_ref().unwrap().join(format!("{}-serial.socket", conf.vm_name)));
                 }

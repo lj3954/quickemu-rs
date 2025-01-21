@@ -1,4 +1,7 @@
-use std::{net::SocketAddr, path::PathBuf};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::PathBuf,
+};
 
 use super::{default_if_empty, is_default};
 use serde::{Deserialize, Serialize};
@@ -11,7 +14,6 @@ pub struct Network {
     pub port_forwards: Vec<PortForward>,
     #[serde(default = "default_ssh_port", skip_serializing_if = "is_default_ssh")]
     pub ssh_port: u16,
-    #[serde(default, skip_serializing_if = "is_default")]
     pub monitor: Monitor,
     #[serde(default, skip_serializing_if = "is_default")]
     pub serial: Serial,
@@ -47,53 +49,52 @@ pub enum NetworkType {
     Nat,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef, derive_more::AsMut)]
-pub struct Monitor(MonitorInner);
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef, derive_more::AsMut)]
-pub struct Serial(MonitorInner);
+pub type Monitor = MonitorInner<MonitorAddr>;
+pub type Serial = MonitorInner<SerialAddr>;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum MonitorInner {
+pub enum MonitorInner<T: Default + AsRef<SocketAddr>> {
+    #[serde(alias = "none")]
     None,
+    #[serde(alias = "telnet")]
     Telnet {
-        address: SocketAddr,
+        #[serde(default)]
+        address: T,
     },
     #[cfg(unix)]
-    Socket {
-        socketpath: Option<PathBuf>,
-    },
+    #[serde(alias = "socket")]
+    Socket { socketpath: Option<PathBuf> },
 }
 
 #[cfg(unix)]
-impl Default for Monitor {
+impl<T: AsRef<SocketAddr> + Default> Default for MonitorInner<T> {
     fn default() -> Self {
-        Self(MonitorInner::Socket { socketpath: None })
+        Self::Socket { socketpath: None }
     }
 }
 
 #[cfg(not(unix))]
-impl Default for Monitor {
+impl<T: AsRef<SocketAddr> + Default> Default for Monitor<T> {
     fn default() -> Self {
-        Self(MonitorInner::Telnet {
-            address: SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 4440),
-        })
+        Self(MonitorInner::Telnet { address: T::default() })
     }
 }
 
-#[cfg(unix)]
-impl Default for Serial {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
+pub struct MonitorAddr(SocketAddr);
+
+impl Default for MonitorAddr {
     fn default() -> Self {
-        Self(MonitorInner::Socket { socketpath: None })
+        Self(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 4440))
     }
 }
 
-#[cfg(not(unix))]
-impl Default for Monitor {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
+pub struct SerialAddr(SocketAddr);
+
+impl Default for SerialAddr {
     fn default() -> Self {
-        Self(MonitorInner::Telnet {
-            address: SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 6660),
-        })
+        Self(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 6660))
     }
 }
