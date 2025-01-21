@@ -48,7 +48,7 @@ impl<'a> Io {
         .transpose()?;
 
         let mouse = self.mouse.unwrap_or(guest.default_mouse());
-        let usb = usb_controller.usb_args(guest, &self.usb_devices);
+        let usb = usb_controller.usb_args(guest);
 
         Ok((
             IoArgs {
@@ -71,7 +71,7 @@ pub struct IoArgs<'a> {
     display: DisplayArgs,
     audio: Audio,
     mouse: Mouse,
-    usb: USBArgs<'a>,
+    usb: USBArgs,
     keyboard: Keyboard,
     keyboard_layout: KeyboardLayout,
     #[cfg(not(target_os = "macos"))]

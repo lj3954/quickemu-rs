@@ -1,7 +1,7 @@
 use std::{borrow::Cow, ffi::OsStr};
 
 use crate::{
-    data::{GuestOS, MacOSRelease, USBController, USBDevices},
+    data::{GuestOS, MacOSRelease, USBController},
     utils::{EmulatorArgs, QemuArg},
 };
 
@@ -15,8 +15,9 @@ impl GuestOS {
     }
 }
 
-impl<'a> USBController {
-    pub(crate) fn usb_args(&self, guest: GuestOS, devices: &'a USBDevices) -> USBArgs<'a> {
+impl USBController {
+    pub(crate) fn usb_args(&self, guest: GuestOS) -> USBArgs {
+        #[cfg(not(target_os = "macos"))]
         let passthrough_controller = match self {
             Self::Ehci => Some(PassthroughController::UsbEhci),
             Self::Xhci => match guest {
@@ -27,16 +28,16 @@ impl<'a> USBController {
         };
         USBArgs {
             controller: *self,
+            #[cfg(not(target_os = "macos"))]
             passthrough_controller,
-            usb_devices: devices,
         }
     }
 }
 
-pub(crate) struct USBArgs<'a> {
+pub(crate) struct USBArgs {
     controller: USBController,
+    #[cfg(not(target_os = "macos"))]
     passthrough_controller: Option<PassthroughController>,
-    usb_devices: &'a USBDevices,
 }
 
 enum PassthroughController {
@@ -45,17 +46,17 @@ enum PassthroughController {
     QemuXhci,
 }
 
-impl AsRef<str> for PassthroughController {
-    fn as_ref(&self) -> &str {
+impl PassthroughController {
+    fn spice_arg(&self) -> &'static str {
         match self {
-            Self::NecUsbXhci => "nec-usb-xhci",
-            Self::UsbEhci => "usb-ehci",
-            Self::QemuXhci => "qemu-xhci",
+            Self::NecUsbXhci => "nec-usb-xhci,id=spicepass",
+            Self::UsbEhci => "usb-ehci,id=spicepass",
+            Self::QemuXhci => "qemu-xhci,id=spicepass",
         }
     }
 }
 
-impl EmulatorArgs for USBArgs<'_> {
+impl EmulatorArgs for USBArgs {
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
         let mut args = vec![
             Cow::Borrowed(OsStr::new("-device")),
@@ -68,7 +69,7 @@ impl EmulatorArgs for USBArgs<'_> {
         if let Some(passthrough_controller) = &self.passthrough_controller {
             args.extend([
                 Cow::Borrowed(OsStr::new("-device")),
-                Cow::Owned(format!("{},id=spicepass", passthrough_controller.as_ref()).into()),
+                Cow::Borrowed(OsStr::new(passthrough_controller.spice_arg())),
                 Cow::Borrowed(OsStr::new("-chardev")),
                 Cow::Borrowed(OsStr::new("spicevmc,id=usbredirchardev1,name=usbredir")),
                 Cow::Borrowed(OsStr::new("-device")),
@@ -101,10 +102,6 @@ impl EmulatorArgs for USBArgs<'_> {
             Cow::Borrowed(OsStr::new("-device")),
             Cow::Borrowed(OsStr::new("ccid-card-passthru,chardev=ccid")),
         ]);
-
-        if self.usb_devices.as_ref().is_some() {
-            todo!("USB device passthrough");
-        }
 
         args
     }

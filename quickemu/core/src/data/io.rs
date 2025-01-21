@@ -7,8 +7,6 @@ use serde::{de::Visitor, Deserialize, Serialize};
 pub struct Io {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usb_controller: Option<USBController>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub usb_devices: USBDevices,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keyboard: Option<Keyboard>,
     #[serde(default, skip_serializing_if = "is_default")]
