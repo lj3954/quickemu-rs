@@ -39,6 +39,7 @@ pub(crate) struct USBArgs {
     passthrough_controller: Option<PassthroughController>,
 }
 
+#[cfg(not(target_os = "macos"))]
 enum PassthroughController {
     NecUsbXhci,
     UsbEhci,

@@ -36,7 +36,6 @@ impl<'a> Io {
 
         let display = self.display.args(guest, arch)?;
 
-        let public_dir_str = self.public_dir.as_ref().as_ref().map(|path| path.to_string_lossy());
         let public_dir_args = self.public_dir.as_ref().as_deref().map(|d| PublicDirArgs::new(d, guest));
 
         #[cfg(not(target_os = "macos"))]
@@ -44,7 +43,10 @@ impl<'a> Io {
             self.display.display_type,
             DisplayType::Spice { .. } | DisplayType::SpiceApp { .. }
         )
-        .then(|| self.display.spice_args(vm_name, guest, public_dir_str))
+        .then(|| {
+            let public_dir_str = self.public_dir.as_ref().as_ref().map(|path| path.to_string_lossy());
+            self.display.spice_args(vm_name, guest, public_dir_str)
+        })
         .transpose()?;
 
         let mouse = self.mouse.unwrap_or(guest.default_mouse());
