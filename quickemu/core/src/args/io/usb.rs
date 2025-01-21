@@ -46,6 +46,7 @@ enum PassthroughController {
     QemuXhci,
 }
 
+#[cfg(not(target_os = "macos"))]
 impl PassthroughController {
     fn spice_arg(&self) -> &'static str {
         match self {
