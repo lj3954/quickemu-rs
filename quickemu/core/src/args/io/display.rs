@@ -21,7 +21,7 @@ impl Display {
                 GuestOS::Windows | GuestOS::WindowsServer if matches!(self.display_type, DisplayType::SpiceApp { .. }) => GpuType::VirtIOVGA,
                 #[cfg(target_os = "macos")]
                 GuestOS::Windows | GuestOS::WindowsServer if self.display_type == DisplayType::Cocoa => GpuType::VirtIOVGA,
-                GuestOS::Solaris | GuestOS::LinuxOld => GpuType::VMWareSVGA,
+                GuestOS::Solaris | GuestOS::LinuxOld => GpuType::VMwareSVGA,
                 _ => GpuType::Qxl,
             },
             Arch::AArch64 { .. } => GpuType::VirtIOGPU,
@@ -89,15 +89,19 @@ pub(crate) struct DisplayArgs {
 
 #[derive(PartialEq, derive_more::Display)]
 enum GpuType {
+    #[display("VirtIO VGA")]
     VirtIOVGA,
+    #[display("VirtIO GPU")]
     VirtIOGPU,
-    VMWareSVGA,
+    #[display("VMware SVGA")]
+    VMwareSVGA,
+    #[display("QXL")]
     Qxl,
 }
 
 impl EmulatorArgs for DisplayArgs {
     fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
-        let resolution_text = if self.gpu != GpuType::VMWareSVGA && !self.fullscreen && self.res.is_some() {
+        let resolution_text = if self.gpu != GpuType::VMwareSVGA && !self.fullscreen && self.res.is_some() {
             let (x, y) = self.res.unwrap();
             format!(", Resolution: {x}x{y}")
         } else {
@@ -118,7 +122,7 @@ impl EmulatorArgs for DisplayArgs {
             GpuType::VirtIOGPU => "virtio-gpu",
             GpuType::VirtIOVGA if self.accelerated.into() => "virtio-vga-gl",
             GpuType::VirtIOVGA => "virtio-vga",
-            GpuType::VMWareSVGA => "vmware-svga,vgamem_mb=256",
+            GpuType::VMwareSVGA => "vmware-svga,vgamem_mb=256",
             GpuType::Qxl => "qxl-vga,ram_size=65536,vram_size=65536,vgamem_mb=64",
         };
 
@@ -136,7 +140,7 @@ impl EmulatorArgs for DisplayArgs {
         args.extend([Cow::Borrowed(OsStr::new("-display")), display_type_arg]);
         args.extend([Cow::Borrowed(OsStr::new("-vga")), Cow::Borrowed(OsStr::new("none"))]);
 
-        let display_device_arg = if self.fullscreen || self.gpu == GpuType::VMWareSVGA || self.res.is_none() {
+        let display_device_arg = if self.fullscreen || self.gpu == GpuType::VMwareSVGA || self.res.is_none() {
             Cow::Borrowed(OsStr::new(display_device_arg))
         } else {
             let (x, y) = self.res.unwrap();
