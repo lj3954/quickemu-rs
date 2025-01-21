@@ -1,9 +1,9 @@
 use crate::{
+    arg,
     data::{Display, GuestOS, MacOSRelease, SoundCard, USBController},
     error::{Error, Warning},
     utils::{ArgDisplay, EmulatorArgs, QemuArg},
 };
-use std::{borrow::Cow, ffi::OsStr};
 
 #[cfg(target_os = "linux")]
 use crate::data::DisplayType;
@@ -121,20 +121,15 @@ impl EmulatorArgs for Audio {
             AudioBackend::DirectSound => "dsound,id=audio0",
         };
 
-        let mut args = vec![Cow::Borrowed(OsStr::new("-audiodev")), Cow::Borrowed(OsStr::new(backend))];
+        let mut args = vec![arg!("-audiodev"), arg!(backend)];
 
         match self.sound_card {
             SoundCard::None => {}
-            SoundCard::AC97 => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("ac97,audiodev=audio0"))]),
-            SoundCard::ES1370 => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("es1370,audiodev=audio0"))]),
-            SoundCard::SB16 => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("sb16,audiodev=audio0"))]),
-            SoundCard::USBAudio => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("usb-audio,audiodev=audio0"))]),
-            SoundCard::IntelHDA => args.extend([
-                Cow::Borrowed(OsStr::new("-device")),
-                Cow::Borrowed(OsStr::new("intel-hda")),
-                Cow::Borrowed(OsStr::new("-device")),
-                Cow::Borrowed(OsStr::new("hda-duplex,audiodev=audio0")),
-            ]),
+            SoundCard::AC97 => args.extend([arg!("-device"), arg!("ac97,audiodev=audio0")]),
+            SoundCard::ES1370 => args.extend([arg!("-device"), arg!("es1370,audiodev=audio0")]),
+            SoundCard::SB16 => args.extend([arg!("-device"), arg!("sb16,audiodev=audio0")]),
+            SoundCard::USBAudio => args.extend([arg!("-device"), arg!("usb-audio,audiodev=audio0")]),
+            SoundCard::IntelHDA => args.extend([arg!("-device"), arg!("intel-hda"), arg!("-device"), arg!("hda-duplex,audiodev=audio0")]),
         }
 
         args

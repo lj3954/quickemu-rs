@@ -7,7 +7,9 @@ use std::{
 use which::which;
 
 use crate::{
+    arg,
     error::Error,
+    oarg,
     utils::{ArgDisplay, EmulatorArgs, LaunchFn, LaunchFnReturn},
 };
 
@@ -60,12 +62,12 @@ impl EmulatorArgs for Tpm {
 
             let args = |socket: PathBuf| {
                 [
-                    Cow::Borrowed(OsStr::new("-chardev")),
-                    Cow::Owned(socket.into_os_string()),
-                    Cow::Borrowed(OsStr::new("-tpmdev")),
-                    Cow::Borrowed(OsStr::new("emulator,id=tpm0,chardev=chrtpm")),
-                    Cow::Borrowed(OsStr::new("-device")),
-                    Cow::Borrowed(OsStr::new("tpm-tis,tpmdev=tpm0")),
+                    arg!("-chardev"),
+                    oarg!(socket),
+                    arg!("-tpmdev"),
+                    arg!("emulator,id=tpm0,chardev=chrtpm"),
+                    arg!("-device"),
+                    arg!("tpm-tis,tpmdev=tpm0"),
                 ]
                 .into_iter()
                 .map(LaunchFnReturn::Arg)

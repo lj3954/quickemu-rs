@@ -1,10 +1,12 @@
-use std::{borrow::Cow, ffi::OsStr};
+use std::borrow::Cow;
 
 use size::Size;
 
 use crate::{
+    arg,
     data::{GuestOS, Machine},
     error::{Error, Warning},
+    oarg,
     utils::{ArgDisplay, EmulatorArgs, QemuArg},
 };
 
@@ -57,6 +59,6 @@ impl EmulatorArgs for Ram {
         })
     }
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
-        [Cow::Borrowed(OsStr::new("-m")), Cow::Owned(format!("{}b", self.ram.bytes()).into())]
+        [arg!("-m"), oarg!(format!("{}b", self.ram.bytes()))]
     }
 }

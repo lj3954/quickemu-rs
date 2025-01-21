@@ -1,8 +1,8 @@
-use std::{borrow::Cow, ffi::OsStr};
-
 use crate::{
+    arg,
     data::{Accelerated, Arch, Display, DisplayType, GuestOS, Resolution},
     error::Error,
+    oarg,
     utils::{ArgDisplay, EmulatorArgs, QemuArg},
 };
 
@@ -127,38 +127,33 @@ impl EmulatorArgs for DisplayArgs {
         };
 
         let display_type_arg = match self.display {
-            DisplayType::Gtk => Cow::Owned(format!("gtk,grab-on-hover=on,zoom-to-fit=off,gl={}", self.accelerated.as_ref()).into()),
-            DisplayType::None => Cow::Borrowed(OsStr::new("none")),
-            DisplayType::Sdl => Cow::Owned(format!("sdl,gl={}", self.accelerated.as_ref()).into()),
+            DisplayType::Gtk => oarg!(format!("gtk,grab-on-hover=on,zoom-to-fit=off,gl={}", self.accelerated.as_ref())),
+            DisplayType::None => arg!("none"),
+            DisplayType::Sdl => oarg!(format!("sdl,gl={}", self.accelerated.as_ref())),
             #[cfg(not(target_os = "macos"))]
-            DisplayType::Spice { .. } => Cow::Borrowed(OsStr::new("none")),
+            DisplayType::Spice { .. } => arg!("none"),
             #[cfg(not(target_os = "macos"))]
-            DisplayType::SpiceApp { .. } => Cow::Owned(format!("spice-app,gl={}", self.accelerated.as_ref()).into()),
+            DisplayType::SpiceApp { .. } => oarg!(format!("spice-app,gl={}", self.accelerated.as_ref())),
             #[cfg(target_os = "macos")]
-            DisplayType::Cocoa => Cow::Borrowed(OsStr::new("cocoa")),
+            DisplayType::Cocoa => arg!("cocoa"),
         };
-        args.extend([Cow::Borrowed(OsStr::new("-display")), display_type_arg]);
-        args.extend([Cow::Borrowed(OsStr::new("-vga")), Cow::Borrowed(OsStr::new("none"))]);
+        args.extend([arg!("-display"), display_type_arg]);
+        args.extend([arg!("-vga"), arg!("none")]);
 
         let display_device_arg = if self.fullscreen || self.gpu == GpuType::VMwareSVGA || self.res.is_none() {
-            Cow::Borrowed(OsStr::new(display_device_arg))
+            arg!(display_device_arg)
         } else {
             let (x, y) = self.res.unwrap();
-            Cow::Owned(format!("{display_device_arg},xres={x},yres={y}").into())
+            oarg!(format!("{display_device_arg},xres={x},yres={y}"))
         };
-        args.extend([Cow::Borrowed(OsStr::new("-display")), display_device_arg]);
+        args.extend([arg!("-display"), display_device_arg]);
 
         if self.fullscreen {
-            args.push(Cow::Borrowed(OsStr::new("-full-screen")));
+            args.push(arg!("-full-screen"));
         }
 
         if self.braille {
-            args.extend([
-                Cow::Borrowed(OsStr::new("-chardev")),
-                Cow::Borrowed(OsStr::new("braille,id=brltty")),
-                Cow::Borrowed(OsStr::new("-device")),
-                Cow::Borrowed(OsStr::new("usb-braille,id=usbbrl,chardev=brltty")),
-            ]);
+            args.extend([arg!("-chardev"), arg!("braille,id=brltty"), arg!("-device"), arg!("usb-braille,id=usbbrl,chardev=brltty")]);
         }
         args
     }

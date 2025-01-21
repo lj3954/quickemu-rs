@@ -1,11 +1,13 @@
 use crate::{
+    arg,
     args::guest::GuestTweaks,
     data::{AArch64Machine, Arch, GuestOS, MacOSRelease, Machine, Riscv64Machine, X86_64Machine},
     error::{Error, Warning},
+    oarg,
     utils::{plural_if, ArgDisplay, EmulatorArgs, QemuArg},
 };
 use itertools::Itertools;
-use std::{borrow::Cow, ffi::OsStr};
+use std::borrow::Cow;
 
 impl Machine {
     pub(crate) fn cpu_args(&self, guest: GuestOS) -> Result<(Cpu, Vec<Warning>), Error> {
@@ -114,13 +116,11 @@ impl EmulatorArgs for Cpu {
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
         let threads = if self.smt { 2 } else { 1 };
         let sockets = self.unique_cpus.len();
-        let mut args = vec![
-            Cow::Borrowed(OsStr::new("-smp")),
-            Cow::Owned(format!("cores={},threads={},sockets={}", self.phys_cores, threads, sockets).into()),
-        ];
+        let mut args = vec![arg!("-smp"), oarg!(format!("cores={},threads={},sockets={}", self.phys_cores, threads, sockets))];
 
         if let Some(arg) = &self.cpu_type {
-            args.push(Cow::Borrowed(OsStr::new("-cpu")));
+            let value = arg!("-cpu");
+            args.push(value);
             let arg = match arg {
                 CpuArg::Default => default_cpu(self.guest_tweaks.hw_virt).into(),
                 CpuArg::Mac => macos_cpu_flags("Skylake-Server-v3,vendor=GenuineIntel,vmware-cpuid-freq=on"),
@@ -132,9 +132,9 @@ impl EmulatorArgs for Cpu {
                 CpuArg::Qemu32 => "qemu32".into(),
             };
             if self.any_amd {
-                args.push(Cow::Owned((arg + ",topoext").into()));
+                args.push(oarg!(arg + ",topoext"));
             } else {
-                args.push(Cow::Owned(arg.into()));
+                args.push(oarg!(arg));
             }
         }
         args.extend(self.guest_tweaks.qemu_args());

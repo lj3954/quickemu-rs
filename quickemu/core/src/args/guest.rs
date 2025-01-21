@@ -1,9 +1,10 @@
 use crate::{
+    arg,
     data::{Arch, GuestOS},
     error::{Error, Warning},
+    oarg,
     utils::{EmulatorArgs, QemuArg},
 };
-use std::{borrow::Cow, ffi::OsStr};
 
 impl GuestOS {
     #[cfg(target_arch = "x86_64")]
@@ -80,29 +81,29 @@ impl EmulatorArgs for GuestTweaks {
 
         #[cfg(target_os = "linux")]
         if self.hw_virt {
-            tweaks.extend([Cow::Borrowed(OsStr::new("-accel")), Cow::Borrowed(OsStr::new("kvm"))]);
+            tweaks.extend([arg!("-accel"), arg!("kvm")]);
         }
         #[cfg(target_os = "macos")]
         if self.hw_virt {
-            tweaks.extend([Cow::Borrowed(OsStr::new("-accel")), Cow::Borrowed(OsStr::new("hvf"))]);
+            tweaks.extend([arg!("-accel"), arg!("hvf")]);
         }
         #[cfg(target_os = "windows")]
         if self.hw_virt {
-            tweaks.extend([Cow::Borrowed(OsStr::new("-accel")), Cow::Borrowed(OsStr::new("whpx"))]);
+            tweaks.extend([arg!("-accel"), arg!("whpx")]);
         }
 
         #[cfg(target_os = "linux")]
         if self.discard_lost_ticks {
-            tweaks.extend([Cow::Borrowed(OsStr::new("-global")), Cow::Borrowed(OsStr::new("kvm-pit.lost_tick_policy=discard"))]);
+            tweaks.extend([arg!("-global"), arg!("kvm-pit.lost_tick_policy=discard")]);
         }
 
         if self.disable_s3 {
-            tweaks.extend([Cow::Borrowed(OsStr::new("-global")), Cow::Borrowed(OsStr::new("ICH9-LPC.disable_s3=1"))]);
+            tweaks.extend([arg!("-global"), arg!("ICH9-LPC.disable_s3=1")]);
         }
 
         if self.osk {
             let osk = format!("isa-applesmc,osk={}", std::str::from_utf8(OSK).unwrap());
-            tweaks.extend([Cow::Borrowed("-device".as_ref()), Cow::Owned(osk.into())]);
+            tweaks.extend([arg!("-device"), oarg!(osk)]);
         }
 
         tweaks

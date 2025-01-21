@@ -58,6 +58,20 @@ pub(crate) fn find_port(port: u16, offset: u16) -> Option<u16> {
 }
 
 #[macro_export]
+macro_rules! oarg {
+    ($arg:expr) => {
+        ::std::borrow::Cow::Owned(::std::ffi::OsString::from($arg))
+    };
+}
+
+#[macro_export]
+macro_rules! arg {
+    ($arg:expr) => {
+        ::std::borrow::Cow::Borrowed(::std::ffi::OsStr::new($arg))
+    };
+}
+
+#[macro_export]
 macro_rules! qemu_args {
     ($($arg:expr),* $(,)?) => {
         {

@@ -5,7 +5,9 @@ use std::{
 };
 
 use crate::{
+    arg,
     data::GuestOS,
+    oarg,
     utils::{ArgDisplay, EmulatorArgs, QemuArg},
 };
 
@@ -67,6 +69,6 @@ impl EmulatorArgs for PublicDirArgs<'_> {
         fs.push(",security_model=mapped-xattr");
 
         let device = OsStr::new("virtio-9p-pci,fsdev=fsdev0,mount_tag=Public-quickemu");
-        vec![Cow::Borrowed(OsStr::new("-fsdev")), Cow::Owned(fs), Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(device)]
+        vec![arg!("-fsdev"), oarg!(fs), arg!("-device"), arg!(device)]
     }
 }

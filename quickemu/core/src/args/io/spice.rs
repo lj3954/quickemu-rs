@@ -1,8 +1,10 @@
-use std::{borrow::Cow, ffi::OsStr};
+use std::borrow::Cow;
 
 use crate::{
+    arg,
     data::{Accelerated, Access, Display, DisplayType, GuestOS, Resolution},
     error::Error,
+    oarg,
     utils::{find_port, ArgDisplay, EmulatorArgs, QemuArg},
 };
 
@@ -74,6 +76,6 @@ impl EmulatorArgs for SpiceArgs<'_> {
                 }
             }
         }
-        [Cow::Borrowed(OsStr::new("-spice")), Cow::Owned(spice_arg.into())]
+        [arg!("-spice"), oarg!(spice_arg)]
     }
 }

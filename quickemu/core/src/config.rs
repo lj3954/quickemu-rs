@@ -1,15 +1,12 @@
 use crate::{
+    arg,
     data::*,
     error::{ConfigError, Error, MonitorError, Warning},
-    full_qemu_args, qemu_args,
+    full_qemu_args, oarg, qemu_args,
     utils::{ArgDisplay, EmulatorArgs, LaunchFnReturn, QemuArg},
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    borrow::Cow,
-    ffi::OsStr,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -131,16 +128,16 @@ impl EmulatorArgs for BasicArgs<'_> {
             "base=localtime,clock=host"
         };
 
-        args.push(Cow::Borrowed(OsStr::new("-rtc")));
-        args.push(Cow::Borrowed(OsStr::new(rtc)));
+        args.push(arg!("-rtc"));
+        args.push(arg!(rtc));
 
-        args.push(Cow::Borrowed(OsStr::new("-pidfile")));
-        args.push(Cow::Owned(self.pid_path.clone().into_os_string()));
+        args.push(arg!("-pidfile"));
+        args.push(oarg!(self.pid_path.clone()));
 
         #[cfg(target_os = "linux")]
         {
-            args.push(Cow::Borrowed(OsStr::new("-name")));
-            args.push(Cow::Owned(format!("{},process={}", self.vm_name, self.vm_name).into()));
+            args.push(arg!("-name"));
+            args.push(oarg!(format!("{},process={}", self.vm_name, self.vm_name)));
         }
         args
     }

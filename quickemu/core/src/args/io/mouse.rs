@@ -1,6 +1,5 @@
-use std::{borrow::Cow, ffi::OsStr};
-
 use crate::{
+    arg,
     data::{GuestOS, Mouse},
     utils::{EmulatorArgs, QemuArg},
 };
@@ -22,6 +21,6 @@ impl EmulatorArgs for Mouse {
             Self::Tablet => "usb-tablet,bus=input.0",
             Self::Virtio => "virtio-mouse",
         };
-        vec![Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new(device))]
+        vec![arg!("-device"), arg!(device)]
     }
 }

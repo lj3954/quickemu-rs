@@ -1,6 +1,5 @@
-use std::{borrow::Cow, ffi::OsStr};
-
 use crate::{
+    arg,
     data::{GuestOS, MacOSRelease, USBController},
     utils::{EmulatorArgs, QemuArg},
 };
@@ -58,50 +57,40 @@ impl PassthroughController {
 
 impl EmulatorArgs for USBArgs {
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
-        let mut args = vec![
-            Cow::Borrowed(OsStr::new("-device")),
-            Cow::Borrowed(OsStr::new("virtio-rng-pci")),
-            Cow::Borrowed(OsStr::new("-object")),
-            Cow::Borrowed(OsStr::new("rng-random,id=rng0,filename=/dev/urandom")),
-        ];
+        let mut args = vec![arg!("-device"), arg!("virtio-rng-pci"), arg!("-object"), arg!("rng-random,id=rng0,filename=/dev/urandom")];
 
         #[cfg(not(target_os = "macos"))]
         if let Some(passthrough_controller) = &self.passthrough_controller {
             args.extend([
-                Cow::Borrowed(OsStr::new("-device")),
-                Cow::Borrowed(OsStr::new(passthrough_controller.spice_arg())),
-                Cow::Borrowed(OsStr::new("-chardev")),
-                Cow::Borrowed(OsStr::new("spicevmc,id=usbredirchardev1,name=usbredir")),
-                Cow::Borrowed(OsStr::new("-device")),
-                Cow::Borrowed(OsStr::new("usb-redir,chardev=usbredirchardev1,id=usbredirdev1")),
-                Cow::Borrowed(OsStr::new("-chardev")),
-                Cow::Borrowed(OsStr::new("spicevmc,id=usbredirchardev2,name=usbredir")),
-                Cow::Borrowed(OsStr::new("-device")),
-                Cow::Borrowed(OsStr::new("usb-redir,chardev=usbredirchardev2,id=usbredirdev2")),
-                Cow::Borrowed(OsStr::new("-chardev")),
-                Cow::Borrowed(OsStr::new("spicevmc,id=usbredirchardev3,name=usbredir")),
-                Cow::Borrowed(OsStr::new("-device")),
-                Cow::Borrowed(OsStr::new("usb-redir,chardev=usbredirchardev3,id=usbredirdev3")),
-                Cow::Borrowed(OsStr::new("-device")),
-                Cow::Borrowed(OsStr::new("pci-ohci,id=smartpass")),
-                Cow::Borrowed(OsStr::new("-device")),
-                Cow::Borrowed(OsStr::new("usb-ccid")),
+                arg!("-device"),
+                arg!(passthrough_controller.spice_arg()),
+                arg!("-chardev"),
+                arg!("spicevmc,id=usbredirchardev1,name=usbredir"),
+                arg!("-device"),
+                arg!("usb-redir,chardev=usbredirchardev1,id=usbredirdev1"),
+                arg!("-chardev"),
+                arg!("spicevmc,id=usbredirchardev2,name=usbredir"),
+                arg!("-device"),
+                arg!("usb-redir,chardev=usbredirchardev2,id=usbredirdev2"),
+                arg!("-chardev"),
+                arg!("spicevmc,id=usbredirchardev3,name=usbredir"),
+                arg!("-device"),
+                arg!("usb-redir,chardev=usbredirchardev3,id=usbredirdev3"),
+                arg!("-device"),
+                arg!("pci-ohci,id=smartpass"),
+                arg!("-device"),
+                arg!("usb-ccid"),
             ]);
         }
 
         match self.controller {
-            USBController::Ehci => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("usb-ehci,id=input"))]),
-            USBController::Xhci => args.extend([Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new("qemu-xhci,id=input"))]),
+            USBController::Ehci => args.extend([arg!("-device"), arg!("usb-ehci,id=input")]),
+            USBController::Xhci => args.extend([arg!("-device"), arg!("qemu-xhci,id=input")]),
             _ => (),
         }
 
         #[cfg(feature = "smartcard_args")]
-        args.extend([
-            Cow::Borrowed(OsStr::new("-chardev")),
-            Cow::Borrowed(OsStr::new("spicevmc,id=ccid,name=smartcard")),
-            Cow::Borrowed(OsStr::new("-device")),
-            Cow::Borrowed(OsStr::new("ccid-card-passthru,chardev=ccid")),
-        ]);
+        args.extend([arg!("-chardev"), arg!("spicevmc,id=ccid,name=smartcard"), arg!("-device"), arg!("ccid-card-passthru,chardev=ccid")]);
 
         args
     }

@@ -1,6 +1,5 @@
-use std::{borrow::Cow, ffi::OsStr};
-
 use crate::{
+    arg,
     data::{GuestOS, Keyboard, KeyboardLayout},
     utils::{EmulatorArgs, QemuArg},
 };
@@ -21,7 +20,7 @@ impl EmulatorArgs for Keyboard {
             Self::Usb => "usb-kbd,bus=input.0",
             Self::Virtio => "virtio-keyboard",
         };
-        vec![Cow::Borrowed(OsStr::new("-device")), Cow::Borrowed(OsStr::new(device))]
+        vec![arg!("-device"), arg!(device)]
     }
 }
 
@@ -62,6 +61,6 @@ impl EmulatorArgs for KeyboardLayout {
             Self::Slovenian => "sl",
             Self::Turkish => "tr",
         };
-        vec![Cow::Borrowed(OsStr::new("-k")), Cow::Borrowed(OsStr::new(layout))]
+        vec![arg!("-k"), arg!(layout)]
     }
 }
