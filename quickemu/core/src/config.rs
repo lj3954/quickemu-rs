@@ -59,11 +59,24 @@ impl<'a> Config {
                 .to_string_lossy()
                 .to_string();
         }
+        #[cfg(unix)]
+        {
+            if let MonitorInner::Socket { socketpath } = conf.network.monitor.as_mut() {
+                if socketpath.is_none() {
+                    *socketpath = Some(conf.vm_dir.as_ref().unwrap().join(format!("{}-monitor.socket", conf.vm_name)));
+                }
+            }
+            if let MonitorInner::Socket { socketpath } = conf.network.serial.as_mut() {
+                if socketpath.is_none() {
+                    *socketpath = Some(conf.vm_dir.as_ref().unwrap().join(format!("{}-serial.socket", conf.vm_name)));
+                }
+            }
+        }
         Ok(conf)
     }
 
     pub fn send_monitor_command(&self, command: &str) -> Result<String, MonitorError> {
-        self.network.send_monitor_cmd(command)
+        self.network.monitor.send_cmd(command)
     }
 
     pub fn to_full_qemu_args(&self) -> Result<QemuArgs, Error> {

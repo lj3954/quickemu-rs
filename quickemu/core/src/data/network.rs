@@ -14,7 +14,7 @@ pub struct Network {
     #[serde(default, skip_serializing_if = "is_default")]
     pub monitor: Monitor,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub serial: Monitor,
+    pub serial: Serial,
 }
 fn default_ssh_port() -> u16 {
     22220
@@ -47,16 +47,53 @@ pub enum NetworkType {
     Nat,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef, derive_more::AsMut)]
+pub struct Monitor(MonitorInner);
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef, derive_more::AsMut)]
+pub struct Serial(MonitorInner);
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum Monitor {
+pub enum MonitorInner {
     None,
-    Telnet { address: SocketAddr },
-    Socket { socketpath: Option<PathBuf> },
+    Telnet {
+        address: SocketAddr,
+    },
+    #[cfg(unix)]
+    Socket {
+        socketpath: Option<PathBuf>,
+    },
 }
 
+#[cfg(unix)]
 impl Default for Monitor {
     fn default() -> Self {
-        Self::Socket { socketpath: None }
+        Self(MonitorInner::Socket { socketpath: None })
+    }
+}
+
+#[cfg(not(unix))]
+impl Default for Monitor {
+    fn default() -> Self {
+        Self(MonitorInner::Telnet {
+            address: SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 4440),
+        })
+    }
+}
+
+#[cfg(unix)]
+impl Default for Serial {
+    fn default() -> Self {
+        Self(MonitorInner::Socket { socketpath: None })
+    }
+}
+
+#[cfg(not(unix))]
+impl Default for Monitor {
+    fn default() -> Self {
+        Self(MonitorInner::Telnet {
+            address: SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 6660),
+        })
     }
 }
