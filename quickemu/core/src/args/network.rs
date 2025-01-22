@@ -61,8 +61,8 @@ impl EmulatorArgs for NetworkArgs<'_> {
     fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
         let network_type = match self.network_type {
             NetworkType::None => Cow::Borrowed("Disabled"),
-            NetworkType::Nat { restrict: true, .. } => Cow::Borrowed("Restricted"),
-            NetworkType::Nat { restrict: false, .. } => Cow::Borrowed("User"),
+            NetworkType::Nat { restrict: true, .. } => Cow::Owned(format!("Restricted ({})", self.network_device)),
+            NetworkType::Nat { restrict: false, .. } => Cow::Owned(format!("User ({})", self.network_device)),
             NetworkType::Bridged { bridge, .. } => Cow::Owned(format!("Bridged ({})", bridge.as_ref())),
         };
 
