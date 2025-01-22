@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use boot::BootArgs;
 use cpu::Cpu;
 use itertools::chain;
 use ram::Ram;
@@ -11,6 +12,7 @@ use crate::{
     utils::{ArgDisplay, EmulatorArgs, LaunchFn, QemuArg},
 };
 
+mod boot;
 mod cpu;
 mod ram;
 mod tpm;
@@ -25,8 +27,17 @@ impl Machine {
         warnings.extend(ram_warning);
 
         let tpm_args = self.tpm.then(|| Tpm::new(vm_dir, vm_name)).transpose()?;
+        let boot_args = self.boot_args(vm_dir, guest)?;
 
-        Ok((MachineArgs { cpu_args, ram_args, tpm_args }, warnings))
+        Ok((
+            MachineArgs {
+                cpu_args,
+                ram_args,
+                tpm_args,
+                boot_args,
+            },
+            warnings,
+        ))
     }
 }
 
@@ -34,6 +45,7 @@ pub struct MachineArgs {
     cpu_args: Cpu,
     ram_args: Ram,
     tpm_args: Option<Tpm>,
+    boot_args: BootArgs,
 }
 
 impl EmulatorArgs for MachineArgs {
@@ -41,14 +53,16 @@ impl EmulatorArgs for MachineArgs {
         chain!(
             self.cpu_args.display(),
             self.ram_args.display(),
-            self.tpm_args.as_ref().map(|tpm| tpm.display()).into_iter().flatten()
+            self.tpm_args.as_ref().map(|tpm| tpm.display()).into_iter().flatten(),
+            self.boot_args.display(),
         )
     }
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
         chain!(
             self.cpu_args.qemu_args(),
             self.ram_args.qemu_args(),
-            self.tpm_args.as_ref().map(|tpm| tpm.qemu_args()).into_iter().flatten()
+            self.tpm_args.as_ref().map(|tpm| tpm.qemu_args()).into_iter().flatten(),
+            self.boot_args.qemu_args(),
         )
     }
     fn launch_fns(self) -> impl IntoIterator<Item = LaunchFn> {
@@ -56,6 +70,7 @@ impl EmulatorArgs for MachineArgs {
             self.cpu_args.launch_fns(),
             self.ram_args.launch_fns(),
             self.tpm_args.map(|tpm| tpm.launch_fns()).into_iter().flatten(),
+            self.boot_args.launch_fns(),
         )
     }
 }

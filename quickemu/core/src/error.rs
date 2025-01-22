@@ -28,6 +28,16 @@ pub enum Error {
     Which(#[from] which::Error),
     #[error("Failed to launch {0}: {1}")]
     Command(&'static str, String),
+    #[error("Legacy boot is only supported on x86_64.")]
+    LegacyBoot,
+    #[error("Could not find riscv64 bootloader")]
+    Riscv64Bootloader,
+    #[error("Could not find EFI firmware")]
+    Ovmf,
+    #[error("Could not copy OVMF vars into VM directory: {0}")]
+    CopyOvmfVars(String),
+    #[error("Specified architecture and boot type are not compatible")]
+    UnsupportedBootCombination,
 }
 
 #[derive(Error, Debug)]
