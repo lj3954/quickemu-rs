@@ -42,11 +42,12 @@ impl Display {
                 #[cfg(target_os = "linux")]
                 _ => {
                     if process_active("pipewire") {
-                        if cfg!(feature = "qemu_8_1") {
-                            AudioBackend::PipeWire
-                        } else {
+                        #[cfg(not(feature = "qemu_8_1"))]
+                        {
                             AudioBackend::PulseAudio
                         }
+                        #[cfg(feature = "qemu_8_1")]
+                        AudioBackend::PipeWire
                     } else if process_active("pulseaudio") {
                         AudioBackend::PulseAudio
                     } else {
