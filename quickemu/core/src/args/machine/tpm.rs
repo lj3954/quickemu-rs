@@ -48,7 +48,7 @@ pub(crate) struct Tpm {
 }
 
 impl EmulatorArgs for Tpm {
-    fn launch_fn(self) -> Option<LaunchFn> {
+    fn launch_fns(self) -> impl IntoIterator<Item = LaunchFn> {
         Some(Box::new(move || {
             let tpm_args = [
                 OsStr::new("socket"),

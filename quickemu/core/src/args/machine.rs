@@ -8,7 +8,7 @@ use tpm::Tpm;
 use crate::{
     data::{GuestOS, Machine},
     error::{Error, Warning},
-    utils::{ArgDisplay, EmulatorArgs, LaunchFnReturn, QemuArg},
+    utils::{ArgDisplay, EmulatorArgs, LaunchFn, QemuArg},
 };
 
 mod cpu;
@@ -51,7 +51,11 @@ impl EmulatorArgs for MachineArgs {
             self.tpm_args.as_ref().map(|tpm| tpm.qemu_args()).into_iter().flatten()
         )
     }
-    fn launch_fn(self) -> Option<Box<dyn FnOnce() -> Result<Vec<LaunchFnReturn>, Error>>> {
-        self.tpm_args.and_then(|tpm| tpm.launch_fn())
+    fn launch_fns(self) -> impl IntoIterator<Item = LaunchFn> {
+        chain!(
+            self.cpu_args.launch_fns(),
+            self.ram_args.launch_fns(),
+            self.tpm_args.map(|tpm| tpm.launch_fns()).into_iter().flatten(),
+        )
     }
 }

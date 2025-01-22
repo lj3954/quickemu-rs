@@ -29,8 +29,8 @@ pub trait EmulatorArgs: Sized {
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
         std::iter::empty()
     }
-    fn launch_fn(self) -> Option<LaunchFn> {
-        None
+    fn launch_fns(self) -> impl IntoIterator<Item = LaunchFn> {
+        std::iter::empty()
     }
 }
 
@@ -103,9 +103,7 @@ macro_rules! full_qemu_args {
                     warnings.extend(warn);
                     display.extend(args.display());
                     qemu_args.extend(args.qemu_args());
-                    if let Some(launch_fn) = args.launch_fn() {
-                        launch_fns.push(launch_fn);
-                    }
+                    launch_fns.extend(args.launch_fns());
                 }
             )*
 
