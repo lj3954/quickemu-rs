@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::{is_default, Display};
 use serde::{de::Visitor, Deserialize, Serialize};
@@ -18,6 +18,12 @@ pub struct Io {
     #[serde(default, skip_serializing_if = "is_default")]
     pub display: Display,
     pub public_dir: PublicDir,
+}
+
+impl Io {
+    pub(crate) fn public_dir(&self) -> Option<&Path> {
+        self.public_dir.as_ref().as_deref()
+    }
 }
 
 #[derive(PartialEq, Default, Debug, Deserialize, Serialize, derive_more::AsRef, Clone)]

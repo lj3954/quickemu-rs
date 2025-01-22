@@ -3,26 +3,58 @@ use std::{
     path::PathBuf,
 };
 
+use crate::utils::find_port;
+
 use super::{default_if_empty, is_default};
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Network {
     #[serde(default, flatten, deserialize_with = "default_if_empty")]
     pub network_type: NetworkType,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub port_forwards: Vec<PortForward>,
-    #[serde(default = "default_ssh_port", skip_serializing_if = "is_default_ssh")]
-    pub ssh_port: u16,
     pub monitor: Monitor,
     #[serde(default, skip_serializing_if = "is_default")]
     pub serial: Serial,
 }
-fn default_ssh_port() -> u16 {
-    22220
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
+pub struct SSHPort(Option<u16>);
+impl Default for SSHPort {
+    fn default() -> Self {
+        Self(find_port(22220, 9))
+    }
 }
-fn is_default_ssh(input: &u16) -> bool {
-    *input == default_ssh_port()
+
+impl Visitor<'_> for SSHPort {
+    type Value = SSHPort;
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a port number")
+    }
+    fn visit_u16<E>(self, value: u16) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Self(find_port(value, 9)))
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
+pub struct Bridge(String);
+impl Visitor<'_> for Bridge {
+    type Value = Bridge;
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a bridge device")
+    }
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        let networks = sysinfo::Networks::new_with_refreshed_list();
+        if !networks.contains_key(value) {
+            return Err(E::custom(format!("Network interface {value} could not be found.")));
+        }
+        Ok(Self(value.to_string()))
+    }
 }
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
@@ -31,22 +63,36 @@ pub struct PortForward {
     pub guest: u16,
 }
 
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum NetworkType {
     #[serde(alias = "none")]
     None,
-    #[serde(alias = "restrict")]
-    Restrict,
     #[serde(alias = "bridged")]
     Bridged {
-        bridge: String,
+        bridge: Bridge,
         #[serde(default, alias = "MAC Address", alias = "macaddr", skip_serializing_if = "Option::is_none")]
         mac_addr: Option<String>,
     },
-    #[default]
     #[serde(alias = "nat", alias = "NAT", alias = "user")]
-    Nat,
+    Nat {
+        #[serde(default, skip_serializing_if = "is_default")]
+        port_forwards: Vec<PortForward>,
+        #[serde(default, skip_serializing_if = "is_default")]
+        ssh_port: SSHPort,
+        #[serde(default, skip_serializing_if = "is_default")]
+        restrict: bool,
+    },
+}
+
+impl Default for NetworkType {
+    fn default() -> Self {
+        Self::Nat {
+            port_forwards: vec![],
+            ssh_port: SSHPort::default(),
+            restrict: false,
+        }
+    }
 }
 
 pub type Monitor = MonitorInner<MonitorAddr>;

@@ -97,6 +97,7 @@ impl<'a> Config {
             self.basic_args(),
             self.machine.args(self.guest, vm_dir, &self.vm_name),
             self.io.args(self.machine.arch, self.guest, &self.vm_name),
+            self.network.args(self.guest, &self.vm_name, self.io.public_dir()),
         )
     }
 
