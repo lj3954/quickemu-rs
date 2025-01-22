@@ -49,7 +49,7 @@ pub(crate) struct Tpm {
 
 impl EmulatorArgs for Tpm {
     fn launch_fns(self) -> impl IntoIterator<Item = LaunchFn> {
-        Some(Box::new(move || {
+        let tpm_launch = move || {
             let tpm_args = [
                 OsStr::new("socket"),
                 OsStr::new("--ctrl"),
@@ -96,6 +96,7 @@ impl EmulatorArgs for Tpm {
             {
                 todo!()
             }
-        }))
+        };
+        Some(Box::new(tpm_launch) as LaunchFn)
     }
 }
