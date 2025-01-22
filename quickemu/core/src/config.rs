@@ -42,8 +42,8 @@ impl<'a> Config {
         if conf.vm_dir.is_none() {
             if conf.vm_name.is_empty() {
                 let filename = file.file_name().expect("Filename should exist").to_string_lossy();
-                let ext_rindex = filename.bytes().rev().position(|b| b == b'.').map_or(1, |i| i + 1);
-                conf.vm_name = filename[..filename.len() - ext_rindex].to_string();
+                let ext_rindex = filename.bytes().rposition(|b| b == b'.').map_or(1, |i| i + 1);
+                conf.vm_name = filename[..ext_rindex].to_string();
             }
             conf.vm_dir = Some(file.parent().unwrap().join(&conf.vm_name));
         } else if conf.vm_name.is_empty() {
