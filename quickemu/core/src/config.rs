@@ -46,8 +46,13 @@ impl<'a> Config {
                 conf.vm_name = filename[..ext_rindex].to_string();
             }
             conf.vm_dir = Some(file.parent().unwrap().join(&conf.vm_name));
-        } else if conf.vm_name.is_empty() {
-            conf.vm_name = conf
+        }
+        Ok(conf)
+    }
+
+    fn finalize(&mut self) {
+        if self.vm_name.is_empty() {
+            self.vm_name = self
                 .vm_dir
                 .as_ref()
                 .unwrap()
@@ -58,25 +63,25 @@ impl<'a> Config {
         }
         #[cfg(unix)]
         {
-            if let MonitorInner::Socket { socketpath } = &mut conf.network.monitor {
+            if let MonitorInner::Socket { socketpath } = &mut self.network.monitor {
                 if socketpath.is_none() {
-                    *socketpath = Some(conf.vm_dir.as_ref().unwrap().join(format!("{}-monitor.socket", conf.vm_name)));
+                    *socketpath = Some(self.vm_dir.as_ref().unwrap().join(format!("{}-monitor.socket", self.vm_name)));
                 }
             }
-            if let MonitorInner::Socket { socketpath } = &mut conf.network.serial {
+            if let MonitorInner::Socket { socketpath } = &mut self.network.serial {
                 if socketpath.is_none() {
-                    *socketpath = Some(conf.vm_dir.as_ref().unwrap().join(format!("{}-serial.socket", conf.vm_name)));
+                    *socketpath = Some(self.vm_dir.as_ref().unwrap().join(format!("{}-serial.socket", self.vm_name)));
                 }
             }
         }
-        Ok(conf)
     }
 
     pub fn send_monitor_command(&self, command: &str) -> Result<String, MonitorError> {
         self.network.monitor.send_cmd(command)
     }
 
-    pub fn to_full_qemu_args(&self) -> Result<QemuArgs, Error> {
+    pub fn to_full_qemu_args(&mut self) -> Result<QemuArgs, Error> {
+        self.finalize();
         let vm_dir = self.vm_dir.as_ref().unwrap();
         #[cfg(target_arch = "x86_64")]
         self.guest.validate_cpu()?;
@@ -89,7 +94,7 @@ impl<'a> Config {
         )
     }
 
-    pub fn to_qemu_args(&self) -> Result<(Vec<QemuArg>, Vec<Warning>), Error> {
+    pub fn to_qemu_args(&mut self) -> Result<(Vec<QemuArg>, Vec<Warning>), Error> {
         let vm_dir = self.vm_dir.as_ref().unwrap();
         #[cfg(target_arch = "x86_64")]
         self.guest.validate_cpu()?;
