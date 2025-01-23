@@ -95,6 +95,7 @@ impl<'a> Config {
     }
 
     pub fn to_qemu_args(&mut self) -> Result<(Vec<QemuArg>, Vec<Warning>), Error> {
+        self.finalize();
         let vm_dir = self.vm_dir.as_ref().unwrap();
         #[cfg(target_arch = "x86_64")]
         self.guest.validate_cpu()?;
