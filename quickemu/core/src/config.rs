@@ -50,7 +50,7 @@ impl<'a> Config {
         Ok(conf)
     }
 
-    fn finalize(&mut self) {
+    fn finalize(&mut self) -> Result<(), Error> {
         if self.vm_name.is_empty() {
             self.vm_name = self
                 .vm_dir
@@ -61,6 +61,8 @@ impl<'a> Config {
                 .to_string_lossy()
                 .to_string();
         }
+        self.network.monitor.validate()?;
+        self.network.serial.validate()?;
         #[cfg(unix)]
         {
             if let MonitorInner::Socket { socketpath } = &mut self.network.monitor {
@@ -74,6 +76,7 @@ impl<'a> Config {
                 }
             }
         }
+        Ok(())
     }
 
     pub fn send_monitor_command(&self, command: &str) -> Result<String, MonitorError> {
@@ -81,7 +84,7 @@ impl<'a> Config {
     }
 
     pub fn to_full_qemu_args(&mut self) -> Result<QemuArgs, Error> {
-        self.finalize();
+        self.finalize()?;
         let vm_dir = self.vm_dir.as_ref().unwrap();
         #[cfg(target_arch = "x86_64")]
         self.guest.validate_cpu()?;
@@ -95,7 +98,7 @@ impl<'a> Config {
     }
 
     pub fn to_qemu_args(&mut self) -> Result<(Vec<QemuArg>, Vec<Warning>), Error> {
-        self.finalize();
+        self.finalize()?;
         let vm_dir = self.vm_dir.as_ref().unwrap();
         #[cfg(target_arch = "x86_64")]
         self.guest.validate_cpu()?;

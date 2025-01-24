@@ -1,11 +1,15 @@
 use std::{
+    borrow::Cow,
+    ffi::OsString,
     io::{Read, Write},
     net::TcpStream,
 };
 
 use crate::{
-    data::{Monitor, MonitorInner},
-    error::MonitorError,
+    arg,
+    data::{Monitor, MonitorArg, MonitorInner},
+    error::{Error, MonitorError},
+    utils::{find_port, ArgDisplay, EmulatorArgs, QemuArg},
 };
 
 #[cfg(unix)]
@@ -39,5 +43,54 @@ impl Monitor {
             _ => return Err(MonitorError::NoMonitor),
         }
         Ok(response)
+    }
+}
+
+impl<T: MonitorArg> MonitorInner<T> {
+    pub(crate) fn validate(&mut self) -> Result<(), Error> {
+        if let Self::Telnet { address } = self {
+            let defined_port = address.as_ref().port();
+            let port = find_port(defined_port, 9).ok_or(Error::UnavailablePort(defined_port))?;
+            address.as_mut().set_port(port);
+        }
+        Ok(())
+    }
+}
+
+impl<T: MonitorArg> EmulatorArgs for MonitorInner<T> {
+    fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
+        let value = match self {
+            Self::None => Cow::Borrowed("None"),
+            Self::Telnet { address } => Cow::Owned(format!("telnet {}", address.as_ref())),
+            #[cfg(unix)]
+            Self::Socket { socketpath } => Cow::Owned(format!(
+                "socket {}",
+                socketpath.as_ref().expect("Socketpath should be filled").display()
+            )),
+        };
+        Some(ArgDisplay {
+            name: Cow::Borrowed(T::display()),
+            value,
+        })
+    }
+    fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
+        let arg = match self {
+            Self::None => arg!("none"),
+            Self::Telnet { address } => {
+                let mut telnet = OsString::from("telnet:");
+                telnet.push(address.as_ref().to_string());
+                telnet.push(",server,nowait");
+                Cow::Owned(telnet)
+            }
+            #[cfg(unix)]
+            Self::Socket { socketpath } => {
+                let mut socket = OsString::from("unix:");
+                socket.push(socketpath.as_ref().expect("Socketpath should be filled"));
+                socket.push(",server,nowait");
+                Cow::Owned(socket)
+            }
+        };
+
+        [arg!(T::arg()), arg]
     }
 }

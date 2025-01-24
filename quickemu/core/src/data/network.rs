@@ -100,7 +100,7 @@ pub type Serial = MonitorInner<SerialAddr>;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum MonitorInner<T: Default + AsRef<SocketAddr>> {
+pub enum MonitorInner<T: MonitorArg> {
     #[serde(alias = "none")]
     None,
     #[serde(alias = "telnet")]
@@ -113,21 +113,26 @@ pub enum MonitorInner<T: Default + AsRef<SocketAddr>> {
     Socket { socketpath: Option<PathBuf> },
 }
 
+pub trait MonitorArg: Default + AsRef<SocketAddr> + AsMut<SocketAddr> {
+    fn arg() -> &'static str;
+    fn display() -> &'static str;
+}
+
 #[cfg(unix)]
-impl<T: AsRef<SocketAddr> + Default> Default for MonitorInner<T> {
+impl<T: MonitorArg> Default for MonitorInner<T> {
     fn default() -> Self {
         Self::Socket { socketpath: None }
     }
 }
 
 #[cfg(not(unix))]
-impl<T: AsRef<SocketAddr> + Default> Default for Monitor<T> {
+impl<T: MonitorArg> Default for Monitor<T> {
     fn default() -> Self {
         Self(MonitorInner::Telnet { address: T::default() })
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef, derive_more::AsMut)]
 pub struct MonitorAddr(SocketAddr);
 
 impl Default for MonitorAddr {
@@ -136,11 +141,29 @@ impl Default for MonitorAddr {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
+impl MonitorArg for MonitorAddr {
+    fn arg() -> &'static str {
+        "-monitor"
+    }
+    fn display() -> &'static str {
+        "Monitor"
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef, derive_more::AsMut)]
 pub struct SerialAddr(SocketAddr);
 
 impl Default for SerialAddr {
     fn default() -> Self {
         Self(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 6660))
+    }
+}
+
+impl MonitorArg for SerialAddr {
+    fn arg() -> &'static str {
+        "-serial"
+    }
+    fn display() -> &'static str {
+        "Serial"
     }
 }

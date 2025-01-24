@@ -5,7 +5,7 @@ use which::which;
 
 use crate::{
     arg,
-    data::{GuestOS, MacOSRelease, Network, NetworkType, PortForward},
+    data::{GuestOS, MacOSRelease, Monitor, Network, NetworkType, PortForward, Serial},
     error::{Error, Warning},
     oarg,
     utils::{ArgDisplay, EmulatorArgs, LaunchFn, QemuArg},
@@ -16,7 +16,14 @@ mod monitor;
 impl<'a> Network {
     pub(crate) fn args(&'a self, guest: GuestOS, vm_name: &'a str, publicdir: Option<&'a Path>) -> Result<(FullNetworkArgs<'a>, Option<Warning>), Error> {
         let network_args = self.inner_args(guest, vm_name, publicdir);
-        Ok((FullNetworkArgs { network: network_args }, None))
+        Ok((
+            FullNetworkArgs {
+                network: network_args,
+                monitor: &self.monitor,
+                serial: &self.serial,
+            },
+            None,
+        ))
     }
 
     fn inner_args(&'a self, guest: GuestOS, vm_name: &'a str, publicdir: Option<&'a Path>) -> NetworkArgs<'a> {
@@ -36,14 +43,16 @@ impl<'a> Network {
 
 pub(crate) struct FullNetworkArgs<'a> {
     network: NetworkArgs<'a>,
+    monitor: &'a Monitor,
+    serial: &'a Serial,
 }
 
 impl EmulatorArgs for FullNetworkArgs<'_> {
     fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
-        chain!(self.network.display())
+        chain!(self.network.display(), self.monitor.display(), self.serial.display())
     }
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
-        chain!(self.network.qemu_args())
+        chain!(self.network.qemu_args(), self.monitor.qemu_args(), self.serial.qemu_args())
     }
     fn launch_fns(self) -> impl IntoIterator<Item = LaunchFn> {
         chain!(self.network.launch_fns())
