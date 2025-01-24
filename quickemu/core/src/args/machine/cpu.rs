@@ -27,7 +27,11 @@ impl Machine {
                 }
                 threads.get()
             } else {
-                logical
+                // Take half of the previous power of two, inclusive. e.g. 8-15 -> 4
+                match logical {
+                    4.. => (logical + 1).next_power_of_two() / 4,
+                    _ => 1,
+                }
             };
 
             let smt = logical > physical;
