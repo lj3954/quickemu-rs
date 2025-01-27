@@ -11,6 +11,7 @@ pub struct Display {
     pub display_type: DisplayType,
     #[serde(default, skip_serializing_if = "is_default")]
     pub resolution: Resolution,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub accelerated: Accelerated,
     #[serde(default, skip_serializing_if = "is_default")]
     pub braille: bool,

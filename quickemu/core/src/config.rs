@@ -3,10 +3,11 @@ use crate::{
     data::*,
     error::{ConfigError, Error, MonitorError, Warning},
     full_qemu_args, oarg, qemu_args,
-    utils::{ArgDisplay, EmulatorArgs, LaunchFnReturn, QemuArg},
+    utils::{ArgDisplay, EmulatorArgs, LaunchFn, LaunchFnReturn, QemuArg},
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use which::which;
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -31,7 +32,7 @@ pub struct Config {
 pub struct QemuArgs {
     pub qemu_args: Vec<QemuArg>,
     pub warnings: Vec<Warning>,
-    pub launch_fn_returns: Vec<LaunchFnReturn>,
+    pub launch_fns: Vec<LaunchFn>,
     pub display: Vec<ArgDisplay>,
 }
 
@@ -83,32 +84,50 @@ impl<'a> Config {
         self.network.monitor.send_cmd(command)
     }
 
-    pub fn to_full_qemu_args(&mut self) -> Result<QemuArgs, Error> {
-        self.finalize()?;
-        let vm_dir = self.vm_dir.as_ref().unwrap();
-        #[cfg(target_arch = "x86_64")]
-        self.guest.validate_cpu()?;
+    pub fn launch(self) -> Result<(), Error> {
+        let qemu_bin = match self.machine.arch {
+            Arch::X86_64 { .. } => "qemu-system-x86_64",
+            Arch::AArch64 { .. } => "qemu-system-aarch64",
+            Arch::Riscv64 { .. } => "qemu-system-riscv64",
+        };
+        let qemu_bin = which(qemu_bin).map_err(|_| Error::QemuNotFound(qemu_bin))?;
 
-        full_qemu_args!(
-            self.basic_args(),
-            self.machine.args(self.guest, vm_dir, &self.vm_name),
-            self.io.args(self.machine.arch, self.guest, &self.vm_name),
-            self.network.args(self.guest, &self.vm_name, self.io.public_dir()),
-        )
+        let qemu_args = self.to_full_qemu_args()?;
+        Ok(())
     }
 
-    pub fn to_qemu_args(&mut self) -> Result<(Vec<QemuArg>, Vec<Warning>), Error> {
+    pub fn to_full_qemu_args(mut self) -> Result<QemuArgs, Error> {
         self.finalize()?;
         let vm_dir = self.vm_dir.as_ref().unwrap();
         #[cfg(target_arch = "x86_64")]
         self.guest.validate_cpu()?;
 
-        qemu_args!(
+        let mut args = full_qemu_args!(
             self.basic_args(),
             self.machine.args(self.guest, vm_dir, &self.vm_name),
             self.io.args(self.machine.arch, self.guest, &self.vm_name),
             self.network.args(self.guest, &self.vm_name, self.io.public_dir()),
-        )
+        )?;
+
+        args.qemu_args.extend(self.extra_args.into_iter().map(|arg| oarg!(arg)));
+        Ok(args)
+    }
+
+    pub fn to_qemu_args(mut self) -> Result<(Vec<QemuArg>, Vec<Warning>), Error> {
+        self.finalize()?;
+        let vm_dir = self.vm_dir.as_ref().unwrap();
+        #[cfg(target_arch = "x86_64")]
+        self.guest.validate_cpu()?;
+
+        let (mut args, warnings) = qemu_args!(
+            self.basic_args(),
+            self.machine.args(self.guest, vm_dir, &self.vm_name),
+            self.io.args(self.machine.arch, self.guest, &self.vm_name),
+            self.network.args(self.guest, &self.vm_name, self.io.public_dir()),
+        )?;
+        args.extend(self.extra_args.into_iter().map(|arg| oarg!(arg)));
+
+        Ok((args, warnings))
     }
 
     fn basic_args(&'a self) -> Result<(BasicArgs<'a>, Option<Warning>), Error> {

@@ -1,19 +1,20 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, process::Command};
+
+use which::which;
 
 use crate::{
     arg,
-    data::{Accelerated, Access, Display, DisplayType, GuestOS, Resolution},
+    data::{Accelerated, Access, Display, DisplayType, GuestOS, Resolution, Viewer},
     error::Error,
     oarg,
-    utils::{find_port, ArgDisplay, EmulatorArgs, QemuArg},
+    utils::{find_port, ArgDisplay, EmulatorArgs, LaunchFn, LaunchFnReturn, QemuArg},
 };
 
-#[cfg(not(target_os = "macos"))]
 impl<'a> Display {
     pub fn spice_args(&self, vm_name: &'a str, guest: GuestOS, public_dir: Option<Cow<'a, str>>) -> Result<SpiceArgs<'a>, Error> {
         match self.display_type {
             DisplayType::SpiceApp => Ok(SpiceArgs::SpiceApp { accelerated: self.accelerated }),
-            DisplayType::Spice { access, spice_port, .. } => {
+            DisplayType::Spice { access, spice_port, viewer } => {
                 let Some(port) = find_port(spice_port, 9) else {
                     return Err(Error::UnavailablePort(spice_port));
                 };
@@ -25,6 +26,7 @@ impl<'a> Display {
                     port,
                     access,
                     public_dir,
+                    viewer,
                 })
             }
             _ => unreachable!(),
@@ -32,7 +34,6 @@ impl<'a> Display {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
 pub enum SpiceArgs<'a> {
     SpiceApp {
         accelerated: Accelerated,
@@ -43,24 +44,42 @@ pub enum SpiceArgs<'a> {
         port: u16,
         access: Access,
         public_dir: Option<Cow<'a, str>>,
+        viewer: Viewer,
     },
 }
 
-#[cfg(not(target_os = "macos"))]
 impl EmulatorArgs for SpiceArgs<'_> {
     fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
-        let name = Cow::Borrowed("Spice");
-        let value = match self {
-            Self::SpiceApp { .. } => Cow::Borrowed("Enabled"),
-            Self::Spice { vm_name, port, public_dir, .. } => {
-                let mut msg = format!("On host: spicy --title \"{vm_name}\" --port {port}");
+        Some(match self {
+            Self::SpiceApp { .. } => ArgDisplay {
+                name: Cow::Borrowed("Spice"),
+                value: Cow::Borrowed("Enabled"),
+            },
+            Self::Spice {
+                vm_name,
+                port,
+                public_dir,
+                viewer,
+                fullscreen,
+                ..
+            } => {
+                let mut msg = match viewer {
+                    Viewer::None => return None,
+                    Viewer::Spicy => format!("spicy --title \"{vm_name}\" --port {port}"),
+                    Viewer::Remote => format!("remote-viewer --title \"{vm_name}\" \"spice://localhost:{port}\""),
+                };
                 if let Some(public_dir) = public_dir {
                     msg.extend([" --spice-shared-dir ", public_dir]);
                 }
-                Cow::Owned(msg)
+                if *fullscreen {
+                    msg.push_str(" --full-screen");
+                }
+                ArgDisplay {
+                    name: Cow::Borrowed("Viewer (On host)"),
+                    value: Cow::Owned(msg),
+                }
             }
-        };
-        Some(ArgDisplay { name, value })
+        })
     }
 
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
@@ -77,5 +96,59 @@ impl EmulatorArgs for SpiceArgs<'_> {
             }
         }
         [arg!("-spice"), oarg!(spice_arg)]
+    }
+
+    fn launch_fns(self) -> impl IntoIterator<Item = LaunchFn> {
+        match self {
+            Self::Spice {
+                viewer,
+                vm_name,
+                public_dir,
+                fullscreen,
+                port,
+                ..
+            } => {
+                if let Viewer::None = viewer {
+                    return None;
+                }
+                let vm_name = vm_name.to_string();
+                let public_dir = public_dir.map(|d| d.to_string());
+
+                let launch = move || {
+                    let viewer_cmd = match viewer {
+                        Viewer::Spicy => "spicy",
+                        Viewer::Remote => "remote-viewer",
+                        _ => unreachable!(),
+                    };
+                    let cmd = which(viewer_cmd).map_err(|_| Error::ViewerNotFound(viewer_cmd))?;
+
+                    #[cfg(not(feature = "inbuilt_commands"))]
+                    let mut command = Command::new(cmd);
+
+                    command.arg("--title").arg(vm_name);
+                    match viewer {
+                        Viewer::Spicy => command.arg("--port").arg(port.to_string()),
+                        Viewer::Remote => command.arg(format!("spice://localhost:{}", port)),
+                        _ => unreachable!(),
+                    };
+
+                    if let Some(public_dir) = public_dir {
+                        command.arg("--spice-shared-dir");
+                        command.arg(public_dir);
+                    }
+
+                    if fullscreen {
+                        command.arg("--full-screen");
+                    }
+
+                    let child = command.spawn().map_err(|e| Error::Command(viewer_cmd, e.to_string()))?;
+
+                    Ok(vec![LaunchFnReturn::Process(child)])
+                };
+
+                Some(LaunchFn::After(Box::new(launch)))
+            }
+            _ => None,
+        }
     }
 }

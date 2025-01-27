@@ -7,7 +7,7 @@ use usb::USBArgs;
 use crate::{
     data::{Arch, GuestOS, Io, Keyboard, KeyboardLayout, Mouse},
     error::{Error, Warning},
-    utils::{ArgDisplay, EmulatorArgs, QemuArg},
+    utils::{ArgDisplay, EmulatorArgs, LaunchFn, QemuArg},
 };
 
 mod audio;
@@ -111,6 +111,22 @@ impl EmulatorArgs for IoArgs<'_> {
 
         #[cfg(not(target_os = "macos"))]
         let iter = iter.chain(self.spice.as_ref().map(|spice| spice.qemu_args()).into_iter().flatten());
+
+        iter
+    }
+    fn launch_fns(self) -> impl IntoIterator<Item = LaunchFn> {
+        let iter = chain!(
+            self.display.launch_fns(),
+            self.audio.launch_fns(),
+            self.mouse.launch_fns(),
+            self.usb.launch_fns(),
+            self.keyboard.launch_fns(),
+            self.keyboard_layout.launch_fns(),
+            self.public_dir_args.map(|d| d.launch_fns()).into_iter().flatten(),
+        );
+
+        #[cfg(not(target_os = "macos"))]
+        let iter = iter.chain(self.spice.map(|spice| spice.launch_fns()).into_iter().flatten());
 
         iter
     }

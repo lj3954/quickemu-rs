@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     ffi::OsStr,
+    fmt,
     net::{Ipv4Addr, SocketAddrV4, TcpListener},
     thread::JoinHandle,
 };
@@ -20,7 +21,7 @@ pub struct ArgDisplay {
     pub value: Cow<'static, str>,
 }
 pub type QemuArg = Cow<'static, OsStr>;
-pub type LaunchFn = Box<dyn FnOnce() -> Result<Vec<LaunchFnReturn>, Error>>;
+pub type LaunchFnInner = Box<dyn FnOnce() -> Result<Vec<LaunchFnReturn>, Error>>;
 
 pub trait EmulatorArgs: Sized {
     fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
@@ -31,6 +32,20 @@ pub trait EmulatorArgs: Sized {
     }
     fn launch_fns(self) -> impl IntoIterator<Item = LaunchFn> {
         std::iter::empty()
+    }
+}
+
+pub enum LaunchFn {
+    Before(LaunchFnInner),
+    After(LaunchFnInner),
+}
+
+impl std::fmt::Debug for LaunchFn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LaunchFn::Before(_) => write!(f, "LaunchFn::Before(_)"),
+            LaunchFn::After(_) => write!(f, "LaunchFn::After(_)"),
+        }
     }
 }
 
@@ -75,8 +90,8 @@ macro_rules! arg {
 macro_rules! qemu_args {
     ($($arg:expr),* $(,)?) => {
         {
-            let mut warnings = Vec::new();
-            let mut qemu_args = Vec::new();
+            let mut warnings: Vec<Warning> = Vec::new();
+            let mut qemu_args: Vec<QemuArg> = Vec::new();
             $(
                 {
                     let (args, warn) = $arg?;
@@ -84,7 +99,7 @@ macro_rules! qemu_args {
                     qemu_args.extend(args.qemu_args());
                 }
             )*
-            Ok((qemu_args, warnings))
+            Ok::<_, Error>((qemu_args, warnings))
         }
     };
 }
@@ -93,9 +108,9 @@ macro_rules! qemu_args {
 macro_rules! full_qemu_args {
     ($($arg:expr),* $(,)?) => {
         {
-            let mut warnings = Vec::new();
-            let mut display = Vec::new();
-            let mut qemu_args = Vec::new();
+            let mut warnings: Vec<Warning> = Vec::new();
+            let mut display: Vec<ArgDisplay> = Vec::new();
+            let mut qemu_args: Vec<QemuArg> = Vec::new();
             let mut launch_fns = Vec::new();
             $(
                 {
@@ -107,16 +122,11 @@ macro_rules! full_qemu_args {
                 }
             )*
 
-            let mut launch_fn_returns = Vec::new();
-            for launch_fn in launch_fns {
-                launch_fn_returns.extend(launch_fn()?);
-            }
-
-            Ok(QemuArgs {
+            Ok::<_, Error>(QemuArgs {
                 qemu_args,
                 warnings,
                 display,
-                launch_fn_returns,
+                launch_fns,
             })
         }
     };

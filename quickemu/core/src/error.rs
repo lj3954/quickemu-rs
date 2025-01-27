@@ -38,6 +38,10 @@ pub enum Error {
     CopyOvmfVars(String),
     #[error("Specified architecture and boot type are not compatible")]
     UnsupportedBootCombination,
+    #[error("Could not find viewer {0}")]
+    ViewerNotFound(&'static str),
+    #[error("Could not find qemu binary: {0}")]
+    QemuNotFound(&'static str),
 }
 
 #[derive(Error, Debug)]

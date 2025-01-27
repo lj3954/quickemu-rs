@@ -17,6 +17,7 @@ pub struct Io {
     pub soundcard: Option<SoundCard>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub display: Display,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub public_dir: PublicDir,
 }
 

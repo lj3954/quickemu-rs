@@ -97,6 +97,6 @@ impl EmulatorArgs for Tpm {
                 todo!()
             }
         };
-        Some(Box::new(tpm_launch) as LaunchFn)
+        Some(LaunchFn::Before(Box::new(tpm_launch)))
     }
 }
