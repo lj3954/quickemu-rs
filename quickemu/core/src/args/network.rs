@@ -142,7 +142,7 @@ impl EmulatorArgs for NetworkArgs<'_> {
                     net.push(samba);
                 }
 
-                vec![arg!("-netdev"), oarg!(self.network_device.as_ref()), arg!("-net"), oarg!(net)]
+                vec![arg!("-netdev"), oarg!(net), arg!("-device"), arg!(self.network_device.arg())]
             }
         }
     }
@@ -158,13 +158,13 @@ enum NetDevice {
     RTL8139,
 }
 
-impl AsRef<str> for NetDevice {
-    fn as_ref(&self) -> &str {
+impl NetDevice {
+    fn arg(&self) -> &'static str {
         match self {
-            Self::E1000 => "e1000",
-            Self::VMXNET3 => "vmxnet3",
-            Self::VirtIONet => "virtio-net",
-            Self::RTL8139 => "rtl8139",
+            Self::E1000 => "e1000,netdev=nic",
+            Self::VMXNET3 => "vmxnet3,netdev=nic",
+            Self::VirtIONet => "virtio-net,netdev=nic",
+            Self::RTL8139 => "rtl8139,netdev=nic",
         }
     }
 }

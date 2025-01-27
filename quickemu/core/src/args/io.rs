@@ -100,10 +100,10 @@ impl EmulatorArgs for IoArgs<'_> {
     }
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
         let iter = chain!(
+            self.usb.qemu_args(),
             self.display.qemu_args(),
             self.audio.qemu_args(),
             self.mouse.qemu_args(),
-            self.usb.qemu_args(),
             self.keyboard.qemu_args(),
             self.keyboard_layout.qemu_args(),
             self.public_dir_args.as_ref().map(|d| d.qemu_args()).into_iter().flatten(),

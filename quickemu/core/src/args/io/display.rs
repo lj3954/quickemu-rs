@@ -146,7 +146,7 @@ impl EmulatorArgs for DisplayArgs {
             let (x, y) = self.res.unwrap();
             oarg!(format!("{display_device_arg},xres={x},yres={y}"))
         };
-        args.extend([arg!("-display"), display_device_arg]);
+        args.extend([arg!("-device"), display_device_arg]);
 
         if self.fullscreen {
             args.push(arg!("-full-screen"));
