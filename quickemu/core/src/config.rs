@@ -6,7 +6,10 @@ use crate::{
     utils::{ArgDisplay, EmulatorArgs, LaunchFn, LaunchFnReturn, QemuArg},
 };
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 use which::which;
 
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -18,8 +21,8 @@ pub struct Config {
     pub guest: GuestOS,
     #[serde(default, skip_serializing_if = "is_default")]
     pub machine: Machine,
-    pub disk_images: Vec<DiskImage>,
-    pub image_files: Option<Vec<Image>>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub images: Images,
     #[serde(default, skip_serializing_if = "is_default")]
     pub network: Network,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -32,7 +35,8 @@ pub struct Config {
 pub struct QemuArgs {
     pub qemu_args: Vec<QemuArg>,
     pub warnings: Vec<Warning>,
-    pub launch_fns: Vec<LaunchFn>,
+    pub after_launch_fns: Vec<LaunchFn>,
+    pub before_launch_fns: Vec<LaunchFn>,
     pub display: Vec<ArgDisplay>,
 }
 
@@ -85,14 +89,45 @@ impl<'a> Config {
     }
 
     pub fn launch(self) -> Result<(), Error> {
-        let qemu_bin = match self.machine.arch {
+        let qemu_bin_str = match self.machine.arch {
             Arch::X86_64 { .. } => "qemu-system-x86_64",
             Arch::AArch64 { .. } => "qemu-system-aarch64",
             Arch::Riscv64 { .. } => "qemu-system-riscv64",
         };
-        let qemu_bin = which(qemu_bin).map_err(|_| Error::QemuNotFound(qemu_bin))?;
+        let qemu_bin = which(qemu_bin_str).map_err(|_| Error::QemuNotFound(qemu_bin_str))?;
+        let mut qemu_args = self.to_full_qemu_args()?;
 
-        let qemu_args = self.to_full_qemu_args()?;
+        let mut threads = Vec::new();
+
+        for launch_fn in qemu_args.before_launch_fns {
+            for launch_fn_return in launch_fn.call()? {
+                match launch_fn_return {
+                    LaunchFnReturn::Arg(arg) => qemu_args.qemu_args.push(arg),
+                    LaunchFnReturn::Display(display) => qemu_args.display.push(display),
+                    LaunchFnReturn::Thread(thread) => threads.push(thread),
+                    LaunchFnReturn::Process(_) => {}
+                }
+            }
+        }
+
+        dbg!(&qemu_args.qemu_args);
+
+        Command::new(qemu_bin)
+            .args(qemu_args.qemu_args)
+            .spawn()
+            .map_err(|e| Error::Command(qemu_bin_str, e.to_string()))?;
+
+        for launch_fn in qemu_args.after_launch_fns {
+            for launch_fn_return in launch_fn.call()? {
+                match launch_fn_return {
+                    LaunchFnReturn::Arg(_) => panic!("Arguments should not be returned in 'after' launch fns"),
+                    LaunchFnReturn::Display(display) => qemu_args.display.push(display),
+                    LaunchFnReturn::Thread(thread) => threads.push(thread),
+                    LaunchFnReturn::Process(_) => {}
+                }
+            }
+        }
+
         Ok(())
     }
 

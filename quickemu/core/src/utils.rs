@@ -21,7 +21,6 @@ pub struct ArgDisplay {
     pub value: Cow<'static, str>,
 }
 pub type QemuArg = Cow<'static, OsStr>;
-pub type LaunchFnInner = Box<dyn FnOnce() -> Result<Vec<LaunchFnReturn>, Error>>;
 
 pub trait EmulatorArgs: Sized {
     fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
@@ -35,9 +34,21 @@ pub trait EmulatorArgs: Sized {
     }
 }
 
+type LaunchFnReturnType = Result<Vec<LaunchFnReturn>, Error>;
+pub type LaunchFnInner = Box<dyn FnOnce() -> LaunchFnReturnType>;
+
 pub enum LaunchFn {
     Before(LaunchFnInner),
     After(LaunchFnInner),
+}
+
+impl LaunchFn {
+    pub fn call(self) -> LaunchFnReturnType {
+        match self {
+            LaunchFn::Before(inner) => inner(),
+            LaunchFn::After(inner) => inner(),
+        }
+    }
 }
 
 impl std::fmt::Debug for LaunchFn {
@@ -111,14 +122,21 @@ macro_rules! full_qemu_args {
             let mut warnings: Vec<Warning> = Vec::new();
             let mut display: Vec<ArgDisplay> = Vec::new();
             let mut qemu_args: Vec<QemuArg> = Vec::new();
-            let mut launch_fns = Vec::new();
+            let mut before_launch_fns = Vec::new();
+            let mut after_launch_fns = Vec::new();
             $(
                 {
                     let (args, warn) = $arg?;
                     warnings.extend(warn);
                     display.extend(args.display());
                     qemu_args.extend(args.qemu_args());
-                    launch_fns.extend(args.launch_fns());
+
+                    for launch_fn in args.launch_fns() {
+                        match launch_fn {
+                            LaunchFn::Before(_) => before_launch_fns.push(launch_fn),
+                            LaunchFn::After(_) => after_launch_fns.push(launch_fn),
+                        }
+                    };
                 }
             )*
 
@@ -126,7 +144,8 @@ macro_rules! full_qemu_args {
                 qemu_args,
                 warnings,
                 display,
-                launch_fns,
+                before_launch_fns,
+                after_launch_fns,
             })
         }
     };
