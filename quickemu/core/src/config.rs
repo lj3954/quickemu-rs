@@ -21,7 +21,7 @@ pub struct Config {
     pub guest: GuestOS,
     #[serde(default, skip_serializing_if = "is_default")]
     pub machine: Machine,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(flatten, default, skip_serializing_if = "is_default")]
     pub images: Images,
     #[serde(default, skip_serializing_if = "is_default")]
     pub network: Network,

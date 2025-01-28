@@ -14,8 +14,6 @@ pub struct Images {
 pub enum Image {
     #[serde(alias = "iso", alias = "ISO")]
     Iso(PathBuf),
-    #[serde(alias = "fixed_iso", alias = "cdrom", alias = "CD-ROM")]
-    FixedIso(PathBuf),
     #[serde(alias = "floppy")]
     Floppy(PathBuf),
     #[serde(alias = "img", alias = "IMG")]
