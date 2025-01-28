@@ -70,40 +70,55 @@ impl Visitor<'_> for PublicDir {
 }
 
 #[derive(PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum USBController {
     None,
+    #[serde(alias = "EHCI")]
     Ehci,
+    #[serde(alias = "XHCI")]
     Xhci,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Mouse {
+    #[serde(alias = "USB")]
     Usb,
     Tablet,
     Virtio,
+    #[serde(alias = "PS2")]
     PS2,
 }
 
 #[derive(Copy, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SoundCard {
     None,
+    #[serde(alias = "Intel HDA")]
     IntelHDA,
+    #[serde(alias = "AC97")]
     AC97,
+    #[serde(alias = "ES1370")]
     ES1370,
+    #[serde(alias = "SB16")]
     SB16,
+    #[serde(alias = "USB Audio")]
     USBAudio,
 }
 
 #[derive(Copy, Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum Keyboard {
     #[default]
+    #[serde(alias = "USB")]
     Usb,
     Virtio,
+    #[serde(alias = "PS2")]
     PS2,
 }
 
 #[derive(derive_more::Display, Copy, PartialEq, Default, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum KeyboardLayout {
     #[serde(alias = "ar")]
     Arabic,

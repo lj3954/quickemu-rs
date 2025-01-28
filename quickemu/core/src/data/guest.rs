@@ -3,18 +3,19 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Display, Default, Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "os")]
+#[serde(rename_all = "snake_case")]
 pub enum GuestOS {
-    #[serde(rename = "linux", alias = "Linux")]
+    #[serde(alias = "Linux")]
     #[default]
     Linux,
     #[display("Linux (Old)")]
-    #[serde(rename = "linux_old", alias = "LinuxOld")]
+    #[serde(alias = "LinuxOld")]
     LinuxOld,
-    #[serde(rename = "windows", alias = "Windows")]
+    #[serde(alias = "Windows")]
     Windows,
-    #[serde(rename = "windows_server", alias = "WindowsServer")]
+    #[serde(alias = "WindowsServer", alias = "Windows Server")]
     WindowsServer,
-    #[serde(alias = "macOS", rename = "macos")]
+    #[serde(rename = "macos", alias = "macOS")]
     MacOS { release: MacOSRelease },
     #[serde(rename = "freebsd", alias = "FreeBSD")]
     FreeBSD,
@@ -24,27 +25,27 @@ pub enum GuestOS {
     GenericBSD,
     #[serde(rename = "freedos", alias = "FreeDOS")]
     FreeDOS,
-    #[serde(rename = "haiku", alias = "Haiku")]
+    #[serde(alias = "Haiku")]
     Haiku,
-    #[serde(rename = "solaris", alias = "Solaris")]
+    #[serde(alias = "Solaris")]
     Solaris,
-    #[serde(rename = "kolibrios", alias = "KolibriOS")]
+    #[serde(rename = "kolibrios", alias = "KolibriOS", alias = "Kolibri OS")]
     KolibriOS,
     #[serde(rename = "reactos", alias = "ReactOS")]
     ReactOS,
-    #[serde(rename = "batocera", alias = "Batocera")]
+    #[serde(alias = "Batocera")]
     Batocera,
 }
 
 #[derive(Display, Debug, PartialEq, Clone, Copy, PartialOrd, Serialize, Deserialize)]
 pub enum MacOSRelease {
-    #[serde(alias = "highsierra", alias = "10.13")]
+    #[serde(alias = "highsierra", alias = "High Sierra", alias = "10.13")]
     HighSierra,
     #[serde(alias = "mojave", alias = "10.14")]
     Mojave,
     #[serde(alias = "catalina", alias = "10.15")]
     Catalina,
-    #[serde(alias = "bigsur", alias = "11")]
+    #[serde(alias = "bigsur", alias = "Big Sur", alias = "11")]
     BigSur,
     #[serde(alias = "monterey", alias = "12")]
     Monterey,

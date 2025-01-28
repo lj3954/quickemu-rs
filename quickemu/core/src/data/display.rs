@@ -67,6 +67,7 @@ impl Visitor<'_> for Accelerated {
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum Resolution {
     #[default]
     Default,
@@ -84,19 +85,19 @@ pub enum Resolution {
 
 #[derive(Copy, Default, derive_more::Display, PartialEq, Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum DisplayType {
-    #[serde(alias = "none")]
     None,
-    #[serde(alias = "sdl", alias = "SDL")]
+    #[serde(alias = "SDL")]
     #[display("SDL")]
     #[cfg_attr(not(target_os = "macos"), default)]
     Sdl,
-    #[serde(alias = "gtk", alias = "GTK")]
+    #[serde(alias = "GTK")]
     #[display("GTK")]
     Gtk,
     #[cfg(not(target_os = "macos"))]
     #[display("Spice")]
-    #[serde(alias = "spice")]
+    #[serde(alias = "Spice")]
     Spice {
         #[serde(default, skip_serializing_if = "is_default")]
         access: Access,
@@ -106,12 +107,11 @@ pub enum DisplayType {
         spice_port: u16,
     },
     #[cfg(not(target_os = "macos"))]
-    #[serde(alias = "spice_app", alias = "spice-app")]
+    #[serde(alias = "Spice App", alias = "spice-app")]
     #[display("Spice App")]
     SpiceApp,
     #[cfg(target_os = "macos")]
     #[cfg_attr(target_os = "macos", default)]
-    #[serde(alias = "cocoa")]
     Cocoa,
 }
 const fn default_spice_port() -> u16 {
@@ -123,6 +123,7 @@ fn is_default_spice(input: &u16) -> bool {
 
 #[cfg(not(target_os = "macos"))]
 #[derive(Copy, derive_more::Display, PartialEq, Default, Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum Viewer {
     None,
     #[default]

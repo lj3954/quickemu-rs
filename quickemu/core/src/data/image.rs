@@ -31,6 +31,7 @@ pub struct DiskImage {
 }
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PreAlloc {
     #[default]
     Off,
@@ -41,26 +42,20 @@ pub enum PreAlloc {
 
 #[derive(Copy, Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "format")]
+#[serde(rename_all = "snake_case")]
 pub enum DiskFormat {
-    #[serde(alias = "qcow2")]
     Qcow2 {
         #[serde(default, skip_serializing_if = "is_default")]
         preallocation: PreAlloc,
     },
-    #[serde(alias = "raw")]
     Raw {
         #[serde(default, skip_serializing_if = "is_default")]
         preallocation: PreAlloc,
     },
-    #[serde(alias = "qed")]
     Qed,
-    #[serde(alias = "qcow")]
     Qcow,
-    #[serde(alias = "vdi")]
     Vdi,
-    #[serde(alias = "vpc")]
     Vpc,
-    #[serde(alias = "vhdx")]
     Vhdx,
 }
 

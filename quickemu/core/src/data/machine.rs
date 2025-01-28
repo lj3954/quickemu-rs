@@ -45,18 +45,21 @@ impl Default for Arch {
 
 // Below enums will be used for future SBC / other specialized machine emulation
 #[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum X86_64Machine {
     #[default]
     Standard,
 }
 
 #[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AArch64Machine {
     #[default]
     Standard,
 }
 
 #[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Riscv64Machine {
     #[default]
     Standard,
@@ -64,13 +67,14 @@ pub enum Riscv64Machine {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum BootType {
-    #[serde(rename = "efi", alias = "EFI", alias = "Efi")]
+    #[serde(alias = "EFI", alias = "Efi")]
     Efi {
         #[serde(default)]
         secure_boot: bool,
     },
-    #[serde(rename = "legacy", alias = "Legacy", alias = "bios")]
+    #[serde(alias = "Legacy", alias = "bios", alias = "BIOS")]
     Legacy,
 }
 impl Default for BootType {

@@ -73,16 +73,16 @@ pub struct PortForward {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum NetworkType {
-    #[serde(alias = "none")]
     None,
-    #[serde(alias = "bridged")]
+    #[serde(alias = "Bridged")]
     Bridged {
         bridge: Bridge,
         #[serde(default, alias = "MAC Address", alias = "macaddr", skip_serializing_if = "Option::is_none")]
         mac_addr: Option<String>,
     },
-    #[serde(alias = "nat", alias = "NAT", alias = "user")]
+    #[serde(alias = "NAT")]
     Nat {
         #[serde(default, skip_serializing_if = "is_default")]
         port_forwards: Vec<PortForward>,
@@ -108,17 +108,19 @@ pub type Serial = MonitorInner<SerialAddr>;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum MonitorInner<T: MonitorArg> {
-    #[serde(alias = "none")]
     None,
-    #[serde(alias = "telnet")]
+    #[serde(alias = "Telnet")]
     Telnet {
         #[serde(default)]
         address: T,
     },
     #[cfg(unix)]
-    #[serde(alias = "socket")]
-    Socket { socketpath: Option<PathBuf> },
+    #[serde(alias = "Socket")]
+    Socket {
+        socketpath: Option<PathBuf>,
+    },
 }
 
 pub trait MonitorArg: Default + AsRef<SocketAddr> + AsMut<SocketAddr> {
