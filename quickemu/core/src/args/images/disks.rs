@@ -11,7 +11,7 @@ use size::Size;
 
 use crate::{
     arg,
-    data::{DiskFormat, DiskImage, GuestOS, Images, MacOSRelease},
+    data::{DiskFormat, GuestOS, Images, MacOSRelease},
     error::Error,
     oarg,
     utils::{ArgDisplay, EmulatorArgs, QemuArg},
@@ -137,6 +137,12 @@ pub(crate) struct DiskArgs<'a> {
     installed: bool,
 }
 
+impl DiskArgs<'_> {
+    pub(crate) fn installed(&self) -> bool {
+        self.installed
+    }
+}
+
 impl EmulatorArgs for DiskArgs<'_> {
     fn display(&self) -> impl IntoIterator<Item = ArgDisplay> {
         self.mounted_disks.iter().map(MountedDisk::arg_display)
@@ -146,11 +152,14 @@ impl EmulatorArgs for DiskArgs<'_> {
         if self.ahci {
             args.extend([arg!("-device"), arg!("ahci,id=ahci")]);
         }
-        if let Some(bootloader) = &self.bootloader {
+        if let Some(_bootloader) = &self.bootloader {
             todo!("Determine whether macOS Catalina+ need ahci bootloader");
         }
-        args.into_iter()
-            .chain(self.mounted_disks.iter().flat_map(|disk| disk.args(self.guest)))
+        args.into_iter().chain(
+            self.mounted_disks
+                .iter()
+                .flat_map(|disk| disk.args(self.guest, self.status_quo)),
+        )
     }
 }
 
@@ -163,7 +172,7 @@ struct MountedDisk<'a> {
 }
 
 impl<'a> MountedDisk<'a> {
-    fn args(&self, guest: GuestOS) -> Vec<QemuArg> {
+    fn args(&self, guest: GuestOS, status_quo: bool) -> Vec<QemuArg> {
         let (bus_arg, disk_name) = match guest {
             GuestOS::MacOS { release } if release < MacOSRelease::Catalina => ("ide-hd,bus=ahci.2,drive=", "SystemDisk"),
             GuestOS::KolibriOS => ("ide-hd,bus=ahci.0,drive=", "SystemDisk"),
@@ -181,7 +190,11 @@ impl<'a> MountedDisk<'a> {
         drive_arg.push(",file=");
         drive_arg.push(self.path.as_ref());
 
-        vec![arg!("-device"), oarg!(device), arg!("-drive"), oarg!(drive_arg)]
+        let mut args = vec![arg!("-device"), oarg!(device), arg!("-drive"), oarg!(drive_arg)];
+        if status_quo {
+            args.push(arg!("-snapshot"));
+        }
+        args
     }
 
     fn reactos_args(&self) -> Vec<QemuArg> {
