@@ -11,12 +11,13 @@ pub struct Images {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Image {
-    #[serde(alias = "iso", alias = "ISO")]
+    #[serde(alias = "ISO")]
     Iso(PathBuf),
-    #[serde(alias = "floppy")]
+    #[serde(alias = "Floppy")]
     Floppy(PathBuf),
-    #[serde(alias = "img", alias = "IMG")]
+    #[serde(alias = "IMG")]
     Img(PathBuf),
 }
 
