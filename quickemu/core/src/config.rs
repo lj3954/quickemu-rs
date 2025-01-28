@@ -7,6 +7,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    ffi::OsString,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -21,14 +22,14 @@ pub struct Config {
     pub guest: GuestOS,
     #[serde(default, skip_serializing_if = "is_default")]
     pub machine: Machine,
-    #[serde(flatten, default, skip_serializing_if = "is_default")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub images: Images,
     #[serde(default, skip_serializing_if = "is_default")]
     pub network: Network,
     #[serde(default, skip_serializing_if = "is_default")]
     pub io: Io,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub extra_args: Vec<String>,
+    pub extra_args: Vec<OsString>,
 }
 
 #[derive(Debug)]
@@ -142,6 +143,7 @@ impl<'a> Config {
             self.machine.args(self.guest, vm_dir, &self.vm_name),
             self.io.args(self.machine.arch, self.guest, &self.vm_name),
             self.network.args(self.guest, &self.vm_name, self.io.public_dir()),
+            self.images.args(self.guest, vm_dir, self.machine.status_quo),
         )?;
 
         args.qemu_args.extend(self.extra_args.into_iter().map(|arg| oarg!(arg)));
@@ -159,6 +161,7 @@ impl<'a> Config {
             self.machine.args(self.guest, vm_dir, &self.vm_name),
             self.io.args(self.machine.arch, self.guest, &self.vm_name),
             self.network.args(self.guest, &self.vm_name, self.io.public_dir()),
+            self.images.args(self.guest, vm_dir, self.machine.status_quo),
         )?;
         args.extend(self.extra_args.into_iter().map(|arg| oarg!(arg)));
 

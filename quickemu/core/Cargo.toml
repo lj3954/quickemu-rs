@@ -19,6 +19,7 @@ thiserror = { version = "2.0.8", optional = true }
 itertools = { version = "0.13.0", optional = true }
 size = { version = "0.4.1", optional = true }
 memfd-exec = { version = "0.2.1", optional = true }
+serde_json = "1.0.137"
 
 [features]
 default = ["quickemu", "display_resolution", "smartcard_args", "qemu_8_1"]

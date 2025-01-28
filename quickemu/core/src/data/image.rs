@@ -5,20 +5,26 @@ use std::path::PathBuf;
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Images {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub disk_images: Vec<DiskImage>,
+    pub disk: Vec<DiskImage>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub image_files: Vec<Image>,
+    #[serde(alias = "iso")]
+    pub iso: Vec<Image>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(alias = "img")]
+    pub img: Vec<Image>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(alias = "floppy")]
+    pub floppy: Vec<Image>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub always_mount: bool,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Image {
-    #[serde(alias = "ISO")]
-    Iso(PathBuf),
-    #[serde(alias = "Floppy")]
-    Floppy(PathBuf),
-    #[serde(alias = "IMG")]
-    Img(PathBuf),
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Image {
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub path: PathBuf,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub always_mount: bool,
 }
 
 #[derive(PartialEq, Default, Debug, Serialize, Deserialize)]
@@ -66,7 +72,14 @@ impl Default for DiskFormat {
     }
 }
 impl DiskFormat {
-    pub fn prealloc_arg(&self) -> &str {
+    pub(crate) fn prealloc_enabled(&self) -> bool {
+        match self {
+            Self::Qcow2 { preallocation } => !matches!(preallocation, PreAlloc::Off),
+            Self::Raw { preallocation } => !matches!(preallocation, PreAlloc::Off),
+            _ => false,
+        }
+    }
+    pub(crate) fn prealloc_arg(&self) -> &str {
         match self {
             Self::Qcow2 { preallocation } => match preallocation {
                 PreAlloc::Off => "lazy_refcounts=on,preallocation=off,nocow=on",

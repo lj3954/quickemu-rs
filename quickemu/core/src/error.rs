@@ -42,6 +42,14 @@ pub enum Error {
     ViewerNotFound(&'static str),
     #[error("Could not find qemu binary: {0}")]
     QemuNotFound(&'static str),
+    #[error("Could not create disk image: {0}")]
+    DiskCreationFailed(String),
+    #[error("Failed to get write lock on disk {0}. Ensure that it is not already in use.")]
+    DiskInUse(String),
+    #[error("Could not deserialize qemu-img info: {0}")]
+    DeserializeQemuImgInfo(String),
+    #[error("Could not find macOS bootloader in VM directory")]
+    MacBootloader,
 }
 
 #[derive(Error, Debug)]
