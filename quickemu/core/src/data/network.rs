@@ -3,10 +3,13 @@ use std::{
     path::PathBuf,
 };
 
+#[cfg(feature = "quickemu")]
 use crate::utils::find_port;
+#[cfg(feature = "quickemu")]
+use serde::de::Visitor;
 
 use super::{default_if_empty, is_default};
-use serde::{de::Visitor, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Network {
@@ -17,14 +20,17 @@ pub struct Network {
     pub serial: Serial,
 }
 
+#[cfg_attr(not(feature = "quickemu"), derive(Default))]
 #[derive(Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
 pub struct SSHPort(Option<u16>);
+#[cfg(feature = "quickemu")]
 impl Default for SSHPort {
     fn default() -> Self {
         Self(find_port(22220, 9))
     }
 }
 
+#[cfg(feature = "quickemu")]
 impl Visitor<'_> for SSHPort {
     type Value = SSHPort;
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -40,6 +46,8 @@ impl Visitor<'_> for SSHPort {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
 pub struct Bridge(String);
+
+#[cfg(feature = "quickemu")]
 impl Visitor<'_> for Bridge {
     type Value = Bridge;
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

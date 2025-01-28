@@ -1325,18 +1325,13 @@ dependencies = [
 name = "quickemu_core"
 version = "1.0.0"
 dependencies = [
- "anyhow",
  "derive_more",
  "dirs",
  "display-info",
- "env_logger",
  "itertools",
  "log",
  "memfd-exec",
  "num_cpus",
- "once_cell",
- "pathdiff",
- "quickget_core",
  "raw-cpuid",
  "serde",
  "size",

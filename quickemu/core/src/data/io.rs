@@ -1,4 +1,6 @@
-use std::path::{Path, PathBuf};
+#[cfg(feature = "quickemu")]
+use std::path::Path;
+use std::path::PathBuf;
 
 use super::{is_default, Display};
 use serde::{de::Visitor, Deserialize, Serialize};
@@ -22,6 +24,7 @@ pub struct Io {
 }
 
 impl Io {
+    #[cfg(feature = "quickemu")]
     pub(crate) fn public_dir(&self) -> Option<&Path> {
         self.public_dir.as_ref().as_deref()
     }
@@ -30,9 +33,11 @@ impl Io {
 #[derive(PartialEq, Default, Debug, Deserialize, Serialize, derive_more::AsRef, Clone)]
 pub struct USBDevices(Option<Vec<String>>);
 
+#[cfg_attr(not(feature = "quickemu"), derive(Default))]
 #[derive(PartialEq, Debug, Deserialize, Serialize, derive_more::AsRef)]
 pub struct PublicDir(Option<PathBuf>);
 
+#[cfg(feature = "quickemu")]
 impl Default for PublicDir {
     fn default() -> Self {
         let home = dirs::home_dir().unwrap_or_default();
