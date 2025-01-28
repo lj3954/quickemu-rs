@@ -115,7 +115,7 @@ impl EmulatorArgs for Audio {
             #[cfg(all(target_os = "linux", feature = "qemu_8_1"))]
             AudioBackend::PipeWire => "pipewire,id=audio0",
             #[cfg(target_os = "linux")]
-            AudioBackend::PulseAudio => "pulse,id=audio0",
+            AudioBackend::PulseAudio => "pa,id=audio0",
             #[cfg(target_os = "linux")]
             AudioBackend::Alsa => "alsa,id=audio0",
             #[cfg(target_os = "windows")]
