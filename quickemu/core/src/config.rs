@@ -166,7 +166,8 @@ impl<'a> Config {
             self.machine.args(self.guest, vm_dir, &self.vm_name),
             self.io.args(self.machine.arch, self.guest, &self.vm_name),
             self.network.args(self.guest, &self.vm_name, self.io.public_dir()),
-            self.images.args(self.guest, vm_dir, self.machine.status_quo),
+            self.images
+                .args(self.guest, vm_dir, self.machine.status_quo, self.network.monitor),
         )?;
 
         args.qemu_args.extend(self.extra_args.into_iter().map(|arg| oarg!(arg)));
@@ -184,7 +185,8 @@ impl<'a> Config {
             self.machine.args(self.guest, vm_dir, &self.vm_name),
             self.io.args(self.machine.arch, self.guest, &self.vm_name),
             self.network.args(self.guest, &self.vm_name, self.io.public_dir()),
-            self.images.args(self.guest, vm_dir, self.machine.status_quo),
+            self.images
+                .args(self.guest, vm_dir, self.machine.status_quo, self.network.monitor),
         )?;
         args.extend(self.extra_args.into_iter().map(|arg| oarg!(arg)));
 

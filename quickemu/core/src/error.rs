@@ -50,6 +50,8 @@ pub enum Error {
     MacBootloader,
     #[error("Requested to mount image {0}, but it does not exist.")]
     NonexistentImage(String),
+    #[error("Could not send command to monitor: {0}")]
+    MonitorCommand(String),
 }
 
 #[derive(Error, Debug)]
