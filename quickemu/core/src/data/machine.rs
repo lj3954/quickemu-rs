@@ -1,4 +1,4 @@
-use super::{deserialize_size, is_default};
+use super::{default_if_empty, deserialize_size, is_default};
 use derive_more::derive::Display;
 use itertools::chain;
 use serde::{Deserialize, Serialize};
@@ -7,7 +7,7 @@ use strum::{EnumIter, IntoEnumIterator};
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Machine {
     pub cpu_threads: Option<std::num::NonZeroUsize>,
-    #[serde(default, flatten)]
+    #[serde(default, flatten, deserialize_with = "default_if_empty")]
     pub arch: Arch,
     #[serde(default, skip_serializing_if = "is_default")]
     pub boot: BootType,

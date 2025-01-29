@@ -22,7 +22,7 @@ impl Monitor {
             MonitorInner::Telnet { address } => {
                 let mut stream = TcpStream::connect(address.as_ref()).map_err(MonitorError::Read)?;
                 stream.write_all(command.as_bytes()).map_err(MonitorError::Write)?;
-                stream.write_all(b"\0").map_err(MonitorError::Write)?;
+                stream.write_all(b"\r\n").map_err(MonitorError::Write)?;
                 stream.shutdown(std::net::Shutdown::Write).map_err(MonitorError::Write)?;
                 stream
                     .set_read_timeout(Some(std::time::Duration::from_secs(1)))
@@ -33,7 +33,7 @@ impl Monitor {
             MonitorInner::Socket { socketpath: Some(ref socketpath) } => {
                 let mut stream = UnixStream::connect(socketpath).map_err(MonitorError::Read)?;
                 stream.write_all(command.as_bytes()).map_err(MonitorError::Write)?;
-                stream.write_all(b"\0").map_err(MonitorError::Write)?;
+                stream.write_all(b"\r\n").map_err(MonitorError::Write)?;
                 stream.shutdown(std::net::Shutdown::Write).map_err(MonitorError::Write)?;
                 stream
                     .set_read_timeout(Some(std::time::Duration::from_secs(1)))
