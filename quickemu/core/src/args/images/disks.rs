@@ -19,7 +19,8 @@ impl<'a> Images {
         let mut key = 1;
 
         let non_disk_keys = match guest {
-            GuestOS::ReactOS => vec![2],
+            // ReactOS ISO & Unattended windows installer must be mounted at index 2
+            GuestOS::ReactOS | GuestOS::Windows => vec![2],
             _ => Vec::new(),
         };
 
