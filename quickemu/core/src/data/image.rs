@@ -7,14 +7,9 @@ pub struct Images {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub disk: Vec<DiskImage>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[serde(alias = "iso")]
     pub iso: Vec<Image>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[serde(alias = "img")]
     pub img: Vec<Image>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[serde(alias = "floppy")]
-    pub floppy: Vec<Image>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub always_mount: bool,
 }
