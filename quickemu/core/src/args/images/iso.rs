@@ -13,7 +13,7 @@ impl<'a> Images {
         let mut key = 0;
         let mut images = Vec::new();
 
-        if let GuestOS::Windows = guest {
+        if !installed && matches!(guest, GuestOS::Windows) {
             let unattended: Cow<'a, Path> = Cow::Owned(vm_dir.join("unattended.iso"));
             if unattended.exists() {
                 images.push(MountedIso::new(unattended, &mut 2, used_indices));
