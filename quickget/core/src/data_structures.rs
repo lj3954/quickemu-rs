@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-pub use quickemu::config::{Arch, BootType, DiskFormat, GuestOS};
+pub use quickemu_core::data::{Arch, BootType, DiskFormat, GuestOS};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -19,22 +19,18 @@ pub struct Config {
     pub release: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub edition: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(flatten, default, skip_serializing_if = "is_default", deserialize_with = "default_if_empty")]
     pub guest_os: GuestOS,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(flatten, default, skip_serializing_if = "is_default", deserialize_with = "default_if_empty")]
     pub arch: Arch,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub iso: Option<Vec<Source>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub img: Option<Vec<Source>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fixed_iso: Option<Vec<Source>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub floppy: Option<Vec<Source>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub iso: Vec<Source>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub img: Vec<Source>,
     #[serde(default = "default_disk", skip_serializing_if = "is_default_disk")]
     pub disk_images: Option<Vec<Disk>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub boot_type: Option<BootType>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub boot: BootType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tpm: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -47,13 +43,11 @@ impl Default for Config {
             release: "latest".to_string(),
             edition: None,
             guest_os: GuestOS::Linux,
-            arch: Arch::x86_64,
-            iso: None,
-            img: None,
-            fixed_iso: None,
-            floppy: None,
+            arch: Arch::default(),
+            iso: Vec::new(),
+            img: Vec::new(),
             disk_images: default_disk(),
-            boot_type: None,
+            boot: Default::default(),
             tpm: None,
             ram: None,
         }
@@ -68,13 +62,21 @@ fn default_disk() -> Option<Vec<Disk>> {
 fn is_default<T: Default + PartialEq>(input: &T) -> bool {
     input == &T::default()
 }
+pub fn default_if_empty<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de> + Default,
+{
+    let opt = Option::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Disk {
     pub source: Source,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<u64>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(default, flatten, skip_serializing_if = "is_default", deserialize_with = "default_if_empty")]
     pub format: DiskFormat,
 }
 impl Default for Disk {
@@ -82,7 +84,7 @@ impl Default for Disk {
         Self {
             source: Source::FileName("disk.qcow2".to_string()),
             size: None,
-            format: DiskFormat::Qcow2,
+            format: DiskFormat::default(),
         }
     }
 }

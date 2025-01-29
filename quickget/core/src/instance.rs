@@ -3,12 +3,13 @@ use crate::{
     error::DLError,
     QuickgetConfig,
 };
-use quickemu::{
-    config::{Arch, BootType, ConfigFile, DiskFormat, DiskImage, GuestOS, Image},
-    config_parse::BYTES_PER_GB,
+use quickemu_core::{
+    config::Config as ConfigFile,
+    data::{Arch, BootType, DiskFormat, DiskImage, GuestOS, Image, Images, Machine},
 };
 use reqwest::header::HeaderMap;
 use sha2::Digest;
+use size::consts::GiB;
 use std::{
     fs::File,
     io::Write,
@@ -47,12 +48,10 @@ pub struct QGDockerSource {
 struct ConfigData {
     guest_os: GuestOS,
     arch: Arch,
-    iso_paths: Option<Vec<FinalSource>>,
-    img_paths: Option<Vec<FinalSource>>,
-    fixed_iso_paths: Option<Vec<FinalSource>>,
-    floppy_paths: Option<Vec<FinalSource>>,
+    iso_paths: Vec<FinalSource>,
+    img_paths: Vec<FinalSource>,
     disk_images: Option<Vec<FinalDisk>>,
-    boot_type: BootType,
+    boot: BootType,
     tpm: bool,
     cpu_cores: Option<NonZeroUsize>,
     ram: Option<u64>,
@@ -100,10 +99,8 @@ impl QuickgetInstance {
                     arch,
                     iso,
                     img,
-                    fixed_iso,
-                    floppy,
                     disk_images,
-                    boot_type,
+                    boot,
                     tpm,
                     ..
                 },
@@ -126,18 +123,8 @@ impl QuickgetInstance {
         let mut dl = Vec::new();
         let mut docker = Vec::new();
 
-        let iso_paths = iso
-            .map(|iso| extract_downloads(iso, &data, ".iso", &mut dl, &mut docker))
-            .transpose()?;
-        let img_paths = img
-            .map(|img| extract_downloads(img, &data, ".img", &mut dl, &mut docker))
-            .transpose()?;
-        let fixed_iso_paths = fixed_iso
-            .map(|fixed_iso| extract_downloads(fixed_iso, &data, "_cdrom.iso", &mut dl, &mut docker))
-            .transpose()?;
-        let floppy_paths = floppy
-            .map(|floppy| extract_downloads(floppy, &data, ".img", &mut dl, &mut docker))
-            .transpose()?;
+        let iso_paths = extract_downloads(iso, &data, "..iso", &mut dl, &mut docker)?;
+        let img_paths = extract_downloads(img, &data, ".img", &mut dl, &mut docker)?;
         let disk_images = disk_images
             .map(|disk_images| transform_disks(disk_images, &data, &mut dl, &mut docker))
             .transpose()?;
@@ -147,10 +134,8 @@ impl QuickgetInstance {
             arch,
             iso_paths,
             img_paths,
-            fixed_iso_paths,
-            floppy_paths,
             disk_images,
-            boot_type: boot_type.unwrap_or_default(),
+            boot,
             tpm: tpm.unwrap_or_default(),
             cpu_cores: None,
             ram: None,
@@ -235,10 +220,10 @@ impl QuickgetInstance {
         let system = sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_memory(sysinfo::MemoryRefreshKind::new().with_ram()));
         let ram = system.total_memory();
         match ram / (1000 * 1000 * 1000) {
-            128.. => 32 * BYTES_PER_GB,
-            64.. => 16 * BYTES_PER_GB,
-            16.. => 8 * BYTES_PER_GB,
-            8.. => 4 * BYTES_PER_GB,
+            128.. => 32 * GiB as u64,
+            64.. => 16 * GiB as u64,
+            16.. => 8 * GiB as u64,
+            8.. => 4 * GiB as u64,
             _ => ram,
         }
     }
@@ -253,30 +238,28 @@ impl QuickgetInstance {
         self.config_data.ram
     }
     pub fn create_config(self) -> Result<File, DLError> {
-        let image_files = {
-            let mut images = Vec::new();
-            if let Some(iso_sources) = self.config_data.iso_paths {
-                for iso in iso_sources {
-                    images.push(Image::Iso(finalize_source(iso, true)?));
-                }
-            }
-            if let Some(img_sources) = self.config_data.img_paths {
-                for img in img_sources {
-                    images.push(Image::Img(finalize_source(img, true)?));
-                }
-            }
-            if let Some(fixed_iso_sources) = self.config_data.fixed_iso_paths {
-                for fixed_iso in fixed_iso_sources {
-                    images.push(Image::FixedIso(finalize_source(fixed_iso, true)?));
-                }
-            }
-            if let Some(floppy_sources) = self.config_data.floppy_paths {
-                for floppy in floppy_sources {
-                    images.push(Image::Floppy(finalize_source(floppy, true)?));
-                }
-            }
-            (!images.is_empty()).then_some(images)
-        };
+        let iso = self
+            .config_data
+            .iso_paths
+            .into_iter()
+            .map(|iso| {
+                Ok(Image {
+                    path: finalize_source(iso, true)?,
+                    ..Default::default()
+                })
+            })
+            .collect::<Result<Vec<_>, DLError>>()?;
+        let img = self
+            .config_data
+            .img_paths
+            .into_iter()
+            .map(|img| {
+                Ok(Image {
+                    path: finalize_source(img, true)?,
+                    ..Default::default()
+                })
+            })
+            .collect::<Result<Vec<_>, DLError>>()?;
 
         let disk_images = self
             .config_data
@@ -288,21 +271,22 @@ impl QuickgetInstance {
                 Ok(DiskImage {
                     path,
                     size: disk.size,
-                    format: Some(disk.format),
-                    preallocation: quickemu::config::PreAlloc::Off,
+                    format: disk.format,
                 })
             })
             .collect::<Result<Vec<_>, DLError>>()?;
 
         let config = ConfigFile {
-            guest_os: self.config_data.guest_os,
-            arch: self.config_data.arch,
-            boot_type: self.config_data.boot_type,
-            cpu_cores: self.config_data.cpu_cores,
-            ram: self.config_data.ram,
-            tpm: self.config_data.tpm,
-            disk_images,
-            image_files,
+            guest: self.config_data.guest_os,
+            machine: Machine {
+                arch: self.config_data.arch,
+                boot: self.config_data.boot,
+                cpu_threads: self.config_data.cpu_cores,
+                ram: self.config_data.ram,
+                tpm: self.config_data.tpm,
+                ..Default::default()
+            },
+            images: Images { disk: disk_images, iso, img },
             ..Default::default()
         };
         let mut config_file = File::create(&self.config_file_path)?;
@@ -445,16 +429,8 @@ fn transform_disks(disk_images: Vec<Disk>, data: &QuickgetData, dl: &mut Vec<QGD
         .into_iter()
         .enumerate()
         .map(|(index, disk)| {
-            let file_ext = match disk.format {
-                DiskFormat::Qcow2 => ".qcow2",
-                DiskFormat::Qcow => ".qcow",
-                DiskFormat::Raw => ".img",
-                DiskFormat::Qed => ".qed",
-                DiskFormat::Vdi => ".vdi",
-                DiskFormat::Vpc => ".vpc",
-                DiskFormat::Vhdx => ".vhdx",
-            };
-            let source = convert_download(disk.source, data, file_ext, index, dl, docker)?;
+            let file_ext = format!(".{}", disk.format.as_ref());
+            let source = convert_download(disk.source, data, &file_ext, index, dl, docker)?;
             Ok(FinalDisk {
                 source,
                 size: disk.size,
@@ -478,6 +454,10 @@ fn os_display(delim: char, os: &str, release: &str, edition: Option<&str>, arch:
         msg.push_str(edition);
     }
     msg.push(delim);
-    msg.push_str(arch.as_ref());
+    match arch {
+        Arch::X86_64 { .. } => msg.push_str("x86_64"),
+        Arch::AArch64 { .. } => msg.push_str("AArch64"),
+        Arch::Riscv64 { .. } => msg.push_str("riscv64"),
+    }
     msg
 }

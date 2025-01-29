@@ -1,6 +1,6 @@
 use std::{path::PathBuf, time::SystemTimeError};
 
-use quickemu::config::Arch;
+use quickemu_core::data::Arch;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

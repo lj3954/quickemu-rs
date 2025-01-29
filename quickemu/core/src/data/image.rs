@@ -10,8 +10,6 @@ pub struct Images {
     pub iso: Vec<Image>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub img: Vec<Image>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub always_mount: bool,
 }
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]

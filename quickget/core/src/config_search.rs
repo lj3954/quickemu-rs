@@ -1,4 +1,4 @@
-use quickemu::config::Arch;
+use quickemu_core::data::Arch;
 
 use crate::{
     data_structures::{Config, OS},
@@ -87,8 +87,7 @@ impl ConfigSearch {
     pub fn list_architectures(&self) -> Result<Vec<Arch>, ConfigSearchError> {
         let os = self.chosen_os.as_ref().ok_or(ConfigSearchError::RequiredOS)?;
 
-        let architectures = [Arch::x86_64, Arch::aarch64, Arch::riscv64]
-            .into_iter()
+        let architectures = Arch::iter()
             .filter(|search_arch| os.releases.iter().any(|Config { arch, .. }| arch == search_arch))
             .collect::<Vec<Arch>>();
 
@@ -166,9 +165,9 @@ impl ConfigSearch {
         }
 
         let preferred_arch = || match std::env::consts::ARCH {
-            "aarch64" => Arch::aarch64,
-            "riscv64" => Arch::riscv64,
-            _ => Arch::x86_64,
+            "aarch64" => Arch::AArch64 { machine: Default::default() },
+            "riscv64" => Arch::Riscv64 { machine: Default::default() },
+            _ => Arch::X86_64 { machine: Default::default() },
         };
 
         let config = if os.releases.len() == 1 {

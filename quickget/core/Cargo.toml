@@ -5,7 +5,7 @@ license.workspace = true
 
 [dependencies]
 dirs = { version = "5.0.1", optional = true }
-quickemu-rs = { path = "../../quickemu" }
+quickemu_core = { path = "../../quickemu/core" }
 reqwest = { version = "0.12.4", optional = true }
 serde_json = { version = "1.0.117", optional = true }
 serde = "1.0.202"
@@ -21,6 +21,7 @@ bzip2 = { version = "0.4.4", optional = true }
 flate2 = { version = "1.0.31", optional = true }
 liblzma = { version = "0.3.3", optional = true }
 zstd = { version = "0.13.1", optional = true }
+size = "0.4.1"
 
 [features]
 default = ["quickget"]

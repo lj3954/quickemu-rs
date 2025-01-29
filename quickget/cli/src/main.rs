@@ -1,9 +1,9 @@
 mod config;
 
-use anyhow::{ensure, Result};
+use anyhow::{bail, ensure, Result};
 use clap::Parser;
 use config::ListType;
-use quickemu::config::Arch;
+use quickemu_core::data::Arch;
 use quickget_core::{QuickgetConfig, QuickgetInstance};
 use std::io::Write;
 
@@ -23,6 +23,18 @@ async fn main() -> Result<()> {
         args.list
     };
 
+    let arch = args
+        .arch
+        .map(|a| {
+            Ok(match a.as_str() {
+                "x86_64" => Arch::X86_64 { machine: Default::default() },
+                "aarch64" | "AArch64" => Arch::AArch64 { machine: Default::default() },
+                "riscv64" => Arch::Riscv64 { machine: Default::default() },
+                _ => bail!("Invalid architecture: {a}"),
+            })
+        })
+        .transpose()?;
+
     if let Some(list_type) = list_type {
         ensure!(
             args.other.is_empty(),
@@ -31,7 +43,7 @@ async fn main() -> Result<()> {
         return config::list(list_type, args.refresh).await;
     }
 
-    let config = config::get(&args.other, args.arch.as_ref(), args.refresh).await?;
+    let config = config::get(&args.other, arch.as_ref(), args.refresh).await?;
     println!("{config:#?}");
     let file = create_config(config).await?;
     println!("Completed. File {file:?}");
@@ -82,7 +94,7 @@ async fn create_config(config: QuickgetConfig) -> Result<std::fs::File> {
 #[clap(group = clap::ArgGroup::new("actions").multiple(false))]
 struct Args {
     #[clap(short, long)]
-    arch: Option<Arch>,
+    arch: Option<String>,
     #[command(flatten)]
     verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::WarnLevel>,
     #[clap(short, long)]

@@ -1211,12 +1211,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pathdiff"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
-
-[[package]]
 name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1295,28 +1289,7 @@ dependencies = [
 
 [[package]]
 name = "quickemu-rs"
-version = "0.7.1"
-dependencies = [
- "anyhow",
- "clap",
- "clap-verbosity-flag",
- "dirs",
- "display-info",
- "env_logger",
- "log",
- "num_cpus",
- "once_cell",
- "pathdiff",
- "raw-cpuid",
- "serde",
- "sysinfo 0.30.13",
- "toml",
- "which",
-]
-
-[[package]]
-name = "quickemu_cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "env_logger",
  "log",
@@ -1338,6 +1311,7 @@ dependencies = [
  "serde",
  "serde_json",
  "size",
+ "strum",
  "sysinfo 0.30.13",
  "thiserror 2.0.8",
  "toml",
@@ -1354,7 +1328,7 @@ dependencies = [
  "csv",
  "indicatif",
  "itertools",
- "quickemu-rs",
+ "quickemu_core",
  "quickget_core",
  "reqwest",
  "serde",
@@ -1372,12 +1346,13 @@ dependencies = [
  "liblzma",
  "md-5",
  "num_cpus",
- "quickemu-rs",
+ "quickemu_core",
  "reqwest",
  "serde",
  "serde_json",
  "sha1",
  "sha2",
+ "size",
  "sysinfo 0.31.2",
  "thiserror 1.0.63",
  "toml",
@@ -1590,6 +1565,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustversion"
+version = "1.0.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
+
+[[package]]
 name = "ryu"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1788,6 +1769,28 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "strum"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn",
+]
 
 [[package]]
 name = "subtle"

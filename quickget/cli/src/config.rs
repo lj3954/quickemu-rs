@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
 use itertools::Itertools;
-use quickemu::config::Arch;
+use quickemu_core::data::Arch;
 use quickget_core::{data_structures::Config, ConfigSearch, ConfigSearchError, QuickgetConfig};
 use serde::Serialize;
 use std::io::{stdout, Write};
@@ -30,6 +30,7 @@ struct QuickgetList<'a> {
     release: &'a str,
     #[serde(rename = "Option")]
     option: &'a str,
+    #[serde(flatten)]
     #[serde(rename = "Arch")]
     arch: &'a Arch,
     #[serde(rename = "PNG")]

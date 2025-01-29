@@ -1,6 +1,8 @@
 use super::{deserialize_size, is_default};
 use derive_more::derive::Display;
+use itertools::chain;
 use serde::{Deserialize, Serialize};
+use strum::{EnumIter, IntoEnumIterator};
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Machine {
@@ -37,6 +39,16 @@ pub enum Arch {
     },
 }
 
+impl Arch {
+    pub fn iter() -> impl Iterator<Item = Self> {
+        chain!(
+            X86_64Machine::iter().map(|machine| Self::X86_64 { machine }),
+            AArch64Machine::iter().map(|machine| Self::AArch64 { machine }),
+            Riscv64Machine::iter().map(|machine| Self::Riscv64 { machine })
+        )
+    }
+}
+
 impl Default for Arch {
     fn default() -> Self {
         Self::X86_64 { machine: X86_64Machine::Standard }
@@ -44,21 +56,21 @@ impl Default for Arch {
 }
 
 // Below enums will be used for future SBC / other specialized machine emulation
-#[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize, EnumIter)]
 #[serde(rename_all = "snake_case")]
 pub enum X86_64Machine {
     #[default]
     Standard,
 }
 
-#[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize, EnumIter)]
 #[serde(rename_all = "snake_case")]
 pub enum AArch64Machine {
     #[default]
     Standard,
 }
 
-#[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Display, Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize, EnumIter)]
 #[serde(rename_all = "snake_case")]
 pub enum Riscv64Machine {
     #[default]
