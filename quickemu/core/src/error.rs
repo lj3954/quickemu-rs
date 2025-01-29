@@ -48,6 +48,8 @@ pub enum Error {
     DeserializeQemuImgInfo(String),
     #[error("Could not find macOS bootloader in VM directory")]
     MacBootloader,
+    #[error("Requested to mount image {0}, but it does not exist.")]
+    NonexistentImage(String),
 }
 
 #[derive(Error, Debug)]
