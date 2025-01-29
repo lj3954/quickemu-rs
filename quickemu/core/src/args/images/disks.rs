@@ -124,7 +124,7 @@ fn find_disk_size(path: &Path) -> Result<QemuImgInfo, Error> {
     let output = command.output().map_err(|e| Error::Command("qemu-img", e.to_string()))?;
 
     if !output.status.success() {
-        return Err(Error::DiskInUse(path.to_string_lossy().to_string()));
+        return Err(Error::DiskInUse(path.display().to_string()));
     }
 
     serde_json::from_slice(&output.stdout).map_err(|e| Error::DeserializeQemuImgInfo(e.to_string()))
