@@ -1,10 +1,4 @@
-use std::{
-    borrow::Cow,
-    collections::HashSet,
-    ffi::OsString,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{borrow::Cow, collections::HashSet, ffi::OsString, path::Path, process::Command};
 
 use serde::Deserialize;
 use size::Size;

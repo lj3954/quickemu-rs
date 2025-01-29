@@ -1,5 +1,3 @@
-use std::num::NonZeroUsize;
-
 use size::Size;
 use thiserror::Error;
 
@@ -65,7 +63,7 @@ pub enum MonitorError {
 #[derive(Error, Debug, Clone)]
 pub enum Warning {
     #[error("macOS guests may not boot with core counts that are not powers of two. Recommended rounding: {0}.")]
-    MacOSCorePow2(NonZeroUsize),
+    MacOSCorePow2(usize),
     #[error("Hardware virtualization{0} is not enabled on your CPU. Falling back to software virtualization, performance will be degraded")]
     HwVirt(&'static str),
     #[cfg(target_os = "linux")]

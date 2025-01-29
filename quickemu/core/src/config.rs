@@ -7,9 +7,11 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     ffi::OsString,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Child, Command},
+    thread::JoinHandle,
 };
 use which::which;
 
@@ -39,6 +41,14 @@ pub struct QemuArgs {
     pub after_launch_fns: Vec<LaunchFn>,
     pub before_launch_fns: Vec<LaunchFn>,
     pub display: Vec<ArgDisplay>,
+}
+
+#[derive(Debug)]
+pub struct LaunchResult {
+    pub display: Vec<ArgDisplay>,
+    pub warnings: Vec<Warning>,
+    pub threads: Vec<JoinHandle<Result<(), Error>>>,
+    pub children: Vec<Child>,
 }
 
 impl<'a> Config {
@@ -89,7 +99,7 @@ impl<'a> Config {
         self.network.monitor.send_cmd(command)
     }
 
-    pub fn launch(self) -> Result<(), Error> {
+    pub fn launch(self) -> Result<LaunchResult, Error> {
         let qemu_bin_str = match self.machine.arch {
             Arch::X86_64 { .. } => "qemu-system-x86_64",
             Arch::AArch64 { .. } => "qemu-system-aarch64",
@@ -99,6 +109,7 @@ impl<'a> Config {
         let mut qemu_args = self.to_full_qemu_args()?;
 
         let mut threads = Vec::new();
+        let mut children = Vec::new();
 
         for launch_fn in qemu_args.before_launch_fns {
             for launch_fn_return in launch_fn.call()? {
@@ -106,17 +117,24 @@ impl<'a> Config {
                     LaunchFnReturn::Arg(arg) => qemu_args.qemu_args.push(arg),
                     LaunchFnReturn::Display(display) => qemu_args.display.push(display),
                     LaunchFnReturn::Thread(thread) => threads.push(thread),
-                    LaunchFnReturn::Process(_) => {}
+                    LaunchFnReturn::Process(child) => children.push(child),
                 }
             }
         }
 
-        dbg!(&qemu_args.qemu_args);
+        log::debug!("Launching QEMU with args {:#?}", qemu_args.qemu_args);
 
-        Command::new(qemu_bin)
+        let qemu_process = Command::new(qemu_bin)
             .args(qemu_args.qemu_args)
             .spawn()
             .map_err(|e| Error::Command(qemu_bin_str, e.to_string()))?;
+
+        qemu_args.display.push(ArgDisplay {
+            name: Cow::Borrowed("PID"),
+            value: Cow::Owned(qemu_process.id().to_string()),
+        });
+
+        children.push(qemu_process);
 
         for launch_fn in qemu_args.after_launch_fns {
             for launch_fn_return in launch_fn.call()? {
@@ -124,12 +142,17 @@ impl<'a> Config {
                     LaunchFnReturn::Arg(_) => panic!("Arguments should not be returned in 'after' launch fns"),
                     LaunchFnReturn::Display(display) => qemu_args.display.push(display),
                     LaunchFnReturn::Thread(thread) => threads.push(thread),
-                    LaunchFnReturn::Process(_) => {}
+                    LaunchFnReturn::Process(child) => children.push(child),
                 }
             }
         }
 
-        Ok(())
+        Ok(LaunchResult {
+            display: qemu_args.display,
+            warnings: qemu_args.warnings,
+            threads,
+            children,
+        })
     }
 
     pub fn to_full_qemu_args(mut self) -> Result<QemuArgs, Error> {

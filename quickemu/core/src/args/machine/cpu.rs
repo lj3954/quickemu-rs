@@ -19,9 +19,11 @@ impl Machine {
             let mut cores = if let Some(threads) = self.cpu_threads {
                 if let GuestOS::MacOS { .. } = guest {
                     if !threads.is_power_of_two() {
-                        let recommended = threads
+                        let next_pow = threads
                             .checked_next_power_of_two()
                             .expect("CPU cores should not overflow usize");
+                        let recommended = (next_pow.get() / 2).max(1);
+
                         warnings.push(Warning::MacOSCorePow2(recommended));
                     }
                 }
