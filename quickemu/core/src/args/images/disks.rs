@@ -154,13 +154,19 @@ impl EmulatorArgs for DiskArgs<'_> {
             args.extend([arg!("-device"), arg!("ahci,id=ahci")]);
         }
         if let Some(bootloader) = &self.bootloader {
-            args.extend(bootloader.args(self.guest, self.status_quo));
+            args.extend(bootloader.args(self.guest));
+            if self.status_quo {
+                args.push(arg!("-snapshot"));
+            }
         }
-        args.into_iter().chain(
-            self.mounted_disks
-                .iter()
-                .flat_map(|disk| disk.args(self.guest, self.status_quo)),
-        )
+
+        args.into_iter().chain(self.mounted_disks.iter().flat_map(|disk| {
+            let mut args = disk.args(self.guest);
+            if self.status_quo {
+                args.push(arg!("-snapshot"));
+            }
+            args
+        }))
     }
 }
 
@@ -173,7 +179,7 @@ struct MountedDisk<'a> {
 }
 
 impl<'a> MountedDisk<'a> {
-    fn args(&self, guest: GuestOS, status_quo: bool) -> Vec<QemuArg> {
+    fn args(&self, guest: GuestOS) -> Vec<QemuArg> {
         let (bus_arg, disk_name) = match guest {
             GuestOS::MacOS { release } if release < MacOSRelease::Catalina => ("ide-hd,bus=ahci.2,drive=", "SystemDisk"),
             GuestOS::KolibriOS => ("ide-hd,bus=ahci.0,drive=", "SystemDisk"),
@@ -195,11 +201,7 @@ impl<'a> MountedDisk<'a> {
         drive_arg.push(",file=");
         drive_arg.push(self.path.as_ref());
 
-        let mut args = vec![arg!("-device"), oarg!(device), arg!("-drive"), oarg!(drive_arg)];
-        if status_quo {
-            args.push(arg!("-snapshot"));
-        }
-        args
+        vec![arg!("-device"), oarg!(device), arg!("-drive"), oarg!(drive_arg)]
     }
 
     fn reactos_args(&self) -> Vec<QemuArg> {
