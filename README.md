@@ -1,7 +1,6 @@
-## Quickemu - rewritten in Rust
+## Quickemu-rs
 
-This project is a rewrite of the [quickemu](https://github.com/quickemu-project/quickemu) bash script in Rust.
-Backwards compatibility will be mostly maintained, but this project will diverge and may have different requirements.
+Create and manage macOS, Linux, and Windows virtual machines
 
 This project depends on QEMU version 7.0.0 or later. Supporting older releases would require quite a bit of extra work,
 and few people still use these releases. If your system has an older version of QEMU, this project is not for you. 
