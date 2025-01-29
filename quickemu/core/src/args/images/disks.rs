@@ -11,7 +11,7 @@ use size::Size;
 
 use crate::{
     arg,
-    data::{DiskFormat, GuestOS, Images, MacOSRelease},
+    data::{DiskFormat, GuestOS, Images, MacOSRelease, PreAlloc},
     error::Error,
     oarg,
     utils::{ArgDisplay, EmulatorArgs, QemuArg},
@@ -36,6 +36,13 @@ impl<'a> Images {
                     .map(|p| vm_dir.join(p))
                     .find(|p| p.exists())
                     .ok_or(Error::MacBootloader)
+                    .map(|p| MountedDisk {
+                        path: Cow::Owned(p),
+                        format: DiskFormat::Qcow2 { preallocation: PreAlloc::Off },
+                        index: 0,
+                        is_new: false,
+                        size: 0,
+                    })
             })
             .transpose()?;
         let ahci = matches!(guest, GuestOS::MacOS { .. } | GuestOS::KolibriOS);
@@ -133,7 +140,7 @@ pub(crate) struct DiskArgs<'a> {
     mounted_disks: Vec<MountedDisk<'a>>,
     status_quo: bool,
     ahci: bool,
-    bootloader: Option<PathBuf>,
+    bootloader: Option<MountedDisk<'a>>,
     installed: bool,
 }
 
@@ -152,8 +159,8 @@ impl EmulatorArgs for DiskArgs<'_> {
         if self.ahci {
             args.extend([arg!("-device"), arg!("ahci,id=ahci")]);
         }
-        if let Some(_bootloader) = &self.bootloader {
-            todo!("Determine whether macOS Catalina+ need ahci bootloader");
+        if let Some(bootloader) = &self.bootloader {
+            args.extend(bootloader.args(self.guest, self.status_quo));
         }
         args.into_iter().chain(
             self.mounted_disks
@@ -180,7 +187,11 @@ impl<'a> MountedDisk<'a> {
             _ => ("virtio-blk-pci,drive=", "SystemDisk"),
         };
 
-        let disk_name = if self.index == 1 { disk_name } else { &format!("Disk{}", self.index) };
+        let disk_name = match self.index {
+            0 => "Bootloader",
+            1 => disk_name,
+            _ => &format!("Disk{}", self.index),
+        };
         let device = bus_arg.to_string() + disk_name;
 
         let mut drive_arg = OsString::from("id=");
