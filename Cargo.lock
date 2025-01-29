@@ -1320,7 +1320,7 @@ dependencies = [
 
 [[package]]
 name = "quickget-rs"
-version = "0.7.3"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1338,7 +1338,7 @@ dependencies = [
 
 [[package]]
 name = "quickget_core"
-version = "0.0.0"
+version = "1.0.0"
 dependencies = [
  "bzip2",
  "dirs",
