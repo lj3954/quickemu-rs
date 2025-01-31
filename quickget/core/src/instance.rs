@@ -14,10 +14,12 @@ use std::{
     fs::File,
     io::Write,
     num::NonZeroUsize,
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     process::Command,
 };
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 #[derive(Debug, Clone)]
 pub struct QuickgetInstance {
@@ -291,6 +293,7 @@ impl QuickgetInstance {
         };
         let mut config_file = File::create(&self.config_file_path)?;
 
+        #[cfg(unix)]
         let shebang = which::which("quickemu-rs")
             .ok()
             .or_else(|| {
@@ -301,12 +304,15 @@ impl QuickgetInstance {
             })
             .map(|path| format!("#!{} --vm\n", path.to_string_lossy()));
 
+        #[cfg(unix)]
         if shebang.is_some() {
             let _ = config_file.set_permissions(PermissionsExt::from_mode(0o755));
         }
 
         let serialized_config = toml::to_string_pretty(&config)?;
-        writeln!(config_file, "{}{serialized_config}", shebang.unwrap_or_default())?;
+        #[cfg(unix)]
+        let serialized_config = shebang.unwrap_or_default() + &serialized_config;
+        writeln!(config_file, "{serialized_config}")?;
 
         Ok(config_file)
     }
