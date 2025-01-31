@@ -1,18 +1,22 @@
+use crate::data::*;
+use serde::{Deserialize, Serialize};
+use std::{ffi::OsString, path::PathBuf};
+
+#[cfg(feature = "quickemu")]
 use crate::{
     arg,
-    data::*,
     error::{ConfigError, Error, MonitorError, Warning},
     full_qemu_args, oarg, qemu_args,
     utils::{ArgDisplay, EmulatorArgs, LaunchFn, LaunchFnReturn, QemuArg},
 };
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "quickemu")]
 use std::{
     borrow::Cow,
-    ffi::OsString,
-    path::{Path, PathBuf},
+    path::Path,
     process::{Child, Command},
     thread::JoinHandle,
 };
+#[cfg(feature = "quickemu")]
 use which::which;
 
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -34,6 +38,7 @@ pub struct Config {
     pub extra_args: Vec<OsString>,
 }
 
+#[cfg(feature = "quickemu")]
 #[derive(Debug)]
 pub struct QemuArgs {
     pub qemu_args: Vec<QemuArg>,
@@ -43,6 +48,7 @@ pub struct QemuArgs {
     pub display: Vec<ArgDisplay>,
 }
 
+#[cfg(feature = "quickemu")]
 #[derive(Debug)]
 pub struct LaunchResult {
     pub display: Vec<ArgDisplay>,
@@ -51,6 +57,7 @@ pub struct LaunchResult {
     pub children: Vec<Child>,
 }
 
+#[cfg(feature = "quickemu")]
 impl<'a> Config {
     pub fn parse(file: &Path) -> Result<Self, ConfigError> {
         let contents = std::fs::read_to_string(file)?;
@@ -205,12 +212,14 @@ impl<'a> Config {
     }
 }
 
+#[cfg(feature = "quickemu")]
 pub(crate) struct BasicArgs<'a> {
     slew_driftfix: bool,
     pid_path: PathBuf,
     vm_name: &'a str,
 }
 
+#[cfg(feature = "quickemu")]
 impl EmulatorArgs for BasicArgs<'_> {
     fn qemu_args(&self) -> impl IntoIterator<Item = QemuArg> {
         let mut args = Vec::with_capacity(4);

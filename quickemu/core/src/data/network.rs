@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 pub struct Network {
     #[serde(default, flatten, deserialize_with = "default_if_empty")]
     pub network_type: NetworkType,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub monitor: Monitor,
     #[serde(default, skip_serializing_if = "is_default")]
     pub serial: Serial,

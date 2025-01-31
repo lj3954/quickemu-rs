@@ -8,7 +8,7 @@ license.workspace = true
 quickget_core = { path = "../core" }
 tokio = { version = "1.39.2", features = ["full"] }
 anyhow = "1.0.86"
-quickemu_core = { path = "../../quickemu/core" }
+quickemu_core = { path = "../../quickemu/core", default-features = false }
 itertools = "0.13.0"
 clap = { version = "4.5.4", features = ["derive"] }
 clap-verbosity-flag = "2.2.0"

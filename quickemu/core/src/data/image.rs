@@ -64,6 +64,7 @@ impl Default for DiskFormat {
         Self::Qcow2 { preallocation: PreAlloc::Off }
     }
 }
+#[cfg(feature = "quickemu")]
 impl DiskFormat {
     pub(crate) fn prealloc_enabled(&self) -> bool {
         match self {
