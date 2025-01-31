@@ -22,16 +22,19 @@ pub struct Machine {
 #[derive(Display, Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "arch")]
 pub enum Arch {
+    #[display("x86_64 ({})", machine)]
     #[serde(rename = "x86_64")]
     X86_64 {
         #[serde(default, skip_serializing_if = "is_default")]
         machine: X86_64Machine,
     },
+    #[display("AArch64 ({})", machine)]
     #[serde(alias = "aarch64")]
     AArch64 {
         #[serde(default, skip_serializing_if = "is_default")]
         machine: AArch64Machine,
     },
+    #[display("Riscv64 ({})", machine)]
     #[serde(rename = "riscv64")]
     Riscv64 {
         #[serde(default, skip_serializing_if = "is_default")]
