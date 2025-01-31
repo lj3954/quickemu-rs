@@ -137,7 +137,7 @@ impl<T: MonitorArg> Default for MonitorInner<T> {
 }
 
 #[cfg(not(unix))]
-impl<T: MonitorArg> Default for Monitor<T> {
+impl<T: MonitorArg> Default for MonitorInner<T> {
     fn default() -> Self {
         Self(MonitorInner::Telnet { address: T::default() })
     }
