@@ -32,7 +32,7 @@ does not launch or if you're unable to launch a VM for any reason.
 
 ## Usage
 
-Usage information is contained within the [project's wiki](https://github.com/lj3954/quickemu-rs/wiki). Please refer to it for more information.
+Usage information is contained within the [**project's wiki**](https://github.com/lj3954/quickemu-rs/wiki). Please refer to it for more information, including how to configure quickemu.
 
 ## Licensing
 
