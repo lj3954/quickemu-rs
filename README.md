@@ -14,7 +14,7 @@ The requirement of certain QEMU features will not be treated as a bug.
 
 ## Installation
 
-Binary releases are available. Download one of the releases and extract it to a directory in your PATH, such as `~/.local/bin`. 
+Binary releases are available for linux (x86_64 and AArch64) as well as a universal binary for macOS. Download one of the releases and extract it to a directory in your PATH, such as `~/.local/bin`. 
 
 Alternatively, you can build the project from source. After installing rust, build it with cargo.
 
@@ -24,11 +24,6 @@ git clone https://github.com/lj3954/quickemu-rs.git
 cd quickemu-rs
 cargo build --release
 ```
-
-Currently, on an aarch64 linux host, you will have to build the project from source. This is due to an issue with the build dependencies.
-
-x86_64 linux and all macOS hosts should be able to use the binary releases. Please report an issue if a binary release
-does not launch or if you're unable to launch a VM for any reason.
 
 ## Usage
 
