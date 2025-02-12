@@ -20,10 +20,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Install dependencies
+        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-24.04-arm' }}
         run: sudo apt-get update && sudo apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev
-        if: ${{ matrix.os == "ubuntu-latest" || matrix.os == "ubuntu-24.04-arm" }}
+
       - name: Build
         run: cargo build --verbose
+
       - name: Test
         run: cargo test --verbose
