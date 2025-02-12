@@ -5,6 +5,8 @@ version = "1.0.0"
 license.workspace = true
 
 [dependencies]
+log = { version = "0.4.21", optional = true }
+derive_more = { version = "1.0.0", features = ["from"] }
 dirs = { version = "5.0.1", optional = true }
 quickemu_core = { path = "../../quickemu/core", default-features = false }
 reqwest = { version = "0.12.4", optional = true, default-features = false, features = [
@@ -14,7 +16,6 @@ serde_json = { version = "1.0.117", optional = true }
 serde = "1.0.202"
 toml = { version = "0.8.13", optional = true }
 which = { version = "6.0.1", optional = true }
-thiserror = { version = "1.0.63", optional = true }
 num_cpus = { version = "1.16.0", optional = true }
 sysinfo = { version = "0.31.2", optional = true }
 md-5 = { version = "0.10.6", optional = true }
@@ -25,6 +26,13 @@ flate2 = { version = "1.0.31", optional = true }
 liblzma = { version = "0.3.3", optional = true }
 zstd = { version = "0.13.1", optional = true }
 size = "0.4.1"
+i18n-embed-fl = { version = "0.9.3", optional = true }
+rust-embed = { version = "8.5.0", optional = true }
+
+[dependencies.i18n-embed]
+optional = true
+version = "0.15"
+features = ["fluent-system", "desktop-requester"]
 
 [features]
 default = ["quickget"]
@@ -34,7 +42,6 @@ quickget = [
     "serde_json",
     "toml",
     "which",
-    "thiserror",
     "num_cpus",
     "sysinfo",
     "md-5",
@@ -44,4 +51,8 @@ quickget = [
     "flate2",
     "liblzma",
     "zstd",
+    "i18n-embed-fl",
+    "i18n-embed",
+    "rust-embed",
+    "log",
 ]

@@ -87,13 +87,14 @@ impl fmt::Display for Error {
     }
 }
 
-#[derive(derive_more::Error, Debug)]
+#[derive(Debug)]
 pub enum MonitorError {
     NoMonitor,
     Write(std::io::Error),
     Read(std::io::Error),
 }
 
+impl std::error::Error for MonitorError {}
 impl fmt::Display for MonitorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let text = match self {

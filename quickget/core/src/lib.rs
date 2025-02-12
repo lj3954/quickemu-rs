@@ -12,3 +12,5 @@ pub use config_search::{ConfigSearch, QuickgetConfig};
 pub use error::{ConfigSearchError, DLError};
 #[cfg(feature = "quickget")]
 pub use instance::{QGDockerSource, QGDownload, QuickgetInstance};
+#[cfg(feature = "quickget")]
+mod i18n;

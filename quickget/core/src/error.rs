@@ -1,56 +1,81 @@
-use std::{path::PathBuf, time::SystemTimeError};
+use std::{fmt, path::PathBuf, time::SystemTimeError};
 
 use quickemu_core::data::Arch;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
+use crate::fl;
+
+#[derive(derive_more::From, Debug)]
 pub enum ConfigSearchError {
-    #[error("Failed to determine system cache directory")]
     FailedCacheDir,
-    #[error("Cache directory {0} does not exist.")]
     InvalidCacheDir(PathBuf),
-    #[error("Invalid system time")]
-    InvalidSystemTime(#[from] SystemTimeError),
-    #[error("Unable to interact with cache file")]
-    FailedCacheFile(#[from] std::io::Error),
-    #[error("Failed to download cache file")]
-    FailedDownload(#[from] reqwest::Error),
-    #[error("Could not serialize JSON data")]
-    FailedJson(#[from] serde_json::Error),
-    #[error("An OS must be specified before searching for releases, editions, or architectures")]
+    #[from]
+    InvalidSystemTime(SystemTimeError),
+    #[from]
+    FailedCacheFile(std::io::Error),
+    #[from]
+    FailedDownload(reqwest::Error),
+    #[from]
+    FailedJson(serde_json::Error),
     RequiredOS,
-    #[error("A release is required before searching for editions")]
     RequiredRelease,
-    #[error("An edition is required before selecting a config")]
     RequiredEdition,
-    #[error("No OS matching {0} was found")]
     InvalidOS(String),
-    #[error("No release {0} found for {1}")]
     InvalidRelease(String, String),
-    #[error("No edition {0} found")]
     InvalidEdition(String),
-    #[error("Architecture {0} not found including other parameters")]
     InvalidArchitecture(Arch),
-    #[error("No editions are available for the specified release")]
     NoEditions,
 }
 
-#[derive(Error, Debug)]
+impl std::error::Error for ConfigSearchError {}
+impl fmt::Display for ConfigSearchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            Self::FailedCacheDir => fl!("failed-cache-dir"),
+            Self::InvalidCacheDir(dir) => fl!("invalid-cache-dir", dir = dir.display().to_string()),
+            Self::InvalidSystemTime(err) => fl!("invalid-system-time", err = err.to_string()),
+            Self::FailedCacheFile(err) => fl!("failed-cache-file", err = err.to_string()),
+            Self::FailedDownload(err) => fl!("failed-download", err = err.to_string()),
+            Self::FailedJson(err) => fl!("failed-json", err = err.to_string()),
+            Self::RequiredOS => fl!("required-os"),
+            Self::RequiredRelease => fl!("required-release"),
+            Self::RequiredEdition => fl!("required-edition"),
+            Self::InvalidOS(os) => fl!("invalid-os", os = os),
+            Self::InvalidRelease(rel, os) => fl!("invalid-release", rel = rel, os = os),
+            Self::InvalidEdition(edition) => fl!("invalid-edition", edition = edition),
+            Self::InvalidArchitecture(arch) => fl!("invalid-arch", arch = arch.to_string()),
+            Self::NoEditions => fl!("no-editions"),
+        };
+        f.write_str(&text)
+    }
+}
+
+#[derive(derive_more::From, Debug)]
 pub enum DLError {
-    #[error("A source does not currently exist for {0}")]
     UnsupportedSource(String),
-    #[error("Invalid VM name {0}")]
     InvalidVMName(String),
-    #[error("Unable to write to config file")]
-    ConfigFileError(#[from] std::io::Error),
-    #[error("Failed to serialize config data")]
-    ConfigDataError(#[from] toml::ser::Error),
-    #[error("File {0} was not successfully downloaded")]
+    #[from]
+    ConfigFileError(std::io::Error),
+    #[from]
+    ConfigDataError(toml::ser::Error),
     DownloadError(PathBuf),
-    #[error("Invalid checksum {0}")]
     InvalidChecksum(String),
-    #[error("Checksums did not match. Expected {0}, got {1}")]
     FailedValidation(String, String),
-    #[error("VM Directory {0} already exists")]
     DirAlreadyExists(PathBuf),
+}
+
+impl std::error::Error for DLError {}
+impl fmt::Display for DLError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            Self::UnsupportedSource(os) => fl!("unsupported-source", os = os),
+            Self::InvalidVMName(vm_name) => fl!("invalid-vm-name", vm_name = vm_name),
+            Self::ConfigFileError(err) => fl!("config-file-error", err = err.to_string()),
+            Self::ConfigDataError(err) => fl!("config-data-error", err = err.to_string()),
+            Self::DownloadError(file) => fl!("download-error", file = file.display().to_string()),
+            Self::InvalidChecksum(cs) => fl!("invalid-checksum", cs = cs),
+            Self::FailedValidation(expected, actual) => fl!("failed-validation", expected = expected, actual = actual),
+            Self::DirAlreadyExists(dir) => fl!("dir-exists", dir = dir.display().to_string()),
+        };
+        f.write_str(&text)
+    }
 }
