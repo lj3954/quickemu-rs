@@ -5,7 +5,12 @@ version = "1.0.0"
 license = "GPL-3.0 OR GPL-2.0"
 
 [dependencies]
-derive_more = { version = "1.0.0", features = ["display", "as_ref"] }
+derive_more = { version = "1.0.0", features = [
+    "display",
+    "as_ref",
+    "error",
+    "from",
+] }
 dirs = { version = "5.0.1", optional = true }
 display-info = { version = "0.5.1", optional = true }
 log = { version = "0.4.21", optional = true }
@@ -15,12 +20,17 @@ serde = { version = "1.0.201", features = ["derive"] }
 sysinfo = { version = "0.30.10", default-features = false, optional = true }
 toml = { version = "0.8.12", optional = true }
 which = { version = "6.0.1", optional = true }
-thiserror = { version = "2.0.8", optional = true }
 itertools = "0.13.0"
 size = { version = "0.4.1", optional = true }
 memfd-exec = { version = "0.2.1", optional = true }
 serde_json = "1.0.137"
 strum = { version = "0.26.3", features = ["derive"] }
+i18n-embed-fl = "0.9.3"
+rust-embed = "8.5.0"
+
+[dependencies.i18n-embed]
+version = "0.15"
+features = ["fluent-system", "desktop-requester"]
 
 [features]
 default = ["quickemu", "display_resolution", "smartcard_args", "qemu_8_1"]
@@ -33,7 +43,7 @@ quickemu = [
     "sysinfo",
     "toml",
     "which",
-    "thiserror",
+
     "size",
 ]
 

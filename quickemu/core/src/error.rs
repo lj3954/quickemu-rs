@@ -1,78 +1,136 @@
+use std::fmt;
+
 use size::Size;
-use thiserror::Error;
 
-use crate::data::GuestOS;
+use crate::{data::GuestOS, fl};
 
-#[derive(Error, Debug)]
+#[derive(derive_more::From, Debug)]
 pub enum ConfigError {
-    #[error("Could not read config file: {0}")]
-    Read(#[from] std::io::Error),
-    #[error("Could not parse config file: {0}")]
-    Parse(#[from] toml::de::Error),
+    Read(std::io::Error),
+    Parse(toml::de::Error),
 }
 
-#[derive(Error, Debug, Clone)]
+impl std::error::Error for ConfigError {}
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            Self::Read(err) => fl!("read-config-error", err = err.to_string()),
+            Self::Parse(err) => fl!("parse-config-error", err = err.to_string()),
+        };
+        f.write_str(&text)
+    }
+}
+
+#[derive(derive_more::From, Debug, Clone)]
 pub enum Error {
-    #[error("CPU does not support the necessary instruction for this macOS release: {0}.")]
     Instructions(&'static str),
-    #[error("Requested port {0} is unavailable.")]
     UnavailablePort(u16),
-    #[error("System RAM {0} is insufficient for {1} VMs.")]
     InsufficientRam(Size, GuestOS),
-    #[error("USB Audio requires the XHCI USB controller.")]
     ConflictingSoundUsb,
     #[cfg(not(feature = "inbuilt_commands"))]
-    #[error("Could not find binary: {0}")]
+    #[from]
     Which(#[from] which::Error),
-    #[error("Failed to launch {0}: {1}")]
     Command(&'static str, String),
-    #[error("Legacy boot is only supported on x86_64.")]
     LegacyBoot,
-    #[error("Could not find riscv64 bootloader")]
     Riscv64Bootloader,
-    #[error("Could not find EFI firmware")]
     Ovmf,
-    #[error("Could not copy OVMF vars into VM directory: {0}")]
     CopyOvmfVars(String),
-    #[error("Specified architecture and boot type are not compatible")]
     UnsupportedBootCombination,
-    #[error("Could not find viewer {0}")]
     ViewerNotFound(&'static str),
-    #[error("Could not find qemu binary: {0}")]
     QemuNotFound(&'static str),
-    #[error("Could not create disk image: {0}")]
     DiskCreationFailed(String),
-    #[error("Failed to get write lock on disk {0}. Ensure that it is not already in use.")]
     DiskInUse(String),
-    #[error("Could not deserialize qemu-img info: {0}")]
     DeserializeQemuImgInfo(String),
-    #[error("Could not find macOS bootloader in VM directory")]
     MacBootloader,
-    #[error("Requested to mount image {0}, but it does not exist.")]
     NonexistentImage(String),
-    #[error("Could not send command to monitor: {0}")]
     MonitorCommand(String),
 }
 
-#[derive(Error, Debug)]
+impl std::error::Error for Error {}
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            Self::Instructions(missing_instruction) => {
+                let missing_instruction = *missing_instruction;
+                fl!("macos-cpu-instructions", instruction = missing_instruction)
+            }
+            Self::UnavailablePort(port) => fl!("unavailable-port", port = port),
+            Self::InsufficientRam(ram, guest) => fl!("insufficient-ram", ram = ram.to_string(), guest = guest.to_string()),
+            Self::ConflictingSoundUsb => fl!("sound-usb-conflict"),
+            #[cfg(not(feature = "inbuilt_commands"))]
+            Self::Which(err) => fl!("which-binary", err = err.to_string()),
+            Self::Command(bin, err) => {
+                let bin = *bin;
+                fl!("failed-launch", bin = bin, err = err)
+            }
+            Self::LegacyBoot => fl!("non-x86-bios"),
+            Self::Riscv64Bootloader => fl!("riscv64-boot"),
+            Self::Ovmf => fl!("efi-firmware"),
+            Self::CopyOvmfVars(err) => fl!("failed-ovmf-copy", err = err),
+            Self::UnsupportedBootCombination => fl!("unsupported-boot-combination"),
+            Self::ViewerNotFound(requested_viewer) => {
+                let requested_viewer = *requested_viewer;
+                fl!("no-viewer", viewer_bin = requested_viewer)
+            }
+            Self::QemuNotFound(requested_qemu) => {
+                let requested_qemu = *requested_qemu;
+                fl!("no-qemu", qemu_bin = requested_qemu)
+            }
+            Self::DiskCreationFailed(err) => fl!("failed-disk-creation", err = err),
+            Self::DiskInUse(disk) => fl!("disk-used", disk = disk),
+            Self::DeserializeQemuImgInfo(err) => fl!("failed-qemu-img-deserialization", err = err),
+            Self::MacBootloader => fl!("no-mac-bootloader"),
+            Self::NonexistentImage(requested_image) => fl!("nonexistent-image", img = requested_image),
+            Self::MonitorCommand(err) => fl!("monitor-command-failed", err = err),
+        };
+        f.write_str(&text)
+    }
+}
+
+#[derive(derive_more::Error, Debug)]
 pub enum MonitorError {
-    #[error("No monitor is enabled.")]
     NoMonitor,
-    #[error("Could not write to the monitor: {0}")]
     Write(std::io::Error),
-    #[error("Could not read from the monitor: {0}")]
     Read(std::io::Error),
 }
 
-#[derive(Error, Debug, Clone)]
+impl fmt::Display for MonitorError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            Self::NoMonitor => fl!("no-monitor-available"),
+            Self::Write(err) => fl!("failed-monitor-write", err = err.to_string()),
+            Self::Read(err) => fl!("failed-monitor-read", err = err.to_string()),
+        };
+        f.write_str(&text)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Warning {
-    #[error("macOS guests may not boot with core counts that are not powers of two. Recommended rounding: {0}.")]
     MacOSCorePow2(usize),
-    #[error("Hardware virtualization{0} is not enabled on your CPU. Falling back to software virtualization, performance will be degraded")]
     HwVirt(&'static str),
     #[cfg(target_os = "linux")]
-    #[error("Sound was requested, but no audio backend could be detected (PipeWire/PulseAudio).")]
     AudioBackend,
-    #[error("The specified amount of RAM ({0}) is insufficient for {1}. Performance issues may arise")]
     InsufficientRamConfiguration(Size, GuestOS),
+}
+
+impl std::error::Error for Warning {}
+impl fmt::Display for Warning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            Self::MacOSCorePow2(recommended) => fl!("macos-core-power-two", recommended = recommended),
+            Self::HwVirt(virt_branding) => {
+                let virt_branding = *virt_branding;
+                fl!("software-virt-fallback", virt_branding = virt_branding)
+            }
+            Self::AudioBackend => fl!("audio-backend-unavailable"),
+            #[cfg(target_os = "linux")]
+            Self::InsufficientRamConfiguration(ram, guest) => fl!(
+                "insufficient-ram-configuration",
+                ram = ram.to_string(),
+                guest = guest.to_string()
+            ),
+        };
+        f.write_str(&text)
+    }
 }
