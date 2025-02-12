@@ -25,15 +25,23 @@ pub struct ConfigSearch {
 impl ConfigSearch {
     pub async fn new() -> Result<Self, ConfigSearchError> {
         let cache_dir = dirs::cache_dir().ok_or(ConfigSearchError::FailedCacheDir)?;
-        Self::new_with_cache_dir(cache_dir).await
+        Self::new_full(cache_dir, false).await
     }
+    pub async fn new_refreshed() -> Result<Self, ConfigSearchError> {
+        let cache_dir = dirs::cache_dir().ok_or(ConfigSearchError::FailedCacheDir)?;
+        Self::new_full(cache_dir, true).await
+    }
+    #[deprecated(since = "1.2.0", note = "use new_full to specify details instead")]
     pub async fn new_with_cache_dir(cache_dir: PathBuf) -> Result<Self, ConfigSearchError> {
+        Self::new_full(cache_dir, false).await
+    }
+    pub async fn new_full(cache_dir: PathBuf, refresh: bool) -> Result<Self, ConfigSearchError> {
         if !cache_dir.exists() {
             return Err(ConfigSearchError::InvalidCacheDir(cache_dir));
         }
         let cache_file_path = cache_dir.join("quickget_data.json.zst");
 
-        let (configs, cache_file) = if cache_file_path.is_valid()? {
+        let (configs, cache_file) = if !refresh && cache_file_path.is_valid()? {
             let cache_file = File::open(&cache_file_path)?;
             (read_cache_file(&cache_file)?, cache_file)
         } else {

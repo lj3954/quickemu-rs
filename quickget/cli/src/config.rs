@@ -7,11 +7,11 @@ use serde::Serialize;
 use std::io::{stdout, Write};
 
 async fn create_instance(refresh: bool) -> Result<ConfigSearch, ConfigSearchError> {
-    let mut instance = ConfigSearch::new().await?;
     if refresh {
-        instance.refresh_data().await?;
+        ConfigSearch::new_refreshed().await
+    } else {
+        ConfigSearch::new().await
     }
-    Ok(instance)
 }
 
 #[derive(Debug, Clone, ValueEnum)]
