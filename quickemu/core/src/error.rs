@@ -123,8 +123,8 @@ impl fmt::Display for Warning {
                 let virt_branding = *virt_branding;
                 fl!("software-virt-fallback", virt_branding = virt_branding)
             }
-            Self::AudioBackend => fl!("audio-backend-unavailable"),
             #[cfg(target_os = "linux")]
+            Self::AudioBackend => fl!("audio-backend-unavailable"),
             Self::InsufficientRamConfiguration(ram, guest) => fl!(
                 "insufficient-ram-configuration",
                 ram = ram.to_string(),
