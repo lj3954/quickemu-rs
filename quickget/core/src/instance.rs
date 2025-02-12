@@ -125,7 +125,7 @@ impl QuickgetInstance {
         let mut dl = Vec::new();
         let mut docker = Vec::new();
 
-        let iso_paths = extract_downloads(iso, &data, "..iso", &mut dl, &mut docker)?;
+        let iso_paths = extract_downloads(iso, &data, ".iso", &mut dl, &mut docker)?;
         let img_paths = extract_downloads(img, &data, ".img", &mut dl, &mut docker)?;
         let disk_images = disk_images
             .map(|disk_images| transform_disks(disk_images, &data, &mut dl, &mut docker))
