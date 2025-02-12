@@ -10,20 +10,23 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  linux_build:
-    runs-on: ubuntu-22.04
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
+          - os: macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
-    - name: Build (Linux)
-      run: cargo build --verbose
-    - name: Test (Linux)
-      run: cargo test --verbose
+      - uses: actions/checkout@v4
 
-  macos_build:
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Build (macOS)
-      run: cargo build --verbose
-    - name: Test (macOS)
-      run: cargo test --verbose
+      - name: Install dependencies
+        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-24.04-arm' }}
+        run: sudo apt-get update && sudo apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Test
+        run: cargo test --verbose
