@@ -8,6 +8,7 @@ use crate::{data::GuestOS, fl};
 pub enum ConfigError {
     Read(std::io::Error),
     Parse(toml::de::Error),
+    LiveVM(LiveVMError),
 }
 
 impl std::error::Error for ConfigError {}
@@ -16,6 +17,26 @@ impl fmt::Display for ConfigError {
         let text = match self {
             Self::Read(err) => fl!("read-config-error", err = err.to_string()),
             Self::Parse(err) => fl!("parse-config-error", err = err.to_string()),
+            Self::LiveVM(err) => err.to_string(),
+        };
+        f.write_str(&text)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum LiveVMError {
+    FailedLiveVMDe(String),
+    FailedDelLiveFile(String),
+    FailedVMKill(String),
+}
+
+impl std::error::Error for LiveVMError {}
+impl fmt::Display for LiveVMError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            Self::FailedLiveVMDe(err) => fl!("failed-live-vm-de", err = err),
+            Self::FailedDelLiveFile(err) => fl!("failed-del-live-file", err = err),
+            Self::FailedVMKill(err) => fl!("failed-vm-kill", err = err),
         };
         f.write_str(&text)
     }
@@ -44,6 +65,7 @@ pub enum Error {
     MacBootloader,
     NonexistentImage(String),
     MonitorCommand(String),
+    FailedLiveVMSe(String),
 }
 
 impl std::error::Error for Error {}
@@ -82,6 +104,7 @@ impl fmt::Display for Error {
             Self::MacBootloader => fl!("no-mac-bootloader"),
             Self::NonexistentImage(requested_image) => fl!("nonexistent-image", img = requested_image),
             Self::MonitorCommand(err) => fl!("monitor-command-failed", err = err),
+            Self::FailedLiveVMSe(err) => fl!("failed-live-vm-se", err = err),
         };
         f.write_str(&text)
     }

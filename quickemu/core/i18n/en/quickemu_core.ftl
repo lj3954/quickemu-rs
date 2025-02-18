@@ -22,6 +22,10 @@ failed-qemu-img-deserialization = Could not deserialize qemu-img info: { $err }
 no-mac-bootloader = Could not find macOS bootloader in VM directory
 nonexistent-image = Requested to mount image { $img }, but it does not exist.
 monitor-command-failed = Could not send command to monitor: { $err }
+failed-live-vm-de = Failed to deserialize live VM data: { $err }
+failed-live-vm-se = Failed to serialize live VM data: { $err }
+failed-del-live-file = Failed to delete inactive live VM status file: { $err }
+failed-vm-kill = Failed to kill running VM: { $err }
 
 # Monitor errors
 no-monitor-available = No monitor is enabled.

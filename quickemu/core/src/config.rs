@@ -1,4 +1,4 @@
-use crate::data::*;
+use crate::{data::*, live_vm::LiveVM};
 use serde::{Deserialize, Serialize};
 use std::{ffi::OsString, path::PathBuf};
 
@@ -57,9 +57,15 @@ pub struct LaunchResult {
     pub children: Vec<Child>,
 }
 
+#[allow(clippy::large_enum_variant)]
+pub enum ParsedVM {
+    Config(Config),
+    Live(LiveVM),
+}
+
 #[cfg(feature = "quickemu")]
 impl<'a> Config {
-    pub fn parse(file: &Path) -> Result<Self, ConfigError> {
+    pub fn parse(file: &Path) -> Result<ParsedVM, ConfigError> {
         let contents = std::fs::read_to_string(file)?;
         let mut conf: Self = toml::from_str(&contents).map_err(ConfigError::Parse)?;
         if conf.vm_dir.is_none() {
@@ -70,7 +76,11 @@ impl<'a> Config {
             }
             conf.vm_dir = Some(file.parent().unwrap().join(&conf.vm_name));
         }
-        Ok(conf)
+        Ok(if let Some(live_vm) = LiveVM::find_active(conf.vm_dir.as_ref().unwrap())? {
+            ParsedVM::Live(live_vm)
+        } else {
+            ParsedVM::Config(conf)
+        })
     }
 
     fn finalize(&mut self) -> Result<(), Error> {
@@ -106,7 +116,30 @@ impl<'a> Config {
         self.network.monitor.send_cmd(command)
     }
 
+    fn create_live_vm(&self) -> (LiveVM, PathBuf) {
+        let vm_dir = self.vm_dir.as_ref().unwrap();
+        let ssh_port = if let NetworkType::Nat { ssh_port, .. } = &self.network.network_type {
+            *ssh_port.as_ref()
+        } else {
+            None
+        };
+        #[cfg(not(target_os = "macos"))]
+        let spice_port = if let DisplayType::Spice { spice_port, .. } = self.io.display.display_type {
+            Some(spice_port)
+        } else {
+            None
+        };
+        LiveVM::new(
+            vm_dir,
+            ssh_port,
+            spice_port,
+            self.network.monitor.clone(),
+            self.network.serial.clone(),
+        )
+    }
+
     pub fn launch(self) -> Result<LaunchResult, Error> {
+        let (live_vm, live_vm_file) = self.create_live_vm();
         let qemu_bin_str = match self.machine.arch {
             Arch::X86_64 { .. } => "qemu-system-x86_64",
             Arch::AArch64 { .. } => "qemu-system-aarch64",
@@ -135,6 +168,8 @@ impl<'a> Config {
             .args(qemu_args.qemu_args)
             .spawn()
             .map_err(|e| Error::Command(qemu_bin_str, e.to_string()))?;
+
+        live_vm.serialize(&live_vm_file, qemu_process.id())?;
 
         qemu_args.display.push(ArgDisplay {
             name: Cow::Borrowed("PID"),
