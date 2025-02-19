@@ -132,6 +132,7 @@ impl<'a> Config {
         LiveVM::new(
             vm_dir,
             ssh_port,
+            #[cfg(not(target_os = "macos"))]
             spice_port,
             self.network.monitor.clone(),
             self.network.serial.clone(),
