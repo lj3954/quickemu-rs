@@ -13,16 +13,6 @@ const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    let list_type = if args.list_csv {
-        eprintln!("Warning: `{PKG_NAME} --list-csv` has been deprecated. Switch to `{PKG_NAME} --list csv` instead.",);
-        Some(Some(ListType::Csv))
-    } else if args.list_json {
-        eprintln!("Warning: `{PKG_NAME} --list-json` has been deprecated. Switch to `{PKG_NAME} --list json` instead.",);
-        Some(Some(ListType::Json))
-    } else {
-        args.list
-    };
-
     let arch = args
         .arch
         .map(|a| {
@@ -35,7 +25,7 @@ async fn main() -> Result<()> {
         })
         .transpose()?;
 
-    if let Some(list_type) = list_type {
+    if let Some(list_type) = args.list {
         ensure!(
             args.other.is_empty(),
             "An operating system must not be specified for list operations"
@@ -107,9 +97,5 @@ struct Args {
     download_only: bool,
     #[clap(short, long, group = "actions")]
     list: Option<Option<ListType>>,
-    #[clap(long, group = "actions")]
-    list_csv: bool,
-    #[clap(long, group = "actions")]
-    list_json: bool,
     other: Vec<String>,
 }
