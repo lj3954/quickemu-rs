@@ -1,4 +1,4 @@
-use crate::{data::*, live_vm::LiveVM};
+use crate::data::*;
 use serde::{Deserialize, Serialize};
 use std::{ffi::OsString, path::PathBuf};
 
@@ -6,7 +6,9 @@ use std::{ffi::OsString, path::PathBuf};
 use crate::{
     arg,
     error::{ConfigError, Error, MonitorError, Warning},
-    full_qemu_args, oarg, qemu_args,
+    full_qemu_args,
+    live_vm::LiveVM,
+    oarg, qemu_args,
     utils::{ArgDisplay, EmulatorArgs, LaunchFn, LaunchFnReturn, QemuArg},
 };
 #[cfg(feature = "quickemu")]
@@ -57,6 +59,7 @@ pub struct LaunchResult {
     pub children: Vec<Child>,
 }
 
+#[cfg(feature = "quickemu")]
 #[allow(clippy::large_enum_variant)]
 pub enum ParsedVM {
     Config(Config),
