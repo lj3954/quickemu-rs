@@ -7,8 +7,6 @@ use quickemu_core::data::Arch;
 use quickget_core::{QuickgetConfig, QuickgetInstance};
 use std::io::Write;
 
-const PKG_NAME: &str = env!("CARGO_PKG_NAME");
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
