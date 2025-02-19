@@ -2,7 +2,17 @@
 read-config-error = Could not read config file: { $err }
 parse-config-error = Could not parse config file: { $err }
 
-# Errors
+# Live VM errors
+failed-live-vm-de = Failed to deserialize live VM data: { $err }
+failed-del-live-file = Failed to delete inactive live VM status file: { $err }
+failed-vm-kill = Failed to kill running VM: { $err }
+
+# Monitor errors
+no-monitor-available = No monitor is enabled.
+failed-monitor-write = Could not write to the monitor: { $err }
+failed-monitor-read = Could not read from thet monitor: { $err }
+
+# Generic Errors
 macos-cpu-instructions = CPU does not support a necessary instruction for this macOS release: { $instruction }.
 unavailable-port = Requested port { $port } is not available.
 insufficient-ram = System RAM { $ram } is insufficient for { $guest } VMs.
@@ -22,11 +32,7 @@ failed-qemu-img-deserialization = Could not deserialize qemu-img info: { $err }
 no-mac-bootloader = Could not find macOS bootloader in VM directory
 nonexistent-image = Requested to mount image { $img }, but it does not exist.
 monitor-command-failed = Could not send command to monitor: { $err }
-
-# Monitor errors
-no-monitor-available = No monitor is enabled.
-failed-monitor-write = Could not write to the monitor: { $err }
-failed-monitor-read = Could not read from thet monitor: { $err }
+failed-live-vm-se = Failed to serialize live VM data: { $err }
 
 # Warnings
 macos-core-power-two = macOS guests may not boot witwh core counts that are not powers of two. Recommended rounding: { $recommended }.
