@@ -25,18 +25,18 @@ impl fmt::Display for ConfigError {
 
 #[derive(Debug, Clone)]
 pub enum LiveVMError {
-    FailedLiveVMDe(String),
-    FailedDelLiveFile(String),
-    FailedVMKill(String),
+    LiveVMDe(String),
+    DelLiveFile(String),
+    VMKill(String),
 }
 
 impl std::error::Error for LiveVMError {}
 impl fmt::Display for LiveVMError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let text = match self {
-            Self::FailedLiveVMDe(err) => fl!("failed-live-vm-de", err = err),
-            Self::FailedDelLiveFile(err) => fl!("failed-del-live-file", err = err),
-            Self::FailedVMKill(err) => fl!("failed-vm-kill", err = err),
+            Self::LiveVMDe(err) => fl!("failed-live-vm-de", err = err),
+            Self::DelLiveFile(err) => fl!("failed-del-live-file", err = err),
+            Self::VMKill(err) => fl!("failed-vm-kill", err = err),
         };
         f.write_str(&text)
     }

@@ -31,13 +31,13 @@ impl LiveVM {
             return Ok(None);
         }
 
-        let data = std::fs::read_to_string(&expected_path).map_err(|e| LiveVMError::FailedLiveVMDe(e.to_string()))?;
-        let live_vm: Self = toml::from_str(&data).map_err(|e| LiveVMError::FailedLiveVMDe(e.to_string()))?;
+        let data = std::fs::read_to_string(&expected_path).map_err(|e| LiveVMError::LiveVMDe(e.to_string()))?;
+        let live_vm: Self = toml::from_str(&data).map_err(|e| LiveVMError::LiveVMDe(e.to_string()))?;
 
         if live_vm.is_active() {
             Ok(Some(live_vm))
         } else {
-            std::fs::remove_file(&expected_path).map_err(|e| LiveVMError::FailedDelLiveFile(e.to_string()))?;
+            std::fs::remove_file(&expected_path).map_err(|e| LiveVMError::DelLiveFile(e.to_string()))?;
             Ok(None)
         }
     }
@@ -62,7 +62,7 @@ impl LiveVM {
                 .arg("-9")
                 .arg(self.pid.to_string())
                 .output()
-                .map_err(|e| LiveVMError::FailedVMKill(e.to_string()))?;
+                .map_err(|e| LiveVMError::VMKill(e.to_string()))?;
             Ok(())
         }
     }
