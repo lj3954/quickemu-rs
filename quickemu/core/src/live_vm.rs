@@ -15,12 +15,12 @@ const LIVE_VM_FILENAME: &str = "quickemu-live.toml";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LiveVM {
-    pid: u32,
-    ssh_port: Option<u16>,
+    pub pid: u32,
+    pub ssh_port: Option<u16>,
     #[cfg(not(target_os = "macos"))]
-    spice_port: Option<u16>,
-    monitor: Monitor,
-    serial: Serial,
+    pub spice_port: Option<u16>,
+    pub monitor: Monitor,
+    pub serial: Serial,
 }
 
 impl LiveVM {
