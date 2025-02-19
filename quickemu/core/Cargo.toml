@@ -5,7 +5,7 @@ version = "2.0.0"
 license = "GPL-3.0 OR GPL-2.0"
 
 [dependencies]
-derive_more = { version = "1.0.0", features = ["display", "as_ref", "from"] }
+derive_more = { version = "2.0.0", features = ["display", "as_ref", "from"] }
 dirs = { version = "5.0.1", optional = true }
 display-info = { version = "0.5.1", optional = true }
 log = { version = "0.4.21", optional = true }
@@ -18,7 +18,7 @@ which = { version = "6.0.1", optional = true }
 itertools = "0.13.0"
 size = { version = "0.4.1", optional = true }
 memfd-exec = { version = "0.2.1", optional = true }
-serde_json = "1.0.137"
+serde_json = { version = "1.0.137", optional = true }
 strum = { version = "0.26.3", features = ["derive"] }
 i18n-embed-fl = { version = "0.9.3", optional = true }
 rust-embed = { version = "8.5.0", optional = true }
@@ -43,6 +43,7 @@ quickemu = [
     "i18n-embed",
     "rust-embed",
     "size",
+    "serde_json",
 ]
 
 display_resolution = ["quickemu", "display-info"]
