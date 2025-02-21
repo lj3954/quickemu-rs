@@ -142,6 +142,7 @@ impl QuickgetInstance {
             cpu_cores: None,
             ram: None,
         };
+        std::fs::create_dir_all(&vm_path)?;
         Ok(Self {
             downloads: dl,
             docker_builds: docker,
