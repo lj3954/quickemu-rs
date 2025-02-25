@@ -240,6 +240,9 @@ impl QuickgetInstance {
     pub fn get_ram(&self) -> Option<u64> {
         self.config_data.ram
     }
+    pub fn get_config_file_path(&self) -> &Path {
+        &self.config_file_path
+    }
     pub fn create_config(self) -> Result<File, DLError> {
         let iso = self
             .config_data
