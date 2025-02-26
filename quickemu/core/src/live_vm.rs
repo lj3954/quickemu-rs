@@ -13,7 +13,7 @@ use crate::{
 
 const LIVE_VM_FILENAME: &str = "quickemu-live.toml";
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct LiveVM {
     pub pid: u32,
     pub ssh_port: Option<u16>,
