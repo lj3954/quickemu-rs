@@ -6,10 +6,10 @@ use i18n_embed::{
 };
 use rust_embed::RustEmbed;
 
-fn init() {
+fn init(loader: &FluentLanguageLoader) {
     let requested_languages = DesktopLanguageRequester::requested_languages();
 
-    let localizer = DefaultLocalizer::new(&*LANGUAGE_LOADER, &Localizations);
+    let localizer = DefaultLocalizer::new(loader, &Localizations);
     if let Err(e) = localizer.select(&requested_languages) {
         log::warn!("Failed to load localizations: {e}");
     }
@@ -20,11 +20,11 @@ fn init() {
 struct Localizations;
 
 pub static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
-    init();
     let loader = fluent_language_loader!();
     loader
         .load_fallback_language(&Localizations)
         .expect("Error while loading fallback language");
+    init(&loader);
 
     loader
 });
