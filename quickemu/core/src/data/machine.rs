@@ -4,7 +4,7 @@ use itertools::chain;
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 
-#[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Machine {
     pub cpu_threads: Option<std::num::NonZeroUsize>,
     #[serde(default, flatten, deserialize_with = "default_if_empty")]

@@ -21,7 +21,7 @@ use std::{
 #[cfg(feature = "quickemu")]
 use which::which;
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default, skip_serializing_if = "is_default")]
     pub vm_dir: Option<PathBuf>,

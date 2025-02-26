@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use super::{is_default, Display};
 use serde::{de::Visitor, Deserialize, Serialize};
 
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Io {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usb_controller: Option<USBController>,
@@ -34,7 +34,7 @@ impl Io {
 pub struct USBDevices(Option<Vec<String>>);
 
 #[cfg_attr(not(feature = "quickemu"), derive(Default))]
-#[derive(PartialEq, Debug, Deserialize, Serialize, derive_more::AsRef)]
+#[derive(PartialEq, Clone, Debug, Deserialize, Serialize, derive_more::AsRef)]
 pub struct PublicDir(Option<PathBuf>);
 
 #[cfg(feature = "quickemu")]
