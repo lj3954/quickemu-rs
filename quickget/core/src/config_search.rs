@@ -7,7 +7,7 @@ use crate::{
 use std::{
     fs::File,
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -42,11 +42,16 @@ impl ConfigSearch {
         let cache_file_path = cache_dir.join("quickget_data.json.zst");
 
         let (configs, cache_file) = if !refresh && cache_file_path.is_valid()? {
-            let cache_file = File::open(&cache_file_path)?;
-            (read_cache_file(&cache_file)?, cache_file)
+            if let Some(data) = File::open(&cache_file_path)
+                .ok()
+                .and_then(|cache_file| Some((read_cache_file(&cache_file).ok()?, cache_file)))
+            {
+                data
+            } else {
+                get_new_cache_data(&cache_file_path).await?
+            }
         } else {
-            let mut cache_file = File::create(&cache_file_path)?;
-            (gather_configs(Some(&mut cache_file)).await?, cache_file)
+            get_new_cache_data(&cache_file_path).await?
         };
 
         Ok(Self {
@@ -228,6 +233,11 @@ impl IsValid for PathBuf {
         }
         Ok(false)
     }
+}
+
+async fn get_new_cache_data(cache_file_path: &Path) -> Result<(Vec<OS>, File), ConfigSearchError> {
+    let mut cache_file = File::create(cache_file_path)?;
+    Ok((gather_configs(Some(&mut cache_file)).await?, cache_file))
 }
 
 impl OS {
