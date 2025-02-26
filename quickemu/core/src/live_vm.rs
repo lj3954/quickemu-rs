@@ -24,7 +24,7 @@ pub struct LiveVM {
 }
 
 impl LiveVM {
-    pub fn find_active(vm_dir: &Path) -> Result<Option<Self>, LiveVMError> {
+    pub(crate) fn find_active(vm_dir: &Path) -> Result<Option<Self>, LiveVMError> {
         let expected_path = vm_dir.join(LIVE_VM_FILENAME);
 
         if !expected_path.is_file() {
