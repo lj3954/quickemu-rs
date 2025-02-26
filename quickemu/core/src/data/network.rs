@@ -11,7 +11,7 @@ use serde::de::Visitor;
 use super::{default_if_empty, is_default};
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Network {
     #[serde(default, flatten, deserialize_with = "default_if_empty")]
     pub network_type: NetworkType,
@@ -22,7 +22,7 @@ pub struct Network {
 }
 
 #[cfg_attr(not(feature = "quickemu"), derive(Default))]
-#[derive(Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
 pub struct SSHPort(Option<u16>);
 #[cfg(feature = "quickemu")]
 impl Default for SSHPort {
@@ -45,7 +45,7 @@ impl Visitor<'_> for SSHPort {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, derive_more::AsRef)]
 pub struct Bridge(String);
 
 #[cfg(feature = "quickemu")]
@@ -66,13 +66,13 @@ impl Visitor<'_> for Bridge {
     }
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct PortForward {
     pub host: u16,
     pub guest: u16,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum NetworkType {

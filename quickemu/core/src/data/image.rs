@@ -2,7 +2,7 @@ use super::{default_if_empty, deserialize_size, is_default};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Images {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub disk: Vec<DiskImage>,
@@ -12,7 +12,7 @@ pub struct Images {
     pub img: Vec<Image>,
 }
 
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Image {
     #[serde(default, skip_serializing_if = "is_default")]
     pub path: PathBuf,
@@ -20,7 +20,7 @@ pub struct Image {
     pub always_mount: bool,
 }
 
-#[derive(PartialEq, Default, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct DiskImage {
     pub path: PathBuf,
     #[serde(deserialize_with = "deserialize_size", default)]
