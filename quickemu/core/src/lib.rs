@@ -3,7 +3,7 @@ mod args;
 pub mod config;
 pub mod data;
 #[cfg(feature = "quickemu")]
-mod error;
+pub mod error;
 #[cfg(feature = "quickemu")]
 mod i18n;
 #[cfg(feature = "quickemu")]
