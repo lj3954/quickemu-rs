@@ -8,6 +8,7 @@ use quickemu_core::config::Config;
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::builder().filter_level(log::LevelFilter::Warn).init();
     let args = args::Args::parse();
+    dbg!(&args);
 
     let parsed_data = Config::parse(Path::new(&args.vm)).map_err(|e| format!("Couldn't parse config: {e}"))?;
 

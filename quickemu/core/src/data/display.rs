@@ -3,6 +3,7 @@ use serde::{de::Visitor, Deserialize, Serialize};
 
 #[cfg(not(target_os = "macos"))]
 use std::net::{IpAddr, Ipv4Addr};
+use std::str::FromStr;
 
 #[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Display {
@@ -114,7 +115,7 @@ pub enum DisplayType {
     #[cfg_attr(target_os = "macos", default)]
     Cocoa,
 }
-const fn default_spice_port() -> u16 {
+pub const fn default_spice_port() -> u16 {
     5930
 }
 fn is_default_spice(input: &u16) -> bool {
@@ -157,11 +158,18 @@ impl Visitor<'_> for Access {
     where
         E: serde::de::Error,
     {
-        Ok(match value {
+        Self::from_str(value).map_err(serde::de::Error::custom)
+    }
+}
+
+impl FromStr for Access {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
             "remote" => Self(None),
             "local" => local_access(),
             _ => {
-                let address = value.parse().map_err(serde::de::Error::custom)?;
+                let address = s.parse().map_err(|e: std::net::AddrParseError| e.to_string())?;
                 Self(Some(address))
             }
         })
