@@ -1633,7 +1633,7 @@ dependencies = [
 
 [[package]]
 name = "quickemu-rs"
-version = "2.0.1"
+version = "3.0.0"
 dependencies = [
  "clap",
  "env_logger",
@@ -1643,7 +1643,7 @@ dependencies = [
 
 [[package]]
 name = "quickemu_core"
-version = "2.0.1"
+version = "3.0.0"
 dependencies = [
  "derive_more 2.0.1",
  "dirs",
@@ -1667,7 +1667,7 @@ dependencies = [
 
 [[package]]
 name = "quickget-rs"
-version = "2.0.1"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1685,7 +1685,7 @@ dependencies = [
 
 [[package]]
 name = "quickget_core"
-version = "2.0.1"
+version = "3.0.0"
 dependencies = [
  "bzip2",
  "derive_more 1.0.0",
