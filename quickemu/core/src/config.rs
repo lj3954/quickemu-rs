@@ -60,30 +60,30 @@ pub struct LaunchResult {
 }
 
 #[cfg(feature = "quickemu")]
-#[allow(clippy::large_enum_variant)]
-pub enum ParsedVM {
-    Config(Config),
-    Live(LiveVM),
+#[derive(Debug, Clone)]
+pub struct ParsedVM {
+    pub config: Config,
+    pub live_status: Option<LiveVM>,
 }
 
 #[cfg(feature = "quickemu")]
 impl<'a> Config {
     pub fn parse(file: &Path) -> Result<ParsedVM, ConfigError> {
         let contents = std::fs::read_to_string(file)?;
-        let mut conf: Self = toml::from_str(&contents).map_err(ConfigError::Parse)?;
-        if conf.vm_dir.is_none() {
-            if conf.vm_name.is_empty() {
+        let mut config: Self = toml::from_str(&contents).map_err(ConfigError::Parse)?;
+
+        if config.vm_dir.is_none() {
+            if config.vm_name.is_empty() {
                 let filename = file.file_name().expect("Filename should exist").to_string_lossy();
                 let ext_rindex = filename.bytes().rposition(|b| b == b'.').unwrap_or(0);
-                conf.vm_name = filename[..ext_rindex].to_string();
+                config.vm_name = filename[..ext_rindex].to_string();
             }
-            conf.vm_dir = Some(file.parent().unwrap().join(&conf.vm_name));
+            config.vm_dir = Some(file.parent().unwrap().join(&config.vm_name));
         }
-        Ok(if let Some(live_vm) = LiveVM::find_active(conf.vm_dir.as_ref().unwrap())? {
-            ParsedVM::Live(live_vm)
-        } else {
-            ParsedVM::Config(conf)
-        })
+
+        let live_status = LiveVM::find_active(config.vm_dir.as_ref().unwrap())?;
+
+        Ok(ParsedVM { config, live_status })
     }
 
     fn finalize(&mut self) -> Result<(), Error> {

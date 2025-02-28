@@ -1,16 +1,21 @@
+mod args;
+
 use std::{error::Error, path::Path};
 
-use quickemu_core::config::{Config, ParsedVM};
+use clap::Parser;
+use quickemu_core::config::Config;
+
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::builder().filter_level(log::LevelFilter::Warn).init();
+    let args = args::Args::parse();
 
-    let config_file = std::env::args().nth(1).ok_or("No config file provided")?;
-    let config = Config::parse(Path::new(&config_file)).map_err(|e| format!("Couldn't parse config: {e}"))?;
+    let parsed_data = Config::parse(Path::new(&args.vm)).map_err(|e| format!("Couldn't parse config: {e}"))?;
 
-    let result = match config {
-        ParsedVM::Config(config) => config.launch()?,
-        ParsedVM::Live(_) => return Err("VM is already running".into()),
-    };
+    if parsed_data.live_status.is_some() {
+        return Err("VM is already running".into());
+    }
+
+    let result = parsed_data.config.launch()?;
 
     result.warnings.iter().for_each(|warning| log::warn!("{warning}"));
     result

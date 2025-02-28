@@ -5,6 +5,7 @@ edition = "2021"
 license = "GPL-3.0 OR GPL-2.0"
 
 [dependencies]
+clap = { version = "4.5.31", features = ["derive"] }
 env_logger = "0.11.6"
 log = "0.4.25"
 quickemu_core = { path = "../core" }
