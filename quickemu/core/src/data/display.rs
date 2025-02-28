@@ -162,6 +162,7 @@ impl Visitor<'_> for Access {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 impl FromStr for Access {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
