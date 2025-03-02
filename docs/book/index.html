@@ -3,8 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>quickemu-rs</title>
-        <meta name="robots" content="noindex">
+        <title>Introduction - quickemu-rs</title>
 
 
         <!-- Custom HTML head -->
@@ -160,61 +159,15 @@ CLI forms, including configuration options.</p>
 <blockquote>
 <p>quickemu-rs uses <a href="https://www.qemu.org/">QEMU</a> under the hood to allow for large amounts of configurability.</p>
 </blockquote>
-<!-- TODO: Add links to library documentation -->
-<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
-<h2 id="arch-linux"><a class="header" href="#arch-linux">Arch Linux</a></h2>
-<p>quickemu-rs is officially maintained on the AUR; you can install it with your favourite AUR helper.</p>
-<p>For instance,</p>
-<pre><code class="language-bash">paru -S quickemu-rs
-</code></pre>
-<h2 id="dependencies"><a class="header" href="#dependencies">Dependencies</a></h2>
-<p>quickemu-rs depends on QEMU, which must be compiled with GTK, SDL, SPICE, and VirtFS support.
-By default, smartcard support is also required, and the minimum QEMU version is 8.1.0.</p>
-<p>If you are <a href="usage/./installation.html#compilation-from-source">building from source</a>, you can optionally disable the <code>smartcard_args</code> and <code>qemu_8_1</code> features,
-which will remove these requirements.</p>
-<h2 id="binaries"><a class="header" href="#binaries">Binaries</a></h2>
-<p>Pre-built binaries are available for macOS and GNU/Linux on the <a href="https://github.com/lj3954/quickemu-rs/releases">releases page</a>.
-To install, download the archive for your platform, extract it, and copy the binaries to a directory in your <code>$PATH</code>,
-such as <code>~/.local/bin</code>.</p>
-<h2 id="compilation-from-source"><a class="header" href="#compilation-from-source">Compilation from source</a></h2>
-<p>Alternatively, you can manually compile from source. To do so, you will need to have Rust installed.
-For more information on how to install Rust, see the <a href="https://www.rust-lang.org/tools/install">official Rust website</a>.</p>
-<p>Once you have installed Rust, you can clone the repository and build the project:</p>
-<pre><code class="language-bash">git clone https://github.com/lj3954/quickemu-rs.git
-cd quickemu-rs
-cargo build --release
-</code></pre>
-<p>This will compile the 2 binaries into the <code>target/release</code> directory. Then, you can copy the binaries into a directory in your <code>$PATH</code>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="quickget"><a class="header" href="#quickget">Quickget</a></h1>
-<p>Quickget is responsible for downloading operating system images from pre-generated URLs, and creating sensible
-configurations which can be passed into quickemu.</p>
-<blockquote>
-<p>Since all available operating systems are fetched from the internet, quickget may be slow on its first launch
-each day. Configurations are cached and will be refreshed if quickget hasn't been run since UTC midnight.</p>
-</blockquote>
-<h2 id="usage"><a class="header" href="#usage">Usage</a></h2>
-<p>Running <code>quickget-rs</code> without any arguments will list all available operating systems.
-Then, you can pass in an operating system to list all available releases and (if applicable) editions.</p>
-<p>Following that, you can easily download an operating system and create a configuration by passing in the
-operating system, release, and edition (if applicable).</p>
-<p>For example, to create a VM running Kubuntu 24.04 LTS:</p>
-<pre><code class="language-bash">quickget-rs kubuntu 24.04
-</code></pre>
-<h3 id="cli-arguments"><a class="header" href="#cli-arguments">CLI arguments</a></h3>
-<div class="table-wrapper"><table><thead><tr><th>Argument</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>-h</code>, <code>--help</code></td><td>Print help message</td></tr>
-<tr><td><code>--verbose</code></td><td>Enable verbose output</td></tr>
-<tr><td><code>-r</code>, <code>--refresh</code></td><td>Force configuration data to be refreshed</td></tr>
-<tr><td><code>-a</code>, <code>--arch</code></td><td>Specify the architecture of operating system you want to download. By default, quickget will select your system's architecture if possible</td></tr>
-<tr><td><code>-l</code>, <code>--list</code></td><td>List all available operating systems, releases, and editions. By default, plain text will be printed. Passing <code>csv</code> or <code>json</code> will modify the formatting. This is mainly here for backwards compatibility</td></tr>
-</tbody></table>
-</div><!-- TODO: Fix currently ignored arguments and add them to this manual -->
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
 
+                            <a rel="next prefetch" href="usage/installation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -223,6 +176,9 @@ operating system, release, and edition (if applicable).</p>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
 
+                    <a rel="next prefetch" href="usage/installation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
             </nav>
 
         </div>
@@ -261,11 +217,6 @@ operating system, release, and edition (if applicable).</p>
 
         <!-- Custom JS scripts -->
 
-        <script>
-        window.addEventListener('load', function() {
-            window.setTimeout(window.print, 100);
-        });
-        </script>
 
     </div>
     </body>

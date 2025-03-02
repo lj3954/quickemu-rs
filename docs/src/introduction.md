@@ -6,7 +6,5 @@ CLI forms, including configuration options.
 
 > quickemu-rs uses [QEMU][qemu-homepage] under the hood to allow for large amounts of configurability.
 
-<!-- TODO: Add links to library documentation -->
-
 [homepage]: https://github.com/lj3954/quickemu-rs
 [qemu-homepage]: https://www.qemu.org/
