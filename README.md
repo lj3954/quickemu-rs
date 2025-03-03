@@ -2,7 +2,7 @@
 
 Create and manage macOS, Linux, and Windows virtual machines
 
-The project's documentation, including usage, installation, and configuration instructions, can be found in [here](https://quickemu-rs.lj3954.dev/).
+The project's documentation, including usage, installation, and configuration instructions, can be found [here](https://quickemu-rs.lj3954.dev/).
 
 ## Licensing
 
