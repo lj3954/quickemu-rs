@@ -54,6 +54,8 @@ impl DisplayArgs {
             if let Some(selected_spice_port) = self.spice_port {
                 *spice_port = selected_spice_port;
             }
+        } else if self.spice_port.is_some() || self.viewer.is_some() || self.access.is_some() {
+            panic!("Cannot specify Spice-specific options (spice port, access, viewer) when using a non-Spice display type");
         }
 
         if let Some(resolution) = self.resolution {
