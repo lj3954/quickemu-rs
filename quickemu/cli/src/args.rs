@@ -1,5 +1,6 @@
 mod display;
 mod io;
+mod machine;
 
 use std::path::PathBuf;
 
@@ -11,4 +12,6 @@ pub(crate) struct Args {
     pub vm: PathBuf,
     #[clap(flatten)]
     pub io: io::IoArgs,
+    #[clap(flatten)]
+    pub machine: machine::MachineArgs,
 }
