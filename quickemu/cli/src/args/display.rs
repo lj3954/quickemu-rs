@@ -1,15 +1,17 @@
 use std::str::FromStr;
 
-use clap::{builder::ValueParser, ArgGroup, Parser, ValueEnum};
-use quickemu_core::data::{default_spice_port, Display, DisplayType, Resolution, Viewer};
+use clap::{Parser, ValueEnum};
+use quickemu_core::data::{default_spice_port, Display, DisplayType, Resolution};
 
 #[cfg(not(target_os = "macos"))]
-use quickemu_core::data::Access;
+use quickemu_core::data::{Access, Viewer};
 
 #[derive(Debug, Parser)]
 pub(crate) struct DisplayArgs {
     #[clap(long)]
     display: Option<CliDisplayType>,
+    #[clap(long)]
+    braille: bool,
     #[cfg(not(target_os = "macos"))]
     #[clap(long, value_parser = Access::from_str)]
     access: Option<Access>,
@@ -58,6 +60,9 @@ impl DisplayArgs {
             panic!("Cannot specify Spice-specific options (spice port, access, viewer) when using a non-Spice display type");
         }
 
+        if self.braille {
+            config.braille = true;
+        }
         if let Some(resolution) = self.resolution {
             config.resolution = resolution;
         }
