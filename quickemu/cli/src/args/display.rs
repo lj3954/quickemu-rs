@@ -19,28 +19,20 @@ pub(crate) struct DisplayArgs {
     #[cfg(not(target_os = "macos"))]
     #[clap(long)]
     viewer: Option<CliViewer>,
-    #[clap(flatten)]
-    resolution: Option<ResolutionArgs>,
+    #[clap(long, value_parser = CliResolution::parse, help = "A resolution ('width'x'height') or 'fullscreen'")]
+    resolution: Option<Resolution>,
 }
 
-#[derive(Debug, Parser)]
-struct ResolutionArgs {
-    #[clap(long, requires = "height")]
-    width: Option<u32>,
-    #[clap(long, requires = "width")]
-    height: Option<u32>,
-    #[clap(long, conflicts_with_all = ["width", "height"])]
-    fullscreen: bool,
-}
-
-impl From<ResolutionArgs> for Resolution {
-    fn from(args: ResolutionArgs) -> Resolution {
-        if args.fullscreen {
-            Resolution::FullScreen
-        } else if let (Some(width), Some(height)) = (args.width, args.height) {
-            Resolution::Custom { width, height }
+struct CliResolution;
+impl CliResolution {
+    fn parse(input: &str) -> Result<Resolution, String> {
+        if input == "fullscreen" {
+            Ok(Resolution::FullScreen)
         } else {
-            panic!("Empty resolution args were somehow constructed");
+            let (width, height) = input.split_once('x').ok_or("Resolution is not formatted as expected")?;
+            let width = width.parse().map_err(|e| format!("Invalid width: {e}"))?;
+            let height = height.parse().map_err(|e| format!("Invalid height: {e}"))?;
+            Ok(Resolution::Custom { width, height })
         }
     }
 }
@@ -65,7 +57,7 @@ impl DisplayArgs {
         }
 
         if let Some(resolution) = self.resolution {
-            config.resolution = resolution.into();
+            config.resolution = resolution;
         }
     }
 }
