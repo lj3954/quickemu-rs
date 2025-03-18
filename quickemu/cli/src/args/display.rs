@@ -1,7 +1,10 @@
-use std::{ffi::OsString, str::FromStr};
+use std::str::FromStr;
 
 use clap::{Parser, ValueEnum};
-use quickemu_core::data::{default_spice_port, Access, Display, DisplayType, Viewer};
+use quickemu_core::data::{default_spice_port, Display, DisplayType, Viewer};
+
+#[cfg(not(target_os = "macos"))]
+use quickemu_core::data::Access;
 
 #[derive(Debug, Parser)]
 pub(crate) struct DisplayArgs {
