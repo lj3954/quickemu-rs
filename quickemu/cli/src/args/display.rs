@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use clap::{Parser, ValueEnum};
-use quickemu_core::data::{default_spice_port, Display, DisplayType, Viewer};
+use clap::{builder::ValueParser, ArgGroup, Parser, ValueEnum};
+use quickemu_core::data::{default_spice_port, Display, DisplayType, Resolution, Viewer};
 
 #[cfg(not(target_os = "macos"))]
 use quickemu_core::data::Access;
@@ -19,25 +19,53 @@ pub(crate) struct DisplayArgs {
     #[cfg(not(target_os = "macos"))]
     #[clap(long)]
     viewer: Option<CliViewer>,
+    #[clap(flatten)]
+    resolution: Option<ResolutionArgs>,
+}
+
+#[derive(Debug, Parser)]
+struct ResolutionArgs {
+    #[clap(long, requires = "height")]
+    width: Option<u32>,
+    #[clap(long, requires = "width")]
+    height: Option<u32>,
+    #[clap(long, conflicts_with_all = ["width", "height"])]
+    fullscreen: bool,
+}
+
+impl From<ResolutionArgs> for Resolution {
+    fn from(args: ResolutionArgs) -> Resolution {
+        if args.fullscreen {
+            Resolution::FullScreen
+        } else if let (Some(width), Some(height)) = (args.width, args.height) {
+            Resolution::Custom { width, height }
+        } else {
+            panic!("Empty resolution args were somehow constructed");
+        }
+    }
 }
 
 impl DisplayArgs {
     pub(crate) fn edit_config(self, config: &mut Display) {
         if let Some(display) = self.display {
             config.display_type = display.into();
+        }
 
-            #[cfg(not(target_os = "macos"))]
-            if let DisplayType::Spice { access, viewer, spice_port } = &mut config.display_type {
-                if let Some(selected_access) = self.access {
-                    *access = selected_access;
-                }
-                if let Some(selected_viewer) = self.viewer {
-                    *viewer = selected_viewer.into();
-                }
-                if let Some(selected_spice_port) = self.spice_port {
-                    *spice_port = selected_spice_port;
-                }
+        #[cfg(not(target_os = "macos"))]
+        if let DisplayType::Spice { access, viewer, spice_port } = &mut config.display_type {
+            if let Some(selected_access) = self.access {
+                *access = selected_access;
             }
+            if let Some(selected_viewer) = self.viewer {
+                *viewer = selected_viewer.into();
+            }
+            if let Some(selected_spice_port) = self.spice_port {
+                *spice_port = selected_spice_port;
+            }
+        }
+
+        if let Some(resolution) = self.resolution {
+            config.resolution = resolution.into();
         }
     }
 }
