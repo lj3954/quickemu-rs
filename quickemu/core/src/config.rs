@@ -57,6 +57,7 @@ pub struct LaunchResult {
     pub warnings: Vec<Warning>,
     pub threads: Vec<JoinHandle<Result<(), Error>>>,
     pub children: Vec<Child>,
+    pub live_vm: LiveVM,
 }
 
 #[cfg(feature = "quickemu")]
@@ -143,7 +144,7 @@ impl<'a> Config {
     }
 
     pub fn launch(self) -> Result<LaunchResult, Error> {
-        let (live_vm, live_vm_file) = self.create_live_vm();
+        let (mut live_vm, live_vm_file) = self.create_live_vm();
         let qemu_bin_str = match self.machine.arch {
             Arch::X86_64 { .. } => "qemu-system-x86_64",
             Arch::AArch64 { .. } => "qemu-system-aarch64",
@@ -173,7 +174,7 @@ impl<'a> Config {
             .spawn()
             .map_err(|e| Error::Command(qemu_bin_str, e.to_string()))?;
 
-        live_vm.serialize(&live_vm_file, qemu_process.id())?;
+        live_vm.finalize_and_serialize(&live_vm_file, qemu_process.id())?;
 
         qemu_args.display.push(ArgDisplay {
             name: Cow::Borrowed("PID"),
@@ -198,6 +199,7 @@ impl<'a> Config {
             warnings: qemu_args.warnings,
             threads,
             children,
+            live_vm,
         })
     }
 
