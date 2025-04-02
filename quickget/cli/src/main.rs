@@ -1,6 +1,7 @@
 mod config;
+mod i18n;
 
-use anyhow::{bail, ensure, Result};
+use anyhow::Result;
 use clap::Parser;
 use config::ListType;
 use quickemu_core::data::Arch;
@@ -10,6 +11,7 @@ use std::io::Write;
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    env_logger::builder().filter_level(args.verbose.log_level_filter()).init();
 
     let arch = args
         .arch
@@ -18,16 +20,13 @@ async fn main() -> Result<()> {
                 "x86_64" => Arch::X86_64 { machine: Default::default() },
                 "aarch64" | "AArch64" => Arch::AArch64 { machine: Default::default() },
                 "riscv64" => Arch::Riscv64 { machine: Default::default() },
-                _ => bail!("Invalid architecture: {a}"),
+                _ => fl_bail!("invalid-architecture", architecture = a),
             })
         })
         .transpose()?;
 
     if let Some(list_type) = args.list {
-        ensure!(
-            args.other.is_empty(),
-            "An operating system must not be specified for list operations"
-        );
+        fl_ensure!(args.other.is_empty(), "list-specified-os");
         return config::list(list_type, args.refresh).await;
     }
 
@@ -38,7 +37,6 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-
 async fn create_config(config: QuickgetConfig) -> Result<std::fs::File> {
     let mut instance = QuickgetInstance::new(config, std::env::current_dir().unwrap())?;
     instance.create_vm_dir(true)?;
@@ -46,9 +44,7 @@ async fn create_config(config: QuickgetConfig) -> Result<std::fs::File> {
     let docker_commands = instance.get_docker_commands();
     for mut command in docker_commands {
         let status = command.status()?;
-        if !status.success() {
-            anyhow::bail!("Failed to run docker command: {:?}", command);
-        }
+        fl_ensure!(status.success(), "docker-command-failed", command = format!("{:?}", command));
     }
 
     let client = reqwest::Client::new();

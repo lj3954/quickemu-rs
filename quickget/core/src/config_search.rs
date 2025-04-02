@@ -254,7 +254,7 @@ impl OS {
     }
     pub fn filter_edition(&mut self, matching_edition: &str) -> Result<(), ConfigSearchError> {
         self.releases
-            .retain(|Config { edition, .. }| edition.as_ref().map_or(true, |edition| edition == matching_edition));
+            .retain(|Config { edition, .. }| edition.as_ref().is_none_or(|edition| edition == matching_edition));
 
         if self.releases.is_empty() {
             return Err(ConfigSearchError::InvalidEdition(matching_edition.into()));
