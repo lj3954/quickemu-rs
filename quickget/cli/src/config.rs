@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::ValueEnum;
 use itertools::Itertools;
 use quickemu_core::data::Arch;
