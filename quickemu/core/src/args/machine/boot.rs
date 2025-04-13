@@ -13,8 +13,8 @@ use crate::{
 };
 
 const SECURE_BOOT_OVMF: &[(&str, &str)] = &[
-    ("OVMF/OVMF_CODE_4M.secboot.fd", "OVMF/OVMF_VARS_4M.fd"),
-    ("edk2/ovmf/OVMF_CODE.secboot.fd", "edk2/ovmf/OVMF_VARS.fd"),
+    ("OVMF/OVMF_CODE_4M.secboot.fd", "OVMF/OVMF_VARS_4M.ms.fd"),
+    ("edk2/ovmf/OVMF_CODE.secboot.fd", "edk2/ovmf/OVMF_VARS.secboot.fd"),
     ("OVMF/x64/OVMF_CODE.secboot.fd", "OVMF/x64/OVMF_VARS.fd"),
     ("edk2-ovmf/OVMF_CODE.secboot.fd", "edk2-ovmf/OVMF_VARS.fd"),
     ("qemu/ovmf-x86_64-smm-ms-code.bin", "qemu/ovmf-x86_64-smm-ms-vars.bin"),
