@@ -7,17 +7,17 @@ use quickemu_core::data::{self, Keyboard, KeyboardLayout, Mouse, PublicDir, Soun
 pub(crate) struct IoArgs {
     #[clap(flatten)]
     display: super::display::DisplayArgs,
-    #[clap(long)]
+    #[clap(long, display_order = 1)]
     keyboard: Option<CliKeyboard>,
-    #[clap(long)]
+    #[clap(long, display_order = 1)]
     keyboard_layout: Option<CliKeyboardLayout>,
-    #[clap(long)]
+    #[clap(long, display_order = 1)]
     mouse: Option<CliMouse>,
-    #[clap(long)]
+    #[clap(long, display_order = 1)]
     soundcard: Option<CliSoundCard>,
-    #[clap(long, value_parser = PublicDir::from_str, help = "A directory, 'default', or 'none'")]
+    #[clap(long, display_order = 1, value_parser = PublicDir::from_str, help = "A directory, 'default', or 'none'")]
     public_dir: Option<PublicDir>,
-    #[clap(long)]
+    #[clap(long, display_order = 1)]
     usb_controller: Option<CliUsbController>,
 }
 

@@ -2,6 +2,7 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 pub(crate) struct MachineArgs {
+    #[clap(long, display_order = 1, help = "Do not commit any changes to disk/snapshot")]
     status_quo: bool,
 }
 

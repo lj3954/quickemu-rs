@@ -8,20 +8,20 @@ use quickemu_core::data::{Access, Viewer};
 
 #[derive(Debug, Parser)]
 pub(crate) struct DisplayArgs {
-    #[clap(long)]
+    #[clap(long, display_order = 1)]
     display: Option<CliDisplayType>,
-    #[clap(long)]
+    #[clap(long, display_order = 1, help = "Enable Braille")]
     braille: bool,
     #[cfg(not(target_os = "macos"))]
-    #[clap(long, value_parser = Access::from_str)]
+    #[clap(long, display_order = 1, value_parser = Access::from_str, help = "Enable remote Spice Access ('local', 'remote', or an IP address) - requires Spice display")]
     access: Option<Access>,
     #[cfg(not(target_os = "macos"))]
-    #[clap(long)]
+    #[clap(long, display_order = 1)]
     spice_port: Option<u16>,
     #[cfg(not(target_os = "macos"))]
-    #[clap(long)]
+    #[clap(long, display_order = 1, help = "Set the Spice viewer (requires Spice Display) - 'spicy' (default), 'remote-viewer', 'none'")]
     viewer: Option<CliViewer>,
-    #[clap(long, value_parser = CliResolution::parse, help = "A resolution ('width'x'height') or 'fullscreen'")]
+    #[clap(long, display_order = 1, value_parser = CliResolution::parse, help = "A resolution ('width'x'height') or 'fullscreen'")]
     resolution: Option<Resolution>,
 }
 
