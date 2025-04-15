@@ -57,33 +57,34 @@ pub struct LaunchResult {
     pub warnings: Vec<Warning>,
     pub threads: Vec<JoinHandle<Result<(), Error>>>,
     pub children: Vec<Child>,
+    pub live_vm: LiveVM,
 }
 
 #[cfg(feature = "quickemu")]
-#[allow(clippy::large_enum_variant)]
-pub enum ParsedVM {
-    Config(Config),
-    Live(LiveVM),
+#[derive(Debug, Clone)]
+pub struct ParsedVM {
+    pub config: Config,
+    pub live_status: Option<LiveVM>,
 }
 
 #[cfg(feature = "quickemu")]
 impl<'a> Config {
     pub fn parse(file: &Path) -> Result<ParsedVM, ConfigError> {
         let contents = std::fs::read_to_string(file)?;
-        let mut conf: Self = toml::from_str(&contents).map_err(ConfigError::Parse)?;
-        if conf.vm_dir.is_none() {
-            if conf.vm_name.is_empty() {
+        let mut config: Self = toml::from_str(&contents).map_err(ConfigError::Parse)?;
+
+        if config.vm_dir.is_none() {
+            if config.vm_name.is_empty() {
                 let filename = file.file_name().expect("Filename should exist").to_string_lossy();
                 let ext_rindex = filename.bytes().rposition(|b| b == b'.').unwrap_or(0);
-                conf.vm_name = filename[..ext_rindex].to_string();
+                config.vm_name = filename[..ext_rindex].to_string();
             }
-            conf.vm_dir = Some(file.parent().unwrap().join(&conf.vm_name));
+            config.vm_dir = Some(file.parent().unwrap().join(&config.vm_name));
         }
-        Ok(if let Some(live_vm) = LiveVM::find_active(conf.vm_dir.as_ref().unwrap())? {
-            ParsedVM::Live(live_vm)
-        } else {
-            ParsedVM::Config(conf)
-        })
+
+        let live_status = LiveVM::find_active(config.vm_dir.as_ref().unwrap())?;
+
+        Ok(ParsedVM { config, live_status })
     }
 
     fn finalize(&mut self) -> Result<(), Error> {
@@ -143,7 +144,7 @@ impl<'a> Config {
     }
 
     pub fn launch(self) -> Result<LaunchResult, Error> {
-        let (live_vm, live_vm_file) = self.create_live_vm();
+        let (mut live_vm, live_vm_file) = self.create_live_vm();
         let qemu_bin_str = match self.machine.arch {
             Arch::X86_64 { .. } => "qemu-system-x86_64",
             Arch::AArch64 { .. } => "qemu-system-aarch64",
@@ -173,7 +174,7 @@ impl<'a> Config {
             .spawn()
             .map_err(|e| Error::Command(qemu_bin_str, e.to_string()))?;
 
-        live_vm.serialize(&live_vm_file, qemu_process.id())?;
+        live_vm.finalize_and_serialize(&live_vm_file, qemu_process.id())?;
 
         qemu_args.display.push(ArgDisplay {
             name: Cow::Borrowed("PID"),
@@ -198,6 +199,7 @@ impl<'a> Config {
             warnings: qemu_args.warnings,
             threads,
             children,
+            live_vm,
         })
     }
 
