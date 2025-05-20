@@ -16,7 +16,7 @@ pub struct Ram {
     free_ram: Size,
 }
 
-const MIN_MACOS_WINDOWS_RAM: i64 = 4 * size::consts::GiB;
+const MIN_MACOS_WINDOWS_RAM: Size = Size::from_const(4 * size::consts::GiB);
 
 impl Machine {
     pub fn ram_args(&self, guest: GuestOS) -> Result<(Ram, Option<Warning>), Error> {
@@ -26,7 +26,7 @@ impl Machine {
         let free_ram = Size::from_bytes(system.available_memory());
         let total_ram = Size::from_bytes(system.total_memory());
 
-        let mut ram = self.ram.map_or_else(|| match total_ram.bytes() / size::consts::GiB {
+        let ram = self.ram.map_or_else(|| match total_ram.bytes() / size::consts::GiB {
             128.. => 32,
             64.. => 16,
             16.. => 8,
@@ -35,17 +35,17 @@ impl Machine {
             _ => 1,
         } * size::consts::GiB, |ram| ram as i64);
 
+        let mut ram = Size::from_bytes(ram);
+
         if ram < MIN_MACOS_WINDOWS_RAM {
             if self.ram.is_some() {
-                warning = Some(Warning::InsufficientRamConfiguration(total_ram, guest));
-            } else if total_ram.bytes() < MIN_MACOS_WINDOWS_RAM {
-                return Err(Error::InsufficientRam(total_ram, guest));
+                warning = Some(Warning::InsufficientRamConfiguration(ram, guest));
+            } else if total_ram < MIN_MACOS_WINDOWS_RAM {
+                return Err(Error::InsufficientRam(ram, guest));
             } else {
                 ram = MIN_MACOS_WINDOWS_RAM;
             }
         }
-
-        let ram = Size::from_bytes(ram);
 
         Ok((Ram { ram, total_ram, free_ram }, warning))
     }
