@@ -1,7 +1,7 @@
 [package]
 name = "quickget_core"
 edition = "2021"
-version = "2.0.1"
+version = "3.0.0"
 license.workspace = true
 
 [dependencies]

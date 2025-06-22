@@ -79,7 +79,7 @@ impl LiveVM {
             vm_dir.join(LIVE_VM_FILENAME),
         )
     }
-    pub(crate) fn serialize(mut self, file: &Path, pid: u32) -> Result<(), Error> {
+    pub(crate) fn finalize_and_serialize(&mut self, file: &Path, pid: u32) -> Result<(), Error> {
         self.pid = pid;
         if file.exists() {
             return Err(Error::FailedLiveVMSe(format!(
