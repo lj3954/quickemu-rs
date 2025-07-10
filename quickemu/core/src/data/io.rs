@@ -37,9 +37,16 @@ pub struct PublicDir(Option<PathBuf>);
 #[cfg(feature = "quickemu")]
 impl Default for PublicDir {
     fn default() -> Self {
-        let home = dirs::home_dir().unwrap_or_default();
-        let public = dirs::public_dir().unwrap_or_default();
-        Self((home != public).then_some(public))
+        let public_dir = dirs::public_dir();
+        let home_dir = dirs::home_dir();
+
+        // If the default public dir is the user's home directory, we won't share it with the guest
+        // for security reasons
+        if home_dir != public_dir {
+            Self(public_dir)
+        } else {
+            Self(None)
+        }
     }
 }
 
