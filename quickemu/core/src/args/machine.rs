@@ -8,7 +8,7 @@ use tpm::Tpm;
 
 use crate::{
     arg,
-    data::{AArch64Machine, Arch, GuestOS, Machine, Riscv64Machine, X86_64Machine},
+    data::{AArch64Machine, Arch, BootType, GuestOS, Machine, Riscv64Machine, X86_64Machine},
     error::{Error, Warning},
     oarg,
     utils::{ArgDisplay, EmulatorArgs, LaunchFn, QemuArg},
@@ -30,7 +30,7 @@ impl Machine {
 
         let tpm_args = self.tpm.then(|| Tpm::new(vm_dir, vm_name)).transpose()?;
         let boot_args = self.boot_args(vm_dir, guest)?;
-        let machine_type = FullMachine::new(self.arch, guest);
+        let machine_type = FullMachine::new(self.arch, guest, self.boot);
 
         Ok((
             MachineArgs {
@@ -95,10 +95,13 @@ enum MachineType {
 }
 
 impl FullMachine {
-    fn new(arch: Arch, guest: GuestOS) -> Self {
+    fn new(arch: Arch, guest: GuestOS, boot: BootType) -> Self {
         match arch {
             Arch::X86_64 { machine: X86_64Machine::Standard } => {
-                let smm = matches!(guest, GuestOS::Windows | GuestOS::WindowsServer | GuestOS::FreeDOS);
+                // Secure boot on Linux may require SMM to be enabled
+                // https://github.com/quickemu-project/quickemu/pull/1579
+                let smm = matches!(guest, GuestOS::Windows | GuestOS::WindowsServer | GuestOS::FreeDOS)
+                    || (cfg!(target_os = "linux") && matches!((guest, boot), (GuestOS::Linux, BootType::Efi { secure_boot: true })));
                 let no_hpet = matches!(guest, GuestOS::Windows | GuestOS::WindowsServer | GuestOS::MacOS { .. });
                 let qemu_machine_type = match guest {
                     GuestOS::FreeDOS | GuestOS::Batocera | GuestOS::Haiku | GuestOS::Solaris | GuestOS::ReactOS | GuestOS::KolibriOS => QemuMachineType::Pc,

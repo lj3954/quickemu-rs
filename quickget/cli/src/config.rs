@@ -1,10 +1,12 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::ValueEnum;
 use itertools::Itertools;
 use quickemu_core::data::Arch;
 use quickget_core::{data_structures::Config, ConfigSearch, ConfigSearchError, QuickgetConfig};
 use serde::Serialize;
 use std::io::{stdout, Write};
+
+use crate::{fl, fl_bail};
 
 async fn create_instance(refresh: bool) -> Result<ConfigSearch, ConfigSearchError> {
     if refresh {
@@ -93,12 +95,9 @@ pub async fn get(args: &[String], preferred_arch: Option<&Arch>, refresh: bool) 
         instance.filter_arch_supported_os(arch)?;
     }
 
-    let os = args.next().with_context(|| {
-        format!(
-            "You must specify an operating system\n - Supported Operating Systems\n{}",
-            instance.list_os_names().join(" ")
-        )
-    })?;
+    let os = args
+        .next()
+        .with_context(|| fl!("unspecified-os", operating_systems = instance.list_os_names().join(" ")))?;
     let os = instance.filter_os(os)?;
     if let Some(arch) = preferred_arch {
         os.filter_arch(arch)?;
@@ -107,23 +106,25 @@ pub async fn get(args: &[String], preferred_arch: Option<&Arch>, refresh: bool) 
     if let Some(release) = args.next() {
         instance.filter_release(release)?;
     } else {
-        bail!("You must specify a release\n{}", list_releases(&os.releases, preferred_arch));
+        fl_bail!("unspecified-release", releases = list_releases(&os.releases, preferred_arch));
     }
 
     let editions = instance.list_editions().unwrap();
     if let Some(edition) = args.next() {
         instance.filter_edition(edition)?;
     } else if let Some(editions) = editions {
-        bail!("You must specify an edition\n - Editions: {}", editions.join(" "));
+        fl_bail!("unspecified-edition", editions = editions.join(" "));
     }
 
     instance.pick_best_match().map_err(Into::into)
 }
 
 fn list_releases(configs: &[Config], arch: Option<&Arch>) -> String {
+    let release_text = fl!("releases");
+    let edition_text = fl!("editions");
     let releases = configs
         .iter()
-        .filter(|c| arch.map_or(true, |arch| c.arch == *arch))
+        .filter(|c| arch.is_none_or(|arch| c.arch == *arch))
         .map(|c| c.release.as_str())
         .unique()
         .collect::<Vec<&str>>();
@@ -133,9 +134,9 @@ fn list_releases(configs: &[Config], arch: Option<&Arch>) -> String {
         .filter(|s| !s.is_empty())
         .collect::<Vec<String>>();
     if editions.is_empty() {
-        format!("Releases: {}", releases.join(" "))
+        format!("{release_text}: {}", releases.join(" "))
     } else if editions.iter().all_equal() {
-        format!("Releases: {}\nEditions: {}", releases.join(" "), editions[0])
+        format!("{release_text}: {}\n{edition_text}: {}", releases.join(" "), editions[0])
     } else {
         let max_len = releases.iter().map(|r| r.len()).max().unwrap_or_default();
         let output = releases
@@ -144,7 +145,7 @@ fn list_releases(configs: &[Config], arch: Option<&Arch>) -> String {
             .collect::<Vec<String>>()
             .join("\n");
 
-        format!("{:<max_len$}  Editions\n{output}", "Releases")
+        format!("{release_text:<max_len$}  {edition_text}\n{output}")
     }
 }
 
@@ -153,7 +154,7 @@ fn editions_list(configs: &[Config], release: &str, arch: Option<&Arch>) -> Stri
         .iter()
         .filter(|c| {
             let conf_release = c.release.as_str();
-            conf_release.eq_ignore_ascii_case(release) && arch.map_or(true, |arch| *arch == c.arch)
+            conf_release.eq_ignore_ascii_case(release) && arch.is_none_or(|arch| *arch == c.arch)
         })
         .map(|c| c.edition.as_deref().unwrap_or_default())
         .unique()

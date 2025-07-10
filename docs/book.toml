@@ -1,0 +1,6 @@
+[book]
+authors = ["lj3954"]
+language = "en"
+multilingual = false
+src = "src"
+title = "quickemu-rs"
