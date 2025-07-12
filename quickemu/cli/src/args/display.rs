@@ -42,7 +42,11 @@ impl CliResolution {
 impl DisplayArgs {
     pub(crate) fn edit_config(self, config: &mut Display) {
         if let Some(display) = self.display {
-            config.display_type = display.into();
+            let new_display = display.into();
+            // Don't override values inside an existing display type, e.g. Spice ports in config
+            if std::mem::discriminant(&new_display) != std::mem::discriminant(&config.display_type) {
+                config.display_type = new_display;
+            }
         }
 
         #[cfg(not(target_os = "macos"))]
