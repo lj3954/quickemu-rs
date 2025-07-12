@@ -1,6 +1,6 @@
 #[cfg(feature = "quickemu")]
 use std::path::Path;
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
 use super::{is_default, Display};
 use serde::{de::Visitor, Deserialize, Serialize};
@@ -29,9 +29,6 @@ impl Io {
         self.public_dir.as_ref().as_deref()
     }
 }
-
-#[derive(PartialEq, Default, Debug, Deserialize, Serialize, derive_more::AsRef, Clone)]
-pub struct USBDevices(Option<Vec<String>>);
 
 #[cfg_attr(not(feature = "quickemu"), derive(Default))]
 #[derive(PartialEq, Clone, Debug, Deserialize, Serialize, derive_more::AsRef)]
@@ -62,13 +59,20 @@ impl Visitor<'_> for PublicDir {
     where
         E: serde::de::Error,
     {
-        match value {
+        Self::from_str(value).map_err(serde::de::Error::custom)
+    }
+}
+
+impl FromStr for PublicDir {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
             "default" => Ok(Self::default()),
             "none" => Ok(Self(None)),
             _ => {
-                let path = PathBuf::from(value);
+                let path = PathBuf::from(s);
                 if !path.is_dir() {
-                    return Err(serde::de::Error::custom(format!("Path '{}' is not a directory", value)));
+                    return Err(format!("Path '{s}' is not a directory"));
                 }
                 Ok(Self(Some(path)))
             }

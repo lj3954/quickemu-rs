@@ -35,7 +35,7 @@ monitor-command-failed = Could not send command to monitor: { $err }
 failed-live-vm-se = Failed to serialize live VM data: { $err }
 
 # Warnings
-macos-core-power-two = macOS guests may not boot witwh core counts that are not powers of two. Recommended rounding: { $recommended }.
+macos-core-power-two = macOS guests may not boot with core counts that are not powers of two. Recommended rounding: { $recommended }.
 software-virt-fallback = Hardware virtualization{ $virt_branding } is not enabled on your CPU. Falling back to software virtualization, performance will be degraded
 audio-backend-unavailable = Sound was requested, but no audio backend could be detected.
 insufficient-ram-configuration = The specified amount of RAM ({ $ram }) is insufficient for { $guest }. Performance issues may arise

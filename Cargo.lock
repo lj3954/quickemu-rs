@@ -78,9 +78,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.95"
+version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
+checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
 name = "arc-swap"
@@ -224,9 +224,9 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "clap"
-version = "4.5.28"
+version = "4.5.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e77c3243bd94243c03672cb5154667347c457ca271254724f9f393aee1c05ff"
+checksum = "027bb0d98429ae334a8698531da7077bdf906419543a35a55c2cb1b66437d767"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -244,9 +244,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.27"
+version = "4.5.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b26884eb4b57140e4d2d93652abfa49498b938b3c9179f9fc487b0acc3edad7"
+checksum = "5589e0cba072e0f3d23791efac0fd8627b49c829c196a492e88168e6a669d863"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1660,8 +1660,10 @@ dependencies = [
 
 [[package]]
 name = "quickemu-rs"
-version = "2.0.1"
+version = "3.0.0"
 dependencies = [
+ "anyhow",
+ "clap",
  "env_logger",
  "log",
  "quickemu_core",
@@ -1669,7 +1671,7 @@ dependencies = [
 
 [[package]]
 name = "quickemu_core"
-version = "2.0.1"
+version = "3.0.0"
 dependencies = [
  "derive_more 2.0.1",
  "dirs",
@@ -1693,7 +1695,7 @@ dependencies = [
 
 [[package]]
 name = "quickget-rs"
-version = "2.0.1"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1716,7 +1718,7 @@ dependencies = [
 
 [[package]]
 name = "quickget_core"
-version = "2.0.1"
+version = "3.0.0"
 dependencies = [
  "bzip2",
  "derive_more 1.0.0",
