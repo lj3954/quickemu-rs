@@ -112,7 +112,7 @@ impl EmulatorArgs for NetworkArgs<'_> {
             NetworkType::Bridged { bridge, mac_addr } => {
                 let mut nic = format!("bridge,br={}", bridge.as_ref());
                 if let Some(mac_addr) = mac_addr {
-                    nic.push_str(&format!(",mac={}", mac_addr));
+                    nic.push_str(&format!(",mac={mac_addr}"));
                 }
                 vec![arg!("-nic"), oarg!(nic)]
             }

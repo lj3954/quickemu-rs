@@ -128,7 +128,7 @@ impl EmulatorArgs for SpiceArgs<'_> {
                     command.arg("--title").arg(vm_name);
                     match viewer {
                         Viewer::Spicy => command.arg("--port").arg(port.to_string()),
-                        Viewer::Remote => command.arg(format!("spice://localhost:{}", port)),
+                        Viewer::Remote => command.arg(format!("spice://localhost:{port}")),
                         _ => unreachable!(),
                     };
 

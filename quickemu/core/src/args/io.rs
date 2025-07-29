@@ -39,15 +39,12 @@ impl<'a> Io {
         let public_dir_args = self.public_dir.as_ref().as_deref().map(|d| PublicDirArgs::new(d, guest));
 
         #[cfg(not(target_os = "macos"))]
-        let spice = matches!(
-            self.display.display_type,
-            DisplayType::Spice { .. } | DisplayType::SpiceApp { .. }
-        )
-        .then(|| {
-            let public_dir_str = self.public_dir.as_ref().as_ref().map(|path| path.to_string_lossy());
-            self.display.spice_args(vm_name, guest, public_dir_str)
-        })
-        .transpose()?;
+        let spice = matches!(self.display.display_type, DisplayType::Spice { .. } | DisplayType::SpiceApp)
+            .then(|| {
+                let public_dir_str = self.public_dir.as_ref().as_ref().map(|path| path.to_string_lossy());
+                self.display.spice_args(vm_name, guest, public_dir_str)
+            })
+            .transpose()?;
 
         let mouse = self.mouse.unwrap_or(guest.default_mouse());
         let usb = usb_controller.usb_args(guest);

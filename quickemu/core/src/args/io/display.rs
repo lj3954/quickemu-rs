@@ -13,12 +13,12 @@ impl Display {
                 GuestOS::Linux => match self.display_type {
                     DisplayType::None => GpuType::VirtIOGPU,
                     #[cfg(not(target_os = "macos"))]
-                    DisplayType::Spice { .. } | DisplayType::SpiceApp { .. } => GpuType::VirtIOGPU,
+                    DisplayType::Spice { .. } | DisplayType::SpiceApp => GpuType::VirtIOGPU,
                     _ => GpuType::VirtIOVGA,
                 },
                 GuestOS::Windows | GuestOS::WindowsServer if self.display_type == DisplayType::Sdl => GpuType::VirtIOVGA,
                 #[cfg(not(target_os = "macos"))]
-                GuestOS::Windows | GuestOS::WindowsServer if matches!(self.display_type, DisplayType::SpiceApp { .. }) => GpuType::VirtIOVGA,
+                GuestOS::Windows | GuestOS::WindowsServer if matches!(self.display_type, DisplayType::SpiceApp) => GpuType::VirtIOVGA,
                 #[cfg(target_os = "macos")]
                 GuestOS::Windows | GuestOS::WindowsServer if self.display_type == DisplayType::Cocoa => GpuType::VirtIOVGA,
                 GuestOS::Solaris | GuestOS::LinuxOld => GpuType::VMwareSVGA,
@@ -53,7 +53,7 @@ impl Display {
 #[cfg(feature = "display_resolution")]
 fn display_resolution(name: Option<&str>, screenpct: Option<f64>) -> Option<(u32, u32)> {
     let display_info = display_info::DisplayInfo::all().ok()?;
-    log::debug!("Displays: {:?}", display_info);
+    log::debug!("Displays: {display_info:?}");
     let display = if let Some(monitor) = name {
         display_info.iter().find(|available| available.name == monitor)
     } else {
@@ -133,7 +133,7 @@ impl EmulatorArgs for DisplayArgs {
             #[cfg(not(target_os = "macos"))]
             DisplayType::Spice { .. } => arg!("none"),
             #[cfg(not(target_os = "macos"))]
-            DisplayType::SpiceApp { .. } => oarg!(format!("spice-app,gl={}", self.accelerated.as_ref())),
+            DisplayType::SpiceApp => oarg!(format!("spice-app,gl={}", self.accelerated.as_ref())),
             #[cfg(target_os = "macos")]
             DisplayType::Cocoa => arg!("cocoa"),
         };

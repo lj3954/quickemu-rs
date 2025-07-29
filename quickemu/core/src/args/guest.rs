@@ -12,7 +12,7 @@ impl GuestOS {
         use crate::data::MacOSRelease;
 
         let cpuid = raw_cpuid::CpuId::new();
-        log::trace!("Testing architecture. Found CPUID: {:?}", cpuid);
+        log::trace!("Testing architecture. Found CPUID: {cpuid:?}");
 
         let Some(cpu_features) = cpuid.get_feature_info() else { return Ok(()) };
 

@@ -68,7 +68,7 @@ impl Visitor<'_> for PublicDir {
             _ => {
                 let path = PathBuf::from(value);
                 if !path.is_dir() {
-                    return Err(serde::de::Error::custom(format!("Path '{}' is not a directory", value)));
+                    return Err(serde::de::Error::custom(format!("Path '{value}' is not a directory")));
                 }
                 Ok(Self(Some(path)))
             }

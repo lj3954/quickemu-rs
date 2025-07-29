@@ -39,7 +39,7 @@ impl AsRef<str> for Accelerated {
 impl std::fmt::Display for Accelerated {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let text = if self.0 { "Enabled" } else { "Disabled" };
-        write!(f, "{}", text)
+        write!(f, "{text}")
     }
 }
 
