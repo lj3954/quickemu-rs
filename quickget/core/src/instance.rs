@@ -337,7 +337,7 @@ fn finalize_source(source: FinalSource, check_exists: bool) -> Result<PathBuf, D
             128 => format!("{:x}", sha2::Sha512::digest(bytes)),
             _ => unreachable!(),
         };
-        if computed_hash != checksum {
+        if !checksum.eq_ignore_ascii_case(&computed_hash) {
             return Err(DLError::FailedValidation(checksum, computed_hash));
         }
     }
