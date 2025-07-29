@@ -21,7 +21,7 @@ impl Tpm {
         #[cfg(not(feature = "inbuilt_commands"))]
         let binary = which("swtpm")?;
 
-        let socket = vm_dir.join(format!("{}.swtpm-sock", vm_name));
+        let socket = vm_dir.join(format!("{vm_name}.swtpm-sock"));
 
         let mut ctrl = OsString::from("type=unixio,path=");
         ctrl.push(&socket);

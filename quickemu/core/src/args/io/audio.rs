@@ -34,7 +34,7 @@ impl Display {
             SoundCard::None => AudioBackend::None,
             _ => match self.display_type {
                 #[cfg(not(target_os = "macos"))]
-                DisplayType::Spice { .. } | DisplayType::SpiceApp { .. } | DisplayType::None => AudioBackend::Spice,
+                DisplayType::Spice { .. } | DisplayType::SpiceApp | DisplayType::None => AudioBackend::Spice,
                 #[cfg(target_os = "macos")]
                 _ => AudioBackend::CoreAudio,
                 #[cfg(target_os = "windows")]

@@ -60,7 +60,7 @@ impl EmulatorArgs for ImgArgs<'_> {
             .iter()
             .skip(1)
             .enumerate()
-            .flat_map(|(i, img)| img_args(img, &format!("Image{}", i), self.guest));
+            .flat_map(|(i, img)| img_args(img, &format!("Image{i}"), self.guest));
 
         std::iter::once(first).flatten().flatten().chain(rest)
     }

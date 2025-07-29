@@ -114,7 +114,7 @@ impl QuickgetInstance {
         }
 
         let vm_path = parent_directory.join(vm_name);
-        let config_file_path = parent_directory.join(format!("{}.toml", vm_name));
+        let config_file_path = parent_directory.join(format!("{vm_name}.toml"));
         let data = QuickgetData {
             vm_path: &vm_path,
             os: &os,
@@ -452,7 +452,7 @@ fn transform_disks(disk_images: Vec<Disk>, data: &QuickgetData, dl: &mut Vec<QGD
 
 fn gather_filename(url: &str, index: usize, extension: &str) -> String {
     url.split('/')
-        .last()
+        .next_back()
         .map(ToString::to_string)
         .unwrap_or_else(|| format!("download{index}{extension}"))
 }
