@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
     flake-utils.url = "github:numtide/flake-utils";
     naersk.url = "github:nix-community/naersk";
   };
@@ -10,21 +11,30 @@
   outputs = inputs: with inputs;
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = (import nixpkgs) {
-          inherit system;
+        overlays = [ (import rust-overlay) ];
+        pkgs = import nixpkgs {
+          inherit system overlays;
         };
 
-        naersk' = pkgs.callPackage naersk {};
+        naersk' = pkgs.callPackage naersk {
+            cargo = pkgs.rust-bin.stable.latest.default;
+            rustc = pkgs.rust-bin.stable.latest.default;
+        };
       
       in rec {
         defaultPackage = naersk'.buildPackage {
           name = "quickemu-rs";
           src = ./.;
-          buildInputs = with pkgs; [ xorg.libxcb ];
+          buildInputs = with pkgs; [ libxcb ];
         };
 
         devShell = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [ rustc cargo xorg.libxcb ];
+          nativeBuildInputs = with pkgs; [
+            libxcb
+            (pkgs.rust-bin.stable.latest.default.override {
+                extensions = [ "rust-src" "rust-analyzer" ];
+            })
+          ];
         };
       }
     );
