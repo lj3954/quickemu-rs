@@ -25,11 +25,16 @@
         defaultPackage = naersk'.buildPackage {
           name = "quickemu-rs";
           src = ./.;
-          buildInputs = with pkgs; [ xorg.libxcb ];
+          buildInputs = with pkgs; [ libxcb ];
         };
 
         devShell = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [ rust-bin.stable.latest.default cargo xorg.libxcb ];
+          nativeBuildInputs = with pkgs; [
+            libxcb
+            (pkgs.rust-bin.stable.latest.default.override {
+                extensions = [ "rust-src" "rust-analyzer" ];
+            })
+          ];
         };
       }
     );
